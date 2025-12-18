@@ -1,8 +1,14 @@
-import { useState } from "react";
-import { Search, Grid3X3, LayoutGrid, Layers, Target, GitBranch, Hexagon } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { useState, useRef, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { ArrowLeft, Search, Grid3X3, LayoutGrid, Target, GitBranch, Hexagon, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { BusinessModelCanvas } from "@/components/canvas/BusinessModelCanvas";
+import { SWOTCanvas } from "@/components/canvas/SWOTCanvas";
+import { SevenSCanvas } from "@/components/canvas/SevenSCanvas";
+import { OperatingModelCanvas } from "@/components/canvas/OperatingModelCanvas";
+import { TransformationRoadmap } from "@/components/canvas/TransformationRoadmap";
 import { cn } from "@/lib/utils";
 
 const tools = [
@@ -13,6 +19,7 @@ const tools = [
     description: "Map your business model across 9 key building blocks",
     icon: Grid3X3,
     color: "bg-primary/10 text-primary",
+    component: BusinessModelCanvas,
   },
   {
     id: "omc",
@@ -21,6 +28,7 @@ const tools = [
     description: "Design how your organization delivers value",
     icon: LayoutGrid,
     color: "bg-accent/10 text-accent",
+    component: OperatingModelCanvas,
   },
   {
     id: "swot",
@@ -29,6 +37,7 @@ const tools = [
     description: "Assess strengths, weaknesses, opportunities, and threats",
     icon: Target,
     color: "bg-info/10 text-info",
+    component: SWOTCanvas,
   },
   {
     id: "roadmap",
@@ -37,6 +46,7 @@ const tools = [
     description: "Gantt-style timeline for change initiatives",
     icon: GitBranch,
     color: "bg-warning/10 text-warning",
+    component: TransformationRoadmap,
   },
   {
     id: "7s",
@@ -45,6 +55,7 @@ const tools = [
     description: "Analyze organizational effectiveness",
     icon: Hexagon,
     color: "bg-success/10 text-success",
+    component: SevenSCanvas,
   },
   {
     id: "porter",
@@ -53,14 +64,19 @@ const tools = [
     description: "Industry competitive analysis framework",
     icon: Layers,
     color: "bg-destructive/10 text-destructive",
+    component: null, // Coming soon
   },
 ];
 
 const categories = ["All", "Strategy", "Operations", "Planning", "Organization"];
 
 export default function ToolLibrary() {
+  const navigate = useNavigate();
+  const { toolId } = useParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
+
+  const selectedTool = toolId ? tools.find((t) => t.id === toolId) : null;
 
   const filteredTools = tools.filter((tool) => {
     const matchesSearch =
@@ -70,6 +86,38 @@ export default function ToolLibrary() {
       selectedCategory === "All" || tool.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
+
+  // If a tool is selected, render its canvas
+  if (selectedTool) {
+    const CanvasComponent = selectedTool.component;
+    
+    return (
+      <div className="space-y-4 animate-fade-in">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => navigate("/tools")}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div className="flex items-center gap-3">
+            <div className={cn("flex h-10 w-10 items-center justify-center rounded-lg", selectedTool.color)}>
+              <selectedTool.icon className="h-5 w-5" />
+            </div>
+            <div>
+              <h1 className="text-xl font-display font-semibold">{selectedTool.name}</h1>
+              <p className="text-sm text-muted-foreground">{selectedTool.description}</p>
+            </div>
+          </div>
+        </div>
+        
+        {CanvasComponent ? (
+          <CanvasComponent />
+        ) : (
+          <div className="flex items-center justify-center h-96 rounded-xl border border-dashed border-border bg-muted/30">
+            <p className="text-muted-foreground">Coming soon</p>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -101,9 +149,7 @@ export default function ToolLibrary() {
               variant={selectedCategory === category ? "default" : "outline"}
               size="sm"
               onClick={() => setSelectedCategory(category)}
-              className={cn(
-                selectedCategory === category && "shadow-card"
-              )}
+              className={cn(selectedCategory === category && "shadow-card")}
             >
               {category}
             </Button>
@@ -118,6 +164,7 @@ export default function ToolLibrary() {
             key={tool.id}
             className="group relative overflow-hidden rounded-xl border border-border bg-card p-6 transition-all duration-300 hover:shadow-card-lg hover:border-primary/20 cursor-pointer animate-slide-up"
             style={{ animationDelay: `${index * 50}ms` }}
+            onClick={() => navigate(`/tools/${tool.id}`)}
           >
             <div className="flex items-start justify-between">
               <div
@@ -140,7 +187,7 @@ export default function ToolLibrary() {
                 {tool.description}
               </p>
             </div>
-            <div className="mt-4 flex items-center gap-2">
+            <div className="mt-4">
               <Button size="sm" className="w-full">
                 Open Canvas
               </Button>
