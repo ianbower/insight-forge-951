@@ -78,7 +78,7 @@ export function SevenSCanvas({ projectId, toolId, initialData, onSave }: SevenSC
           .upsert({
             project_id: projectId,
             tool_id: toolId,
-            content_json: notes,
+            content_json: JSON.parse(JSON.stringify(notes)),
           }, { onConflict: "project_id,tool_id" });
         
         if (error) throw error;
