@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { ChevronRight, FolderOpen, Building2, MoreHorizontal, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +31,7 @@ interface Project {
 }
 
 export default function Projects() {
+  const navigate = useNavigate();
   const [clients, setClients] = useState<Client[]>([]);
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
@@ -251,7 +253,8 @@ export default function Projects() {
                     {client.projects.map((project) => (
                       <div
                         key={project.id}
-                        className="flex items-center gap-3 border-t border-border px-4 py-3 pl-12 hover:bg-muted/50 transition-colors group"
+                        className="flex items-center gap-3 border-t border-border px-4 py-3 pl-12 hover:bg-muted/50 transition-colors group cursor-pointer"
+                        onClick={() => navigate(`/projects/${project.id}`)}
                       >
                         <FolderOpen className="h-4 w-4 text-accent" />
                         <div className="flex-1 min-w-0">
@@ -278,7 +281,7 @@ export default function Projects() {
                             )}
                         </div>
                         <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
+                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                             <Button
                               variant="ghost"
                               size="icon"
@@ -287,8 +290,10 @@ export default function Projects() {
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem>View Details</DropdownMenuItem>
+                          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                            <DropdownMenuItem onClick={() => navigate(`/projects/${project.id}`)}>
+                              View Details
+                            </DropdownMenuItem>
                             <DropdownMenuItem>Edit Project</DropdownMenuItem>
                             <DropdownMenuItem>Export Report</DropdownMenuItem>
                             <DropdownMenuItem className="text-destructive">
