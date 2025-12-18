@@ -74,7 +74,7 @@ export function TransformationRoadmap({ projectId, toolId, initialData, onSave }
           .upsert({
             project_id: projectId,
             tool_id: toolId,
-            content_json: data,
+            content_json: JSON.parse(JSON.stringify(data)),
           }, { onConflict: "project_id,tool_id" });
         
         if (error) throw error;
