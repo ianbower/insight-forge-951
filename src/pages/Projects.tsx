@@ -58,6 +58,20 @@ export default function Projects() {
           projects: (projectsData || []).filter((p) => p.client_id === client.id),
         }));
 
+        // Add "Uncategorized" group for projects without a client
+        const uncategorizedProjects = (projectsData || []).filter((p) => !p.client_id);
+        if (uncategorizedProjects.length > 0) {
+          clientsWithProjects.unshift({
+            id: "uncategorized",
+            name: "Uncategorized",
+            industry: "No client assigned",
+            logo_url: null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            projects: uncategorizedProjects,
+          });
+        }
+
         setClients(clientsWithProjects);
         
         // Expand first client by default if exists
