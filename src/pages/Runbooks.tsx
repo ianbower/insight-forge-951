@@ -1,15 +1,39 @@
 import { useEffect, useState } from "react";
-import { BookOpen, Play, Clock, CheckCircle2, ArrowRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { BookOpen, Play, Clock, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface RunbookTemplate {
   id: string;
   name: string;
   industry_focus: string | null;
   workflow_json: any;
+}
+
+interface Client {
+  id: string;
+  name: string;
 }
 
 const mockRunbooks: RunbookTemplate[] = [
@@ -59,35 +83,118 @@ const mockRunbooks: RunbookTemplate[] = [
 ];
 
 export default function Runbooks() {
+  const navigate = useNavigate();
+  const { toast } = useToast();
   const [runbooks, setRunbooks] = useState<RunbookTemplate[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedRunbook, setExpandedRunbook] = useState<string | null>(null);
+  const [showDialog, setShowDialog] = useState(false);
+  const [selectedRunbook, setSelectedRunbook] = useState<RunbookTemplate | null>(null);
+  const [projectName, setProjectName] = useState("");
+  const [selectedClientId, setSelectedClientId] = useState("");
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
-    const fetchRunbooks = async () => {
+    const fetchData = async () => {
       try {
-        const { data, error } = await supabase
-          .from("runbook_templates")
-          .select("*")
-          .order("name");
+        const [runbooksRes, clientsRes] = await Promise.all([
+          supabase.from("runbook_templates").select("*").order("name"),
+          supabase.from("clients").select("id, name").order("name"),
+        ]);
 
-        if (error) throw error;
-        setRunbooks(data || []);
+        if (runbooksRes.error) throw runbooksRes.error;
+        if (clientsRes.error) throw clientsRes.error;
+
+        setRunbooks(runbooksRes.data || []);
+        setClients(clientsRes.data || []);
       } catch (error) {
-        console.error("Error fetching runbooks:", error);
+        console.error("Error fetching data:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchRunbooks();
+    fetchData();
   }, []);
 
   const displayRunbooks = runbooks.length > 0 ? runbooks : mockRunbooks;
 
   const handleStartEngagement = (runbook: RunbookTemplate) => {
-    console.log("Starting engagement with runbook:", runbook.name);
-    // This would create a new project with the runbook template
+    setSelectedRunbook(runbook);
+    setProjectName(`${runbook.name} - ${new Date().toLocaleDateString()}`);
+    setShowDialog(true);
+  };
+
+  const handleCreateProject = async () => {
+    if (!selectedRunbook || !projectName.trim()) return;
+
+    setCreating(true);
+    try {
+      // Create project with runbook reference
+      const { data: project, error: projectError } = await supabase
+        .from("projects")
+        .insert({
+          name: projectName,
+          client_id: selectedClientId || null,
+          runbook_id: selectedRunbook.id !== "1" && selectedRunbook.id !== "2" && selectedRunbook.id !== "3" && selectedRunbook.id !== "4" 
+            ? selectedRunbook.id 
+            : null,
+          status: "Active",
+          progress_percentage: 0,
+          start_date: new Date().toISOString().split("T")[0],
+        })
+        .select()
+        .single();
+
+      if (projectError) throw projectError;
+
+      // Create tasks from runbook workflow
+      const workflow = Array.isArray(selectedRunbook.workflow_json)
+        ? selectedRunbook.workflow_json
+        : [];
+
+      if (workflow.length > 0 && project) {
+        const tasks = workflow.map((step: any, index: number) => ({
+          project_id: project.id,
+          title: step.title,
+          status: index === 0 ? "in_progress" : "pending",
+          order_index: step.step || index + 1,
+          tool_link: step.tools?.join(", ") || null,
+        }));
+
+        const { error: tasksError } = await supabase
+          .from("project_tasks")
+          .insert(tasks);
+
+        if (tasksError) throw tasksError;
+      }
+
+      // Log activity
+      await supabase.from("activity_feed").insert({
+        action: "started engagement",
+        target: projectName,
+        user_name: "Consultant",
+        project_id: project.id,
+      });
+
+      toast({
+        title: "Engagement Started",
+        description: `${projectName} has been created with ${workflow.length} tasks.`,
+      });
+
+      setShowDialog(false);
+      navigate("/projects");
+    } catch (error) {
+      console.error("Error creating project:", error);
+      toast({
+        title: "Error",
+        description: "Failed to create engagement. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setCreating(false);
+    }
   };
 
   return (
@@ -198,6 +305,53 @@ export default function Runbooks() {
           );
         })}
       </div>
+
+      {/* Start Engagement Dialog */}
+      <Dialog open={showDialog} onOpenChange={setShowDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Start New Engagement</DialogTitle>
+            <DialogDescription>
+              Create a new project using the "{selectedRunbook?.name}" template.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="projectName">Project Name</Label>
+              <Input
+                id="projectName"
+                value={projectName}
+                onChange={(e) => setProjectName(e.target.value)}
+                placeholder="Enter project name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="client">Client (Optional)</Label>
+              <Select value={selectedClientId} onValueChange={setSelectedClientId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a client" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">No client</SelectItem>
+                  {clients.map((client) => (
+                    <SelectItem key={client.id} value={client.id}>
+                      {client.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateProject} disabled={creating || !projectName.trim()}>
+              {creating ? "Creating..." : "Create Project"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Send, Bot, User, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 interface Message {
   id: string;
@@ -24,34 +25,41 @@ const personas = [
     id: "strategist",
     name: "Strategist",
     description: "Strategic planning and market analysis expert",
-    systemPrompt: "You are a senior strategy consultant...",
   },
   {
     id: "service-designer",
     name: "Service Designer",
     description: "Customer experience and service design specialist",
-    systemPrompt: "You are a service design expert...",
   },
   {
     id: "change-manager",
     name: "Change Manager",
     description: "Organizational transformation specialist",
-    systemPrompt: "You are a change management expert...",
   },
 ];
 
+const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/expert-ai-chat`;
+
 export default function ExpertAI() {
+  const { toast } = useToast();
   const [selectedPersona, setSelectedPersona] = useState(personas[0]);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
       role: "assistant",
-      content: `Hello! I'm your AI ${selectedPersona.name} assistant. I can help you with strategic analysis, framework recommendations, and consulting best practices. What would you like to explore today?`,
+      content: `Hello! I'm your AI ${personas[0].name} assistant. I can help you with strategic analysis, framework recommendations, and consulting best practices. What would you like to explore today?`,
       timestamp: new Date(),
     },
   ]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
 
   const handlePersonaChange = (personaId: string) => {
     const persona = personas.find((p) => p.id === personaId);
@@ -69,7 +77,7 @@ export default function ExpertAI() {
   };
 
   const handleSendMessage = async () => {
-    if (!inputValue.trim()) return;
+    if (!inputValue.trim() || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -78,29 +86,94 @@ export default function ExpertAI() {
       timestamp: new Date(),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    const newMessages = [...messages, userMessage];
+    setMessages(newMessages);
     setInputValue("");
     setIsLoading(true);
 
-    // Simulate AI response (would connect to actual AI service)
-    setTimeout(() => {
-      const responses = [
-        "That's an excellent question. Based on my experience in similar engagements, I'd recommend starting with a thorough current-state assessment...",
-        "From a strategic perspective, there are several frameworks we could apply here. The Business Model Canvas would help visualize the key components...",
-        "Let me break this down into actionable steps. First, we should identify the key stakeholders and their concerns...",
-        "This is a common challenge in transformation projects. The key is to balance quick wins with longer-term structural changes...",
-      ];
+    let assistantContent = "";
 
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: responses[Math.floor(Math.random() * responses.length)],
-        timestamp: new Date(),
-      };
+    try {
+      const resp = await fetch(CHAT_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({
+          messages: newMessages.map((m) => ({ role: m.role, content: m.content })),
+          persona: selectedPersona.id,
+        }),
+      });
 
-      setMessages((prev) => [...prev, assistantMessage]);
+      if (!resp.ok) {
+        const errorData = await resp.json().catch(() => ({}));
+        throw new Error(errorData.error || `Request failed with status ${resp.status}`);
+      }
+
+      if (!resp.body) throw new Error("No response body");
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      // Create initial assistant message
+      const assistantId = (Date.now() + 1).toString();
+      setMessages((prev) => [
+        ...prev,
+        { id: assistantId, role: "assistant", content: "", timestamp: new Date() },
+      ]);
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        
+        let newlineIndex;
+        while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
+          let line = buffer.slice(0, newlineIndex);
+          buffer = buffer.slice(newlineIndex + 1);
+
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (line.startsWith(":") || line.trim() === "") continue;
+          if (!line.startsWith("data: ")) continue;
+
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]") break;
+
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content;
+            if (content) {
+              assistantContent += content;
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantId ? { ...m, content: assistantContent } : m
+                )
+              );
+            }
+          } catch {
+            // Incomplete JSON, wait for more data
+            buffer = line + "\n" + buffer;
+            break;
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Chat error:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to get response",
+        variant: "destructive",
+      });
+      // Remove the empty assistant message if there was an error
+      if (!assistantContent) {
+        setMessages((prev) => prev.slice(0, -1));
+      }
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -148,7 +221,7 @@ export default function ExpertAI() {
         </div>
 
         {/* Messages */}
-        <ScrollArea className="flex-1 p-6">
+        <ScrollArea className="flex-1 p-6" ref={scrollRef}>
           <div className="space-y-6">
             {messages.map((message) => (
               <div
@@ -180,11 +253,11 @@ export default function ExpertAI() {
                       : "bg-primary text-primary-foreground"
                   )}
                 >
-                  <p className="text-sm leading-relaxed">{message.content}</p>
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
                 </div>
               </div>
             ))}
-            {isLoading && (
+            {isLoading && messages[messages.length - 1]?.role !== "assistant" && (
               <div className="flex gap-3 animate-slide-up">
                 <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                   <Bot className="h-4 w-4" />
@@ -210,6 +283,7 @@ export default function ExpertAI() {
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
               className="flex-1"
+              disabled={isLoading}
             />
             <Button
               onClick={handleSendMessage}
