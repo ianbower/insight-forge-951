@@ -353,12 +353,12 @@ export default function Runbooks() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="client">Client (Optional)</Label>
-              <Select value={selectedClientId} onValueChange={setSelectedClientId}>
+              <Select value={selectedClientId} onValueChange={(val) => setSelectedClientId(val === "__none__" ? "" : val)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select a client" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No client</SelectItem>
+                  <SelectItem value="__none__">No client</SelectItem>
                   {clients.map((client) => (
                     <SelectItem key={client.id} value={client.id}>
                       {client.name}
