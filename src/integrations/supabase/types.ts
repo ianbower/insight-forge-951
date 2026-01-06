@@ -140,7 +140,10 @@ export type Database = {
         Row: {
           assignee_id: string | null
           created_at: string
+          deliverables: Json | null
+          description: string | null
           id: string
+          notes_json: Json | null
           order_index: number | null
           project_id: string
           status: string
@@ -151,7 +154,10 @@ export type Database = {
         Insert: {
           assignee_id?: string | null
           created_at?: string
+          deliverables?: Json | null
+          description?: string | null
           id?: string
+          notes_json?: Json | null
           order_index?: number | null
           project_id: string
           status?: string
@@ -162,7 +168,10 @@ export type Database = {
         Update: {
           assignee_id?: string | null
           created_at?: string
+          deliverables?: Json | null
+          description?: string | null
           id?: string
+          notes_json?: Json | null
           order_index?: number | null
           project_id?: string
           status?: string
@@ -267,6 +276,7 @@ export type Database = {
           created_at: string
           id: string
           project_id: string
+          step_id: string | null
           tool_id: string
           updated_at: string
         }
@@ -275,6 +285,7 @@ export type Database = {
           created_at?: string
           id?: string
           project_id: string
+          step_id?: string | null
           tool_id: string
           updated_at?: string
         }
@@ -283,6 +294,7 @@ export type Database = {
           created_at?: string
           id?: string
           project_id?: string
+          step_id?: string | null
           tool_id?: string
           updated_at?: string
         }
@@ -292,6 +304,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tool_data_step_id_fkey"
+            columns: ["step_id"]
+            isOneToOne: false
+            referencedRelation: "project_tasks"
             referencedColumns: ["id"]
           },
           {
