@@ -10,6 +10,8 @@ interface StickyNoteProps {
   onUpdate: (id: string, content: string) => void;
   onDelete: (id: string) => void;
   onMove: (id: string, position: { x: number; y: number }) => void;
+  canvasRef?: React.RefObject<HTMLDivElement>;
+  scale?: number;
 }
 
 const colors = [
@@ -29,6 +31,8 @@ export function StickyNote({
   onUpdate,
   onDelete,
   onMove,
+  canvasRef,
+  scale = 1,
 }: StickyNoteProps) {
   const [isEditing, setIsEditing] = useState(!content);
   const [localContent, setLocalContent] = useState(content);
@@ -38,29 +42,36 @@ export function StickyNote({
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('.note-content')) return;
+    e.stopPropagation();
     setIsDragging(true);
-    const rect = noteRef.current?.getBoundingClientRect();
-    if (rect) {
-      dragOffset.current = {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
-      };
-    }
+    
+    // Calculate offset from the note's current position
+    dragOffset.current = {
+      x: (e.clientX / scale) - position.x,
+      y: (e.clientY / scale) - position.y,
+    };
   };
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      if (!isDragging || !noteRef.current) return;
-      const parent = noteRef.current.parentElement;
-      if (!parent) return;
+      if (!isDragging) return;
       
-      const parentRect = parent.getBoundingClientRect();
-      const newX = e.clientX - parentRect.left - dragOffset.current.x;
-      const newY = e.clientY - parentRect.top - dragOffset.current.y;
+      const canvas = canvasRef?.current;
+      if (!canvas) return;
+      
+      const canvasRect = canvas.getBoundingClientRect();
+      
+      // Calculate new position relative to canvas, accounting for scale
+      const newX = (e.clientX - canvasRect.left) / scale - (dragOffset.current.x - position.x);
+      const newY = (e.clientY - canvasRect.top) / scale - (dragOffset.current.y - position.y);
+      
+      // Get canvas dimensions (unscaled)
+      const canvasWidth = canvas.scrollWidth;
+      const canvasHeight = canvas.scrollHeight;
       
       onMove(id, { 
-        x: Math.max(0, Math.min(newX, parentRect.width - 150)), 
-        y: Math.max(0, Math.min(newY, parentRect.height - 100)) 
+        x: Math.max(0, Math.min(newX, canvasWidth - 150)), 
+        y: Math.max(0, Math.min(newY, canvasHeight - 100)) 
       });
     };
 
@@ -77,7 +88,7 @@ export function StickyNote({
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [isDragging, id, onMove]);
+  }, [isDragging, id, onMove, canvasRef, scale, position]);
 
   const handleBlur = () => {
     setIsEditing(false);

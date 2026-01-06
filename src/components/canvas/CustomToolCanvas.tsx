@@ -1,10 +1,11 @@
 import { useState, useCallback, useRef } from "react";
-import { Save, Download, FileDown, Plus, Move } from "lucide-react";
+import { Save, Download, FileDown, Plus, Move, ZoomIn, ZoomOut, Maximize2, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StickyNote } from "./StickyNote";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { exportToPPT, exportToPDF } from "@/lib/exportUtils";
+import { Slider } from "@/components/ui/slider";
 
 interface Note {
   id: string;
@@ -31,6 +32,13 @@ const noteColors = [
   "bg-orange-200 border-orange-300",
 ];
 
+const CANVAS_SIZES = [
+  { name: "Standard", width: 1200, height: 800 },
+  { name: "Large", width: 1600, height: 1000 },
+  { name: "Extra Large", width: 2000, height: 1400 },
+  { name: "Huge", width: 2400, height: 1800 },
+];
+
 export function CustomToolCanvas({
   toolId,
   toolName = "Custom Canvas",
@@ -43,14 +51,21 @@ export function CustomToolCanvas({
     initialData || { canvas: [] }
   );
   const [saving, setSaving] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
+  const [scale, setScale] = useState(1);
+  const [canvasSizeIndex, setCanvasSizeIndex] = useState(0);
   const canvasRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const currentSize = CANVAS_SIZES[canvasSizeIndex];
 
   const addNote = useCallback((e?: React.MouseEvent) => {
-    const position = e && canvasRef.current
+    if (!canvasRef.current) return;
+    
+    const rect = canvasRef.current.getBoundingClientRect();
+    const position = e
       ? {
-          x: e.clientX - canvasRef.current.getBoundingClientRect().left - 70,
-          y: e.clientY - canvasRef.current.getBoundingClientRect().top - 50,
+          x: (e.clientX - rect.left) / scale,
+          y: (e.clientY - rect.top) / scale,
         }
       : { x: 100 + Math.random() * 200, y: 100 + Math.random() * 200 };
 
@@ -64,7 +79,7 @@ export function CustomToolCanvas({
       ...prev,
       canvas: [...(prev.canvas || []), newNote],
     }));
-  }, []);
+  }, [scale]);
 
   const updateNote = useCallback((noteId: string, content: string) => {
     setNotes((prev) => ({
@@ -95,7 +110,6 @@ export function CustomToolCanvas({
     setSaving(true);
     try {
       if (projectId && toolId) {
-        // Check if record exists
         const { data: existing } = await supabase
           .from("tool_data")
           .select("id")
@@ -152,18 +166,31 @@ export function CustomToolCanvas({
   };
 
   const handleCanvasClick = (e: React.MouseEvent) => {
-    // Only add note if clicking directly on canvas background (not on a note)
     if ((e.target as HTMLElement).closest(".sticky-note-wrapper")) return;
-    if (!isDragging) {
-      addNote(e);
-    }
+    addNote(e);
+  };
+
+  const handleZoomIn = () => {
+    setScale((prev) => Math.min(prev + 0.1, 2));
+  };
+
+  const handleZoomOut = () => {
+    setScale((prev) => Math.max(prev - 0.1, 0.3));
+  };
+
+  const handleResetZoom = () => {
+    setScale(1);
+  };
+
+  const handleIncreaseCanvasSize = () => {
+    setCanvasSizeIndex((prev) => Math.min(prev + 1, CANVAS_SIZES.length - 1));
   };
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <h2 className="text-xl font-display font-semibold">{toolName}</h2>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button variant="outline" size="sm" onClick={handleExportPDF}>
             <FileDown className="h-4 w-4 mr-2" />
             PDF
@@ -179,53 +206,125 @@ export function CustomToolCanvas({
         </div>
       </div>
 
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Plus className="h-4 w-4" />
-        <span>Click anywhere on the canvas to add a sticky note</span>
-        <Move className="h-4 w-4 ml-4" />
-        <span>Drag notes to reposition</span>
+      {/* Canvas Controls */}
+      <div className="flex items-center justify-between flex-wrap gap-4 p-3 bg-muted/50 rounded-lg border">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Plus className="h-4 w-4" />
+          <span>Click on canvas to add notes</span>
+          <Move className="h-4 w-4 ml-2" />
+          <span>Drag to move</span>
+        </div>
+        
+        <div className="flex items-center gap-4">
+          {/* Canvas Size */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Size:</span>
+            <span className="text-sm font-medium">{currentSize.name}</span>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              onClick={handleIncreaseCanvasSize}
+              disabled={canvasSizeIndex >= CANVAS_SIZES.length - 1}
+              title="Increase canvas size"
+            >
+              <Maximize2 className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {/* Zoom Controls */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              onClick={handleZoomOut}
+              disabled={scale <= 0.3}
+            >
+              <ZoomOut className="h-4 w-4" />
+            </Button>
+            
+            <div className="w-24">
+              <Slider
+                value={[scale * 100]}
+                min={30}
+                max={200}
+                step={5}
+                onValueChange={([value]) => setScale(value / 100)}
+              />
+            </div>
+            
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              onClick={handleZoomIn}
+              disabled={scale >= 2}
+            >
+              <ZoomIn className="h-4 w-4" />
+            </Button>
+            
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleResetZoom}
+              className="text-xs"
+            >
+              <RotateCcw className="h-3 w-3 mr-1" />
+              {Math.round(scale * 100)}%
+            </Button>
+          </div>
+        </div>
       </div>
 
+      {/* Canvas Container with Scroll */}
       <div
-        id="custom-canvas"
-        ref={canvasRef}
-        className="relative min-h-[600px] rounded-xl border border-border overflow-hidden cursor-crosshair"
-        style={{
-          backgroundImage: canvasImageUrl ? `url(${canvasImageUrl})` : undefined,
-          backgroundSize: "contain",
-          backgroundPosition: "center",
-          backgroundRepeat: "no-repeat",
-          backgroundColor: canvasImageUrl ? "hsl(var(--muted))" : "hsl(var(--card))",
-        }}
-        onClick={handleCanvasClick}
+        ref={containerRef}
+        className="overflow-auto rounded-xl border border-border bg-muted/30"
+        style={{ maxHeight: "70vh" }}
       >
-        {!canvasImageUrl && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="text-center text-muted-foreground/50">
-              <p className="text-lg font-medium">No canvas image</p>
-              <p className="text-sm">Click to add sticky notes</p>
+        <div
+          id="custom-canvas"
+          ref={canvasRef}
+          className="relative cursor-crosshair"
+          style={{
+            width: currentSize.width,
+            height: currentSize.height,
+            transform: `scale(${scale})`,
+            transformOrigin: "top left",
+            backgroundImage: canvasImageUrl ? `url(${canvasImageUrl})` : undefined,
+            backgroundSize: "contain",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+            backgroundColor: canvasImageUrl ? "hsl(var(--muted))" : "hsl(var(--card))",
+          }}
+          onClick={handleCanvasClick}
+        >
+          {!canvasImageUrl && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="text-center text-muted-foreground/50">
+                <p className="text-lg font-medium">No canvas image</p>
+                <p className="text-sm">Click to add sticky notes</p>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {notes.canvas?.map((note) => (
-          <div
-            key={note.id}
-            className="sticky-note-wrapper"
-            onMouseDown={() => setIsDragging(true)}
-            onMouseUp={() => setTimeout(() => setIsDragging(false), 100)}
-          >
-            <StickyNote
-              id={note.id}
-              content={note.content}
-              color={note.color}
-              position={note.position}
-              onUpdate={updateNote}
-              onDelete={deleteNote}
-              onMove={moveNote}
-            />
-          </div>
-        ))}
+          {notes.canvas?.map((note) => (
+            <div key={note.id} className="sticky-note-wrapper">
+              <StickyNote
+                id={note.id}
+                content={note.content}
+                color={note.color}
+                position={note.position}
+                onUpdate={updateNote}
+                onDelete={deleteNote}
+                onMove={moveNote}
+                canvasRef={canvasRef}
+                scale={scale}
+              />
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
