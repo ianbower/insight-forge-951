@@ -180,14 +180,8 @@ export default function ProjectDetail() {
   };
 
   const handleStepClick = (step: WorkflowStep) => {
-    const fullStep = tasks.find(t => t.id === step.id);
-    if (fullStep) {
-      setActiveStep({
-        ...fullStep,
-        notes_json: fullStep.notes_json || [],
-        deliverables: fullStep.deliverables || [],
-      });
-    }
+    // Navigate to full-page step view
+    navigate(`/projects/${projectId}/steps/${step.id}`);
   };
 
   const handleNavigateStep = (direction: "prev" | "next") => {
