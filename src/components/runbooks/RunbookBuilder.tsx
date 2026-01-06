@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, GripVertical, Trash2, Save, X, Wrench } from "lucide-react";
+import { Plus, GripVertical, Trash2, Save, X, Wrench, Wand2, Layout } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,11 +21,14 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import LayoutWizard from "./LayoutWizard";
+import { StepLayout } from "@/components/project/blocks/BlockTypes";
 
 interface WorkflowStep {
   step: number;
   title: string;
   tools: string[];
+  layout?: StepLayout;
 }
 
 interface Tool {
@@ -43,6 +46,7 @@ interface RunbookBuilderProps {
     name: string;
     industry_focus: string | null;
     workflow_json: WorkflowStep[];
+    step_layouts?: Record<string, StepLayout>;
   } | null;
 }
 
@@ -67,9 +71,12 @@ export default function RunbookBuilder({
   const [name, setName] = useState("");
   const [industryFocus, setIndustryFocus] = useState("Cross-Industry");
   const [steps, setSteps] = useState<WorkflowStep[]>([]);
+  const [stepLayouts, setStepLayouts] = useState<Record<string, StepLayout>>({});
   const [availableTools, setAvailableTools] = useState<Tool[]>([]);
   const [saving, setSaving] = useState(false);
   const [draggedStep, setDraggedStep] = useState<number | null>(null);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardStepIndex, setWizardStepIndex] = useState<number>(0);
 
   useEffect(() => {
     const fetchTools = async () => {
@@ -93,10 +100,12 @@ export default function RunbookBuilder({
         ? editRunbook.workflow_json
         : [];
       setSteps(workflow);
+      setStepLayouts(editRunbook.step_layouts || {});
     } else {
       setName("");
       setIndustryFocus("Cross-Industry");
       setSteps([]);
+      setStepLayouts({});
     }
   }, [editRunbook, open]);
 
@@ -158,6 +167,19 @@ export default function RunbookBuilder({
     setDraggedStep(null);
   };
 
+  const openLayoutWizard = (index: number) => {
+    setWizardStepIndex(index);
+    setWizardOpen(true);
+  };
+
+  const handleApplyLayout = (stepIndex: number, layout: StepLayout) => {
+    const stepKey = `step_${stepIndex}`;
+    setStepLayouts(prev => ({
+      ...prev,
+      [stepKey]: layout,
+    }));
+  };
+
   const handleSave = async () => {
     if (!name.trim()) {
       toast({
@@ -196,6 +218,7 @@ export default function RunbookBuilder({
             name: name.trim(),
             industry_focus: industryFocus,
             workflow_json: JSON.parse(JSON.stringify(steps)),
+            step_layouts: JSON.parse(JSON.stringify(stepLayouts)),
           })
           .eq("id", editRunbook.id);
 
@@ -210,6 +233,7 @@ export default function RunbookBuilder({
           name: name.trim(),
           industry_focus: industryFocus,
           workflow_json: JSON.parse(JSON.stringify(steps)),
+          step_layouts: JSON.parse(JSON.stringify(stepLayouts)),
         }]);
 
         if (error) throw error;
@@ -360,6 +384,25 @@ export default function RunbookBuilder({
                             )}
                           </div>
                         </div>
+
+                        {/* Layout Designer Button */}
+                        <div className="flex items-center gap-2 pt-2 border-t border-border/50">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openLayoutWizard(index)}
+                            className="gap-2"
+                          >
+                            <Wand2 className="h-4 w-4" />
+                            Design Page Layout
+                          </Button>
+                          {stepLayouts[`step_${index}`] && (
+                            <Badge variant="secondary" className="gap-1">
+                              <Layout className="h-3 w-3" />
+                              Layout configured
+                            </Badge>
+                          )}
+                        </div>
                       </div>
 
                       <Button
@@ -388,6 +431,19 @@ export default function RunbookBuilder({
             {saving ? "Saving..." : editRunbook ? "Update Runbook" : "Create Runbook"}
           </Button>
         </DialogFooter>
+
+        {/* Layout Wizard */}
+        <LayoutWizard
+          open={wizardOpen}
+          onOpenChange={setWizardOpen}
+          stepTitle={steps[wizardStepIndex]?.title || ""}
+          stepIndex={wizardStepIndex}
+          runbookName={name}
+          industry={industryFocus}
+          tools={steps[wizardStepIndex]?.tools || []}
+          currentLayout={stepLayouts[`step_${wizardStepIndex}`]}
+          onApplyLayout={handleApplyLayout}
+        />
       </DialogContent>
     </Dialog>
   );
