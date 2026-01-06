@@ -12,6 +12,7 @@ interface Note {
   content: string;
   color: string;
   position: { x: number; y: number };
+  size?: { width: number; height: number };
 }
 
 interface CustomToolCanvasProps {
@@ -73,12 +74,22 @@ export function CustomToolCanvas({
       content: "",
       color: noteColors[Math.floor(Math.random() * noteColors.length)],
       position,
+      size: { width: 140, height: 100 },
     };
     setNotes((prev) => ({
       ...prev,
       canvas: [...(prev.canvas || []), newNote],
     }));
   }, [scale]);
+
+  const resizeNote = useCallback((noteId: string, size: { width: number; height: number }) => {
+    setNotes((prev) => ({
+      ...prev,
+      canvas: prev.canvas.map((note) =>
+        note.id === noteId ? { ...note, size } : note
+      ),
+    }));
+  }, []);
 
   const updateNote = useCallback((noteId: string, content: string) => {
     setNotes((prev) => ({
@@ -319,9 +330,11 @@ export function CustomToolCanvas({
                   content={note.content}
                   color={note.color}
                   position={note.position}
+                  size={note.size || { width: 140, height: 100 }}
                   onUpdate={updateNote}
                   onDelete={deleteNote}
                   onMove={moveNote}
+                  onResize={resizeNote}
                   canvasRef={canvasRef}
                   scale={scale}
                 />
