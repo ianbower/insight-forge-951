@@ -54,7 +54,6 @@ export function CustomToolCanvas({
   const [scale, setScale] = useState(1);
   const [canvasSizeIndex, setCanvasSizeIndex] = useState(0);
   const canvasRef = useRef<HTMLDivElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
 
   const currentSize = CANVAS_SIZES[canvasSizeIndex];
 
@@ -186,6 +185,10 @@ export function CustomToolCanvas({
     setCanvasSizeIndex((prev) => Math.min(prev + 1, CANVAS_SIZES.length - 1));
   };
 
+  // Calculate the scaled dimensions for the wrapper
+  const scaledWidth = currentSize.width * scale;
+  const scaledHeight = currentSize.height * scale;
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -279,51 +282,52 @@ export function CustomToolCanvas({
 
       {/* Canvas Container with Scroll */}
       <div
-        ref={containerRef}
         className="overflow-auto rounded-xl border border-border bg-muted/30"
         style={{ maxHeight: "70vh" }}
       >
-        <div
-          id="custom-canvas"
-          ref={canvasRef}
-          className="relative cursor-crosshair"
-          style={{
-            width: currentSize.width,
-            height: currentSize.height,
-            transform: `scale(${scale})`,
-            transformOrigin: "top left",
-            backgroundImage: canvasImageUrl ? `url(${canvasImageUrl})` : undefined,
-            backgroundSize: "contain",
-            backgroundPosition: "center",
-            backgroundRepeat: "no-repeat",
-            backgroundColor: canvasImageUrl ? "hsl(var(--muted))" : "hsl(var(--card))",
-          }}
-          onClick={handleCanvasClick}
-        >
-          {!canvasImageUrl && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="text-center text-muted-foreground/50">
-                <p className="text-lg font-medium">No canvas image</p>
-                <p className="text-sm">Click to add sticky notes</p>
+        {/* Wrapper div that takes the scaled size so scrolling works */}
+        <div style={{ width: scaledWidth, height: scaledHeight }}>
+          <div
+            id="custom-canvas"
+            ref={canvasRef}
+            className="relative cursor-crosshair origin-top-left"
+            style={{
+              width: currentSize.width,
+              height: currentSize.height,
+              transform: `scale(${scale})`,
+              backgroundImage: canvasImageUrl ? `url(${canvasImageUrl})` : undefined,
+              backgroundSize: "contain",
+              backgroundPosition: "center",
+              backgroundRepeat: "no-repeat",
+              backgroundColor: canvasImageUrl ? "hsl(var(--muted))" : "hsl(var(--card))",
+            }}
+            onClick={handleCanvasClick}
+          >
+            {!canvasImageUrl && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="text-center text-muted-foreground/50">
+                  <p className="text-lg font-medium">No canvas image</p>
+                  <p className="text-sm">Click to add sticky notes</p>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {notes.canvas?.map((note) => (
-            <div key={note.id} className="sticky-note-wrapper">
-              <StickyNote
-                id={note.id}
-                content={note.content}
-                color={note.color}
-                position={note.position}
-                onUpdate={updateNote}
-                onDelete={deleteNote}
-                onMove={moveNote}
-                canvasRef={canvasRef}
-                scale={scale}
-              />
-            </div>
-          ))}
+            {notes.canvas?.map((note) => (
+              <div key={note.id} className="sticky-note-wrapper">
+                <StickyNote
+                  id={note.id}
+                  content={note.content}
+                  color={note.color}
+                  position={note.position}
+                  onUpdate={updateNote}
+                  onDelete={deleteNote}
+                  onMove={moveNote}
+                  canvasRef={canvasRef}
+                  scale={scale}
+                />
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
