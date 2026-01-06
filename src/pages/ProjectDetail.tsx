@@ -6,25 +6,23 @@ import {
   CheckCircle2, 
   Circle, 
   Clock, 
-  MoreHorizontal,
   PlayCircle,
   Target,
   TrendingUp,
-  Users
+  Users,
+  Presentation,
+  LayoutDashboard
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { WorkflowTimeline, WorkflowStep } from "@/components/project/WorkflowTimeline";
+import { StepDetailPanel, StepDetail } from "@/components/project/StepDetailPanel";
 import {
   AreaChart,
   Area,
@@ -36,8 +34,6 @@ import {
   PieChart,
   Pie,
   Cell,
-  BarChart,
-  Bar,
 } from "recharts";
 
 interface Project {
@@ -57,6 +53,9 @@ interface Task {
   status: string;
   order_index: number | null;
   tool_link: string | null;
+  description?: string | null;
+  notes_json?: any;
+  deliverables?: any;
 }
 
 interface Client {
@@ -82,13 +81,14 @@ export default function ProjectDetail() {
   const [client, setClient] = useState<Client | null>(null);
   const [runbook, setRunbook] = useState<Runbook | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeStep, setActiveStep] = useState<StepDetail | null>(null);
+  const [viewMode, setViewMode] = useState<"workflow" | "dashboard">("workflow");
 
   useEffect(() => {
     const fetchProjectData = async () => {
       if (!projectId) return;
 
       try {
-        // Fetch project
         const { data: projectData, error: projectError } = await supabase
           .from("projects")
           .select("*")
@@ -104,7 +104,6 @@ export default function ProjectDetail() {
 
         setProject(projectData);
 
-        // Fetch tasks
         const { data: tasksData, error: tasksError } = await supabase
           .from("project_tasks")
           .select("*")
@@ -114,7 +113,6 @@ export default function ProjectDetail() {
         if (tasksError) throw tasksError;
         setTasks(tasksData || []);
 
-        // Fetch client if exists
         if (projectData.client_id) {
           const { data: clientData } = await supabase
             .from("clients")
@@ -124,7 +122,6 @@ export default function ProjectDetail() {
           setClient(clientData);
         }
 
-        // Fetch runbook if exists
         if (projectData.runbook_id) {
           const { data: runbookData } = await supabase
             .from("runbook_templates")
@@ -153,16 +150,21 @@ export default function ProjectDetail() {
 
       if (error) throw error;
 
-      setTasks((prev) =>
-        prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t))
-      );
-
-      // Update project progress
       const updatedTasks = tasks.map((t) =>
         t.id === taskId ? { ...t, status: newStatus } : t
       );
+      setTasks(updatedTasks);
+
+      // Update active step if it's the one being changed
+      if (activeStep?.id === taskId) {
+        setActiveStep({ ...activeStep, status: newStatus });
+      }
+
+      // Update project progress
       const completedCount = updatedTasks.filter((t) => t.status === "completed").length;
-      const progress = Math.round((completedCount / updatedTasks.length) * 100);
+      const progress = updatedTasks.length > 0 
+        ? Math.round((completedCount / updatedTasks.length) * 100) 
+        : 0;
 
       await supabase
         .from("projects")
@@ -171,10 +173,40 @@ export default function ProjectDetail() {
 
       setProject((prev) => prev ? { ...prev, progress_percentage: progress } : null);
 
-      toast({ title: "Task updated" });
+      toast({ title: "Status updated" });
     } catch (error) {
-      toast({ title: "Error updating task", variant: "destructive" });
+      toast({ title: "Error updating status", variant: "destructive" });
     }
+  };
+
+  const handleStepClick = (step: WorkflowStep) => {
+    const fullStep = tasks.find(t => t.id === step.id);
+    if (fullStep) {
+      setActiveStep({
+        ...fullStep,
+        notes_json: fullStep.notes_json || [],
+        deliverables: fullStep.deliverables || [],
+      });
+    }
+  };
+
+  const handleNavigateStep = (direction: "prev" | "next") => {
+    if (!activeStep) return;
+    const currentIndex = tasks.findIndex(t => t.id === activeStep.id);
+    const newIndex = direction === "prev" ? currentIndex - 1 : currentIndex + 1;
+    if (newIndex >= 0 && newIndex < tasks.length) {
+      const newStep = tasks[newIndex];
+      setActiveStep({
+        ...newStep,
+        notes_json: newStep.notes_json || [],
+        deliverables: newStep.deliverables || [],
+      });
+    }
+  };
+
+  const handleOpenTool = (toolName: string) => {
+    // Navigate to tool library with the tool name as a filter
+    navigate(`/tools?tool=${encodeURIComponent(toolName)}&projectId=${projectId}${activeStep ? `&stepId=${activeStep.id}` : ''}`);
   };
 
   if (loading) {
@@ -187,7 +219,6 @@ export default function ProjectDetail() {
 
   if (!project) return null;
 
-  // Calculate stats
   const completedTasks = tasks.filter((t) => t.status === "completed").length;
   const inProgressTasks = tasks.filter((t) => t.status === "in_progress").length;
   const pendingTasks = tasks.filter((t) => t.status === "pending").length;
@@ -199,7 +230,6 @@ export default function ProjectDetail() {
     { name: "Pending", value: pendingTasks },
   ].filter((d) => d.value > 0);
 
-  // Mock weekly progress data
   const weeklyProgress = [
     { week: "W1", tasks: 0 },
     { week: "W2", tasks: Math.floor(completedTasks * 0.2) },
@@ -207,17 +237,6 @@ export default function ProjectDetail() {
     { week: "W4", tasks: Math.floor(completedTasks * 0.8) },
     { week: "W5", tasks: completedTasks },
   ];
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "completed":
-        return <CheckCircle2 className="h-5 w-5 text-success" />;
-      case "in_progress":
-        return <PlayCircle className="h-5 w-5 text-warning" />;
-      default:
-        return <Circle className="h-5 w-5 text-muted-foreground" />;
-    }
-  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -235,36 +254,60 @@ export default function ProjectDetail() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-start gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/projects")}>
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div className="flex-1">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-display font-semibold">{project.name}</h1>
-            <Badge variant="outline" className={cn(getStatusColor(project.status))}>
-              {project.status}
-            </Badge>
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate("/projects")}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-display font-semibold">{project.name}</h1>
+              <Badge variant="outline" className={cn(getStatusColor(project.status))}>
+                {project.status}
+              </Badge>
+            </div>
+            <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+              {client && (
+                <span className="flex items-center gap-1">
+                  <Users className="h-4 w-4" />
+                  {client.name}
+                </span>
+              )}
+              {project.start_date && (
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-4 w-4" />
+                  {new Date(project.start_date).toLocaleDateString()}
+                  {project.end_date && ` - ${new Date(project.end_date).toLocaleDateString()}`}
+                </span>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
-            {client && (
-              <span className="flex items-center gap-1">
-                <Users className="h-4 w-4" />
-                {client.name}
-              </span>
-            )}
-            {project.start_date && (
-              <span className="flex items-center gap-1">
-                <Calendar className="h-4 w-4" />
-                {new Date(project.start_date).toLocaleDateString()}
-                {project.end_date && ` - ${new Date(project.end_date).toLocaleDateString()}`}
-              </span>
-            )}
-          </div>
+        </div>
+
+        {/* View Mode Toggle */}
+        <div className="flex items-center gap-2">
+          <Button
+            variant={viewMode === "workflow" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setViewMode("workflow")}
+            className="gap-2"
+          >
+            <Presentation className="h-4 w-4" />
+            Workflow
+          </Button>
+          <Button
+            variant={viewMode === "dashboard" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setViewMode("dashboard")}
+            className="gap-2"
+          >
+            <LayoutDashboard className="h-4 w-4" />
+            Dashboard
+          </Button>
         </div>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats Cards - Always visible */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardContent className="pt-6">
@@ -324,31 +367,104 @@ export default function ProjectDetail() {
         </Card>
       </div>
 
-      {/* Charts Row */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Task Status Pie Chart */}
+      {/* Workflow View */}
+      {viewMode === "workflow" && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base font-medium">Task Distribution</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base font-medium">
+                {runbook ? `Workflow: ${runbook.name}` : "Project Workflow"}
+              </CardTitle>
+              <Badge variant="secondary">
+                {completedTasks} of {totalTasks} complete
+              </Badge>
+            </div>
           </CardHeader>
           <CardContent>
-            {taskStatusData.length > 0 ? (
+            <WorkflowTimeline
+              steps={tasks}
+              activeStepId={activeStep?.id || null}
+              onStepClick={handleStepClick}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Dashboard View */}
+      {viewMode === "dashboard" && (
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Task Status Pie Chart */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base font-medium">Task Distribution</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {taskStatusData.length > 0 ? (
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={taskStatusData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={80}
+                        paddingAngle={5}
+                        dataKey="value"
+                      >
+                        {taskStatusData.map((_, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "hsl(var(--card))",
+                          border: "1px solid hsl(var(--border))",
+                          borderRadius: "8px",
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-64 text-muted-foreground">
+                  No tasks yet
+                </div>
+              )}
+              <div className="flex justify-center gap-6 mt-4">
+                {taskStatusData.map((entry, index) => (
+                  <div key={entry.name} className="flex items-center gap-2">
+                    <div
+                      className="h-3 w-3 rounded-full"
+                      style={{ backgroundColor: COLORS[index] }}
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      {entry.name} ({entry.value})
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Progress Over Time */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base font-medium">Progress Over Time</CardTitle>
+            </CardHeader>
+            <CardContent>
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={taskStatusData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={5}
-                      dataKey="value"
-                    >
-                      {taskStatusData.map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
+                  <AreaChart data={weeklyProgress}>
+                    <defs>
+                      <linearGradient id="progressGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="week" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
                     <Tooltip
                       contentStyle={{
                         backgroundColor: "hsl(var(--card))",
@@ -356,159 +472,43 @@ export default function ProjectDetail() {
                         borderRadius: "8px",
                       }}
                     />
-                  </PieChart>
+                    <Area
+                      type="monotone"
+                      dataKey="tasks"
+                      stroke="hsl(var(--primary))"
+                      fill="url(#progressGradient)"
+                      strokeWidth={2}
+                    />
+                  </AreaChart>
                 </ResponsiveContainer>
               </div>
-            ) : (
-              <div className="flex items-center justify-center h-64 text-muted-foreground">
-                No tasks yet
-              </div>
-            )}
-            <div className="flex justify-center gap-6 mt-4">
-              {taskStatusData.map((entry, index) => (
-                <div key={entry.name} className="flex items-center gap-2">
-                  <div
-                    className="h-3 w-3 rounded-full"
-                    style={{ backgroundColor: COLORS[index] }}
-                  />
-                  <span className="text-sm text-muted-foreground">
-                    {entry.name} ({entry.value})
-                  </span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
-        {/* Progress Over Time */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base font-medium">Progress Over Time</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={weeklyProgress}>
-                  <defs>
-                    <linearGradient id="progressGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="week" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "8px",
-                    }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="tasks"
-                    stroke="hsl(var(--primary))"
-                    fill="url(#progressGradient)"
-                    strokeWidth={2}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Workflow & Tasks */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base font-medium">
-              {runbook ? `Runbook: ${runbook.name}` : "Project Tasks"}
-            </CardTitle>
-            <Badge variant="secondary">
-              {completedTasks} of {totalTasks} complete
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {tasks.length > 0 ? (
-            <div className="space-y-4">
-              {tasks.map((task, index) => (
-                <div
-                  key={task.id}
-                  className={cn(
-                    "flex items-center gap-4 rounded-lg border border-border p-4 transition-all",
-                    task.status === "completed" && "bg-success/5 border-success/20",
-                    task.status === "in_progress" && "bg-warning/5 border-warning/20"
-                  )}
-                >
-                  {/* Step Number */}
-                  <div
-                    className={cn(
-                      "flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold",
-                      task.status === "completed"
-                        ? "bg-success text-success-foreground"
-                        : task.status === "in_progress"
-                        ? "bg-warning text-warning-foreground"
-                        : "bg-muted text-muted-foreground"
-                    )}
-                  >
-                    {task.order_index || index + 1}
-                  </div>
-
-                  {/* Task Info */}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium">{task.title}</p>
-                    {task.tool_link && (
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {task.tool_link.split(", ").map((tool) => (
-                          <Badge key={tool} variant="outline" className="text-xs">
-                            {tool}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Status Icon */}
-                  {getStatusIcon(task.status)}
-
-                  {/* Actions */}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => updateTaskStatus(task.id, "pending")}>
-                        Mark as Pending
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => updateTaskStatus(task.id, "in_progress")}>
-                        Mark as In Progress
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => updateTaskStatus(task.id, "completed")}>
-                        Mark as Completed
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
-                <CheckCircle2 className="h-6 w-6 text-muted-foreground" />
-              </div>
-              <p className="text-muted-foreground">No tasks defined for this project</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Start an engagement from a runbook to populate tasks
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Step Detail Panel (Slide-in) */}
+      {activeStep && (
+        <>
+          {/* Backdrop */}
+          <div 
+            className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40"
+            onClick={() => setActiveStep(null)}
+          />
+          <StepDetailPanel
+            step={activeStep}
+            projectId={projectId!}
+            projectName={project.name}
+            clientName={client?.name}
+            totalSteps={tasks.length}
+            currentIndex={tasks.findIndex(t => t.id === activeStep.id)}
+            onClose={() => setActiveStep(null)}
+            onNavigate={handleNavigateStep}
+            onStatusChange={updateTaskStatus}
+            onOpenTool={handleOpenTool}
+          />
+        </>
+      )}
     </div>
   );
 }
