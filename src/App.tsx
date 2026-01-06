@@ -7,6 +7,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import Dashboard from "@/pages/Dashboard";
 import Projects from "@/pages/Projects";
 import ProjectDetail from "@/pages/ProjectDetail";
+import StepPage from "@/pages/StepPage";
 import ToolLibrary from "@/pages/ToolLibrary";
 import Runbooks from "@/pages/Runbooks";
 import ExpertAI from "@/pages/ExpertAI";
@@ -26,6 +27,7 @@ const App = () => (
             <Route path="/" element={<Dashboard />} />
             <Route path="/projects" element={<Projects />} />
             <Route path="/projects/:projectId" element={<ProjectDetail />} />
+            <Route path="/projects/:projectId/steps/:stepId" element={<StepPage />} />
             <Route path="/tools" element={<ToolLibrary />} />
             <Route path="/tools/:toolId" element={<ToolLibrary />} />
             <Route path="/runbooks" element={<Runbooks />} />

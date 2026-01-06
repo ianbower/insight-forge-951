@@ -143,6 +143,7 @@ export type Database = {
           deliverables: Json | null
           description: string | null
           id: string
+          layout_json: Json | null
           notes_json: Json | null
           order_index: number | null
           project_id: string
@@ -157,6 +158,7 @@ export type Database = {
           deliverables?: Json | null
           description?: string | null
           id?: string
+          layout_json?: Json | null
           notes_json?: Json | null
           order_index?: number | null
           project_id: string
@@ -171,6 +173,7 @@ export type Database = {
           deliverables?: Json | null
           description?: string | null
           id?: string
+          layout_json?: Json | null
           notes_json?: Json | null
           order_index?: number | null
           project_id?: string
@@ -249,6 +252,7 @@ export type Database = {
           id: string
           industry_focus: string | null
           name: string
+          step_layouts: Json | null
           updated_at: string
           workflow_json: Json | null
         }
@@ -257,6 +261,7 @@ export type Database = {
           id?: string
           industry_focus?: string | null
           name: string
+          step_layouts?: Json | null
           updated_at?: string
           workflow_json?: Json | null
         }
@@ -265,6 +270,7 @@ export type Database = {
           id?: string
           industry_focus?: string | null
           name?: string
+          step_layouts?: Json | null
           updated_at?: string
           workflow_json?: Json | null
         }
