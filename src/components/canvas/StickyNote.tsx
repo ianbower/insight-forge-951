@@ -38,40 +38,34 @@ export function StickyNote({
   const [localContent, setLocalContent] = useState(content);
   const [isDragging, setIsDragging] = useState(false);
   const noteRef = useRef<HTMLDivElement>(null);
-  const dragOffset = useRef({ x: 0, y: 0 });
+  const startPos = useRef({ x: 0, y: 0 });
+  const startNotePos = useRef({ x: 0, y: 0 });
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('.note-content')) return;
+    e.preventDefault();
     e.stopPropagation();
     setIsDragging(true);
     
-    // Calculate offset from the note's current position
-    dragOffset.current = {
-      x: (e.clientX / scale) - position.x,
-      y: (e.clientY / scale) - position.y,
-    };
+    startPos.current = { x: e.clientX, y: e.clientY };
+    startNotePos.current = { x: position.x, y: position.y };
   };
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDragging) return;
       
-      const canvas = canvasRef?.current;
-      if (!canvas) return;
+      // Calculate delta from start position
+      const deltaX = (e.clientX - startPos.current.x) / scale;
+      const deltaY = (e.clientY - startPos.current.y) / scale;
       
-      const canvasRect = canvas.getBoundingClientRect();
-      
-      // Calculate new position relative to canvas, accounting for scale
-      const newX = (e.clientX - canvasRect.left) / scale - (dragOffset.current.x - position.x);
-      const newY = (e.clientY - canvasRect.top) / scale - (dragOffset.current.y - position.y);
-      
-      // Get canvas dimensions (unscaled)
-      const canvasWidth = canvas.scrollWidth;
-      const canvasHeight = canvas.scrollHeight;
+      // New position = start position + delta
+      const newX = startNotePos.current.x + deltaX;
+      const newY = startNotePos.current.y + deltaY;
       
       onMove(id, { 
-        x: Math.max(0, Math.min(newX, canvasWidth - 150)), 
-        y: Math.max(0, Math.min(newY, canvasHeight - 100)) 
+        x: Math.max(0, newX), 
+        y: Math.max(0, newY) 
       });
     };
 
@@ -88,7 +82,7 @@ export function StickyNote({
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [isDragging, id, onMove, canvasRef, scale, position]);
+  }, [isDragging, id, onMove, scale]);
 
   const handleBlur = () => {
     setIsEditing(false);
