@@ -10,7 +10,9 @@ import {
   PlayCircle,
   Circle,
   Settings,
-  Eye
+  Eye,
+  PanelLeftClose,
+  PanelLeft
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +42,8 @@ import {
   NotesBlock
 } from "@/components/project/blocks/BlockTypes";
 import { StepAIChat } from "@/components/project/StepAIChat";
+import { StepPreviewPanel } from "@/components/project/StepPreviewPanel";
+import { EmbeddedTool } from "@/components/project/EmbeddedTool";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -99,6 +103,7 @@ export default function StepPage() {
   const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
   const [newDeliverable, setNewDeliverable] = useState("");
   const [showAIChat, setShowAIChat] = useState(false);
+  const [showPreviewPanel, setShowPreviewPanel] = useState(true);
 
   const currentIndex = allTasks.findIndex(t => t.id === stepId);
   const totalSteps = allTasks.length;
@@ -371,13 +376,41 @@ export default function StepPage() {
   const completedDeliverables = deliverables.filter(d => d.completed).length;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex">
+      {/* Step Preview Panel */}
+      {showPreviewPanel && (
+        <StepPreviewPanel
+          tasks={allTasks}
+          currentStepId={stepId || ""}
+          projectId={projectId || ""}
+          onNavigate={(id) => navigate(`/projects/${projectId}/steps/${id}`)}
+          onPrev={() => handleNavigate("prev")}
+          onNext={() => handleNavigate("next")}
+          canGoPrev={currentIndex > 0}
+          canGoNext={currentIndex < totalSteps - 1}
+        />
+      )}
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0">
       {/* Fixed Header */}
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
-        <div className="container mx-auto px-4 py-3">
+        <div className="px-4 py-3">
           <div className="flex items-center justify-between">
-            {/* Left: Back + Project Name */}
-            <div className="flex items-center gap-3">
+            {/* Left: Toggle + Back + Project Name */}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowPreviewPanel(!showPreviewPanel)}
+                className="hidden md:flex"
+              >
+                {showPreviewPanel ? (
+                  <PanelLeftClose className="h-5 w-5" />
+                ) : (
+                  <PanelLeft className="h-5 w-5" />
+                )}
+              </Button>
               <Button 
                 variant="ghost" 
                 size="icon"
@@ -503,6 +536,21 @@ export default function StepPage() {
           {layout.blocks
             .sort((a, b) => a.order - b.order)
             .map((block) => {
+              // Render embedded tool blocks
+              if (block.type === 'tool') {
+                const toolBlock = block as ToolBlock;
+                return (
+                  <EmbeddedTool
+                    key={block.id}
+                    toolName={toolBlock.toolName}
+                    projectId={projectId || ""}
+                    stepId={stepId || ""}
+                    embedded={toolBlock.embedded}
+                    onOpenExternal={() => handleOpenTool(toolBlock.toolName)}
+                  />
+                );
+              }
+
               // Render special blocks with actual data
               if (block.type === 'deliverables') {
                 return (
@@ -635,6 +683,7 @@ export default function StepPage() {
             })}
         </div>
       </main>
+      </div>
     </div>
   );
 }
