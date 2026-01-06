@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { ArrowLeft, Upload, Image, Save, Globe, Lock } from "lucide-react";
+import { ArrowLeft, Upload, Image, Save, Globe, Lock, FileText, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,6 +8,10 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import * as pdfjsLib from "pdfjs-dist";
+
+// Set up PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 interface CustomToolBuilderProps {
   onClose: () => void;
@@ -39,33 +43,115 @@ export function CustomToolBuilder({ onClose, onSave, existingTool }: CustomToolB
   const [imageUrl, setImageUrl] = useState<string | null>(existingTool?.canvas_image_url || null);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [pdfPages, setPdfPages] = useState<string[]>([]);
+  const [selectedPage, setSelectedPage] = useState(0);
+  const [showPageSelector, setShowPageSelector] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const renderPdfPage = async (pdf: pdfjsLib.PDFDocumentProxy, pageNum: number): Promise<string> => {
+    const page = await pdf.getPage(pageNum);
+    const scale = 2; // Higher scale for better quality
+    const viewport = page.getViewport({ scale });
+
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d")!;
+    canvas.height = viewport.height;
+    canvas.width = viewport.width;
+
+    await page.render({
+      canvasContext: context,
+      viewport: viewport,
+    }).promise;
+
+    return canvas.toDataURL("image/png");
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
-    if (!file.type.startsWith("image/")) {
-      toast.error("Please upload an image file");
+    const isPdf = file.type === "application/pdf";
+    const isImage = file.type.startsWith("image/");
+
+    if (!isPdf && !isImage) {
+      toast.error("Please upload an image or PDF file");
       return;
     }
 
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Image must be smaller than 5MB");
+    // Validate file size (max 10MB for PDFs, 5MB for images)
+    const maxSize = isPdf ? 10 * 1024 * 1024 : 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      toast.error(`File must be smaller than ${isPdf ? "10MB" : "5MB"}`);
       return;
     }
 
     setUploading(true);
     try {
-      const fileExt = file.name.split(".").pop();
-      const fileName = `${crypto.randomUUID()}.${fileExt}`;
+      if (isPdf) {
+        // Convert PDF to images
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const numPages = pdf.numPages;
+
+        toast.info(`Processing ${numPages} page${numPages > 1 ? "s" : ""}...`);
+
+        const pageImages: string[] = [];
+        for (let i = 1; i <= numPages; i++) {
+          const pageImage = await renderPdfPage(pdf, i);
+          pageImages.push(pageImage);
+        }
+
+        setPdfPages(pageImages);
+        setSelectedPage(0);
+
+        if (numPages > 1) {
+          setShowPageSelector(true);
+          toast.success(`PDF loaded! Select which page to use as your canvas.`);
+        } else {
+          // Single page PDF - upload directly
+          await uploadBase64Image(pageImages[0]);
+        }
+      } else {
+        // Handle image upload
+        const fileExt = file.name.split(".").pop();
+        const fileName = `${crypto.randomUUID()}.${fileExt}`;
+        const filePath = `canvas-backgrounds/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("tool-images")
+          .upload(filePath, file);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from("tool-images")
+          .getPublicUrl(filePath);
+
+        setImageUrl(publicUrl);
+        setPdfPages([]);
+        setShowPageSelector(false);
+        toast.success("Image uploaded successfully");
+      }
+    } catch (error) {
+      console.error("Error processing file:", error);
+      toast.error("Failed to process file");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const uploadBase64Image = async (base64: string) => {
+    try {
+      // Convert base64 to blob
+      const response = await fetch(base64);
+      const blob = await response.blob();
+
+      const fileName = `${crypto.randomUUID()}.png`;
       const filePath = `canvas-backgrounds/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from("tool-images")
-        .upload(filePath, file);
+        .upload(filePath, blob, { contentType: "image/png" });
 
       if (uploadError) throw uploadError;
 
@@ -74,11 +160,19 @@ export function CustomToolBuilder({ onClose, onSave, existingTool }: CustomToolB
         .getPublicUrl(filePath);
 
       setImageUrl(publicUrl);
-      toast.success("Image uploaded successfully");
+      setPdfPages([]);
+      setShowPageSelector(false);
+      toast.success("Page uploaded successfully");
     } catch (error) {
       console.error("Error uploading image:", error);
       toast.error("Failed to upload image");
-    } finally {
+    }
+  };
+
+  const handlePageSelect = async () => {
+    if (pdfPages[selectedPage]) {
+      setUploading(true);
+      await uploadBase64Image(pdfPages[selectedPage]);
       setUploading(false);
     }
   };
@@ -143,7 +237,7 @@ export function CustomToolBuilder({ onClose, onSave, existingTool }: CustomToolB
             {existingTool ? "Edit Custom Tool" : "Create Custom Tool"}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Design your own canvas with a custom background image
+            Design your own canvas with a custom background image or PDF
           </p>
         </div>
       </div>
@@ -215,60 +309,119 @@ export function CustomToolBuilder({ onClose, onSave, existingTool }: CustomToolB
           </Button>
         </div>
 
-        {/* Image Upload Section */}
+        {/* Image/PDF Upload Section */}
         <div className="space-y-4">
-          <Label>Canvas Background Image</Label>
-          <div
-            className="relative min-h-[400px] rounded-xl border-2 border-dashed border-border bg-muted/30 flex items-center justify-center cursor-pointer hover:border-primary/50 hover:bg-muted/50 transition-colors overflow-hidden"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            {imageUrl ? (
-              <img
-                src={imageUrl}
-                alt="Canvas background"
-                className="max-w-full max-h-[400px] object-contain"
-              />
-            ) : (
-              <div className="text-center p-8">
-                {uploading ? (
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                    <p className="text-muted-foreground">Uploading...</p>
-                  </div>
+          <Label>Canvas Background (Image or PDF)</Label>
+          
+          {showPageSelector && pdfPages.length > 1 ? (
+            // PDF Page Selector
+            <div className="space-y-4">
+              <div className="relative min-h-[400px] rounded-xl border border-border bg-muted/30 flex items-center justify-center overflow-hidden">
+                <img
+                  src={pdfPages[selectedPage]}
+                  alt={`Page ${selectedPage + 1}`}
+                  className="max-w-full max-h-[400px] object-contain"
+                />
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setSelectedPage((p) => Math.max(0, p - 1))}
+                  disabled={selectedPage === 0}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                
+                <span className="text-sm text-muted-foreground">
+                  Page {selectedPage + 1} of {pdfPages.length}
+                </span>
+                
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setSelectedPage((p) => Math.min(pdfPages.length - 1, p + 1))}
+                  disabled={selectedPage === pdfPages.length - 1}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+
+              <div className="flex gap-2">
+                <Button onClick={handlePageSelect} disabled={uploading} className="flex-1">
+                  {uploading ? "Uploading..." : "Use This Page"}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setPdfPages([]);
+                    setShowPageSelector(false);
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : (
+            // File Upload Area
+            <>
+              <div
+                className="relative min-h-[400px] rounded-xl border-2 border-dashed border-border bg-muted/30 flex items-center justify-center cursor-pointer hover:border-primary/50 hover:bg-muted/50 transition-colors overflow-hidden"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {imageUrl ? (
+                  <img
+                    src={imageUrl}
+                    alt="Canvas background"
+                    className="max-w-full max-h-[400px] object-contain"
+                  />
                 ) : (
-                  <>
-                    <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-                      <Image className="h-8 w-8 text-muted-foreground" />
-                    </div>
-                    <p className="font-medium">Upload Canvas Image</p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Click to upload or drag and drop
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      PNG, JPG, or SVG (max 5MB)
-                    </p>
-                  </>
+                  <div className="text-center p-8">
+                    {uploading ? (
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                        <p className="text-muted-foreground">Processing...</p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+                          <div className="flex -space-x-2">
+                            <Image className="h-6 w-6 text-muted-foreground" />
+                            <FileText className="h-6 w-6 text-muted-foreground" />
+                          </div>
+                        </div>
+                        <p className="font-medium">Upload Canvas Background</p>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Click to upload an image or PDF
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          PNG, JPG, SVG (max 5MB) or PDF (max 10MB)
+                        </p>
+                      </>
+                    )}
+                  </div>
                 )}
               </div>
-            )}
-          </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleImageUpload}
-          />
-          {imageUrl && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-            >
-              <Upload className="h-4 w-4 mr-2" />
-              Replace Image
-            </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*,.pdf,application/pdf"
+                className="hidden"
+                onChange={handleFileUpload}
+              />
+              {imageUrl && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Replace Background
+                </Button>
+              )}
+            </>
           )}
         </div>
       </div>
