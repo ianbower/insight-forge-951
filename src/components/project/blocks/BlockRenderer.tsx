@@ -49,6 +49,14 @@ interface BlockRendererProps {
   onDelete: (blockId: string) => void;
   onAddBlock: (afterBlockId: string, type: StepBlock['type']) => void;
   onOpenTool?: (toolName: string) => void;
+  // Drag and drop props
+  isDragging?: boolean;
+  dragHandleProps?: {
+    onDragStart: (e: React.DragEvent) => void;
+    onDragEnd: (e: React.DragEvent) => void;
+  };
+  onDragOver?: (e: React.DragEvent) => void;
+  onDrop?: (e: React.DragEvent) => void;
 }
 
 export function BlockRenderer({ 
@@ -57,7 +65,11 @@ export function BlockRenderer({
   onUpdate, 
   onDelete,
   onAddBlock,
-  onOpenTool 
+  onOpenTool,
+  isDragging,
+  dragHandleProps,
+  onDragOver,
+  onDrop
 }: BlockRendererProps) {
   const [isHovered, setIsHovered] = useState(false);
 
@@ -108,13 +120,24 @@ export function BlockRenderer({
 
   return (
     <div 
-      className="group relative"
+      className={cn(
+        "group relative",
+        isDragging && "opacity-50 scale-[0.98]",
+        isEditing && "transition-all duration-200"
+      )}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
     >
       {isEditing && isHovered && (
         <div className="absolute -left-10 top-0 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <div className="cursor-grab p-1 rounded hover:bg-muted">
+          <div 
+            className="cursor-grab active:cursor-grabbing p-1 rounded hover:bg-muted"
+            draggable
+            onDragStart={dragHandleProps?.onDragStart}
+            onDragEnd={dragHandleProps?.onDragEnd}
+          >
             <GripVertical className="h-4 w-4 text-muted-foreground" />
           </div>
           <Button

@@ -104,6 +104,10 @@ export default function StepPage() {
   const [newDeliverable, setNewDeliverable] = useState("");
   const [showAIChat, setShowAIChat] = useState(false);
   const [showPreviewPanel, setShowPreviewPanel] = useState(true);
+  
+  // Drag and drop state
+  const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null);
+  const [dragOverBlockId, setDragOverBlockId] = useState<string | null>(null);
 
   const currentIndex = allTasks.findIndex(t => t.id === stepId);
   const totalSteps = allTasks.length;
@@ -225,6 +229,47 @@ export default function StepPage() {
       return { ...prev, blocks };
     });
   }, [layout.blocks]);
+
+  const handleDragStart = useCallback((blockId: string) => {
+    setDraggedBlockId(blockId);
+  }, []);
+
+  const handleDragEnd = useCallback(() => {
+    setDraggedBlockId(null);
+    setDragOverBlockId(null);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, blockId: string) => {
+    e.preventDefault();
+    if (draggedBlockId && draggedBlockId !== blockId) {
+      setDragOverBlockId(blockId);
+    }
+  }, [draggedBlockId]);
+
+  const handleDrop = useCallback((e: React.DragEvent, targetBlockId: string) => {
+    e.preventDefault();
+    if (!draggedBlockId || draggedBlockId === targetBlockId) return;
+
+    setLayout(prev => {
+      const blocks = [...prev.blocks];
+      const draggedIndex = blocks.findIndex(b => b.id === draggedBlockId);
+      const targetIndex = blocks.findIndex(b => b.id === targetBlockId);
+      
+      if (draggedIndex === -1 || targetIndex === -1) return prev;
+      
+      // Remove dragged block and insert at target position
+      const [draggedBlock] = blocks.splice(draggedIndex, 1);
+      blocks.splice(targetIndex, 0, draggedBlock);
+      
+      // Update order indices
+      blocks.forEach((b, i) => b.order = i);
+      
+      return { ...prev, blocks };
+    });
+
+    setDraggedBlockId(null);
+    setDragOverBlockId(null);
+  }, [draggedBlockId]);
 
   const createNewBlock = (type: StepBlock['type'], order: number): StepBlock => {
     const id = `${type}-${Date.now()}`;
@@ -678,6 +723,16 @@ export default function StepPage() {
                   onDelete={handleDeleteBlock}
                   onAddBlock={handleAddBlock}
                   onOpenTool={handleOpenTool}
+                  isDragging={draggedBlockId === block.id}
+                  dragHandleProps={{
+                    onDragStart: (e) => {
+                      e.dataTransfer.effectAllowed = 'move';
+                      handleDragStart(block.id);
+                    },
+                    onDragEnd: handleDragEnd
+                  }}
+                  onDragOver={(e) => handleDragOver(e, block.id)}
+                  onDrop={(e) => handleDrop(e, block.id)}
                 />
               );
             })}
