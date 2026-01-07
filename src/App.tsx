@@ -11,6 +11,7 @@ import StepPage from "@/pages/StepPage";
 import ToolLibrary from "@/pages/ToolLibrary";
 import Runbooks from "@/pages/Runbooks";
 import ExpertAI from "@/pages/ExpertAI";
+import Research from "@/pages/Research";
 import Admin from "@/pages/Admin";
 import NotFound from "@/pages/NotFound";
 
@@ -25,6 +26,7 @@ const App = () => (
         <AppLayout>
           <Routes>
             <Route path="/" element={<Dashboard />} />
+            <Route path="/research" element={<Research />} />
             <Route path="/projects" element={<Projects />} />
             <Route path="/projects/:projectId" element={<ProjectDetail />} />
             <Route path="/projects/:projectId/steps/:stepId" element={<StepPage />} />
