@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { BookOpen, Play, Clock, ArrowRight, Plus, Pencil } from "lucide-react";
+import { BookOpen, Play, Clock, ArrowRight, Plus, Pencil, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,7 +23,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import RunbookBuilder from "@/components/runbooks/RunbookBuilder";
 
 interface RunbookTemplate {
   id: string;
@@ -95,8 +94,6 @@ export default function Runbooks() {
   const [projectName, setProjectName] = useState("");
   const [selectedClientId, setSelectedClientId] = useState("");
   const [creating, setCreating] = useState(false);
-  const [showBuilder, setShowBuilder] = useState(false);
-  const [editingRunbook, setEditingRunbook] = useState<RunbookTemplate | null>(null);
 
   const fetchData = async () => {
     try {
@@ -121,13 +118,8 @@ export default function Runbooks() {
     fetchData();
   }, []);
 
-  const handleOpenBuilder = (runbook?: RunbookTemplate) => {
-    setEditingRunbook(runbook || null);
-    setShowBuilder(true);
-  };
-
-  const handleBuilderSuccess = () => {
-    fetchData();
+  const handleOpenDesigner = (runbookId?: string) => {
+    navigate(runbookId ? `/runbooks/design/${runbookId}` : "/runbooks/design/new");
   };
 
   const displayRunbooks = runbooks.length > 0 ? runbooks : mockRunbooks;
@@ -221,7 +213,7 @@ export default function Runbooks() {
             Pre-built engagement templates with proven methodologies
           </p>
         </div>
-        <Button onClick={() => handleOpenBuilder()} className="gap-2">
+        <Button onClick={() => handleOpenDesigner()} className="gap-2">
           <Plus className="h-4 w-4" />
           Create Runbook
         </Button>
@@ -321,10 +313,10 @@ export default function Runbooks() {
                 <Button
                   variant="outline"
                   size="icon"
-                  onClick={() => handleOpenBuilder(runbook)}
-                  title="Edit runbook"
+                  onClick={() => handleOpenDesigner(runbook.id)}
+                  title="Design runbook"
                 >
-                  <Pencil className="h-4 w-4" />
+                  <Settings className="h-4 w-4" />
                 </Button>
               </div>
             </div>
@@ -378,14 +370,6 @@ export default function Runbooks() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Runbook Builder */}
-      <RunbookBuilder
-        open={showBuilder}
-        onOpenChange={setShowBuilder}
-        onSuccess={handleBuilderSuccess}
-        editRunbook={editingRunbook}
-      />
     </div>
   );
 }
