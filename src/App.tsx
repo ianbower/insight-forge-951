@@ -10,6 +10,7 @@ import ProjectDetail from "@/pages/ProjectDetail";
 import StepPage from "@/pages/StepPage";
 import ToolLibrary from "@/pages/ToolLibrary";
 import Runbooks from "@/pages/Runbooks";
+import RunbookDesigner from "@/pages/RunbookDesigner";
 import ExpertAI from "@/pages/ExpertAI";
 import Research from "@/pages/Research";
 import Admin from "@/pages/Admin";
@@ -33,6 +34,7 @@ const App = () => (
             <Route path="/tools" element={<ToolLibrary />} />
             <Route path="/tools/:toolId" element={<ToolLibrary />} />
             <Route path="/runbooks" element={<Runbooks />} />
+            <Route path="/runbooks/design/:id" element={<RunbookDesigner />} />
             <Route path="/ai-chat" element={<ExpertAI />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="*" element={<NotFound />} />
