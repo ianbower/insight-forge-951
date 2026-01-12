@@ -69,8 +69,8 @@ export function WorkflowTimeline({ steps, activeStepId, onStepClick }: WorkflowT
   return (
     <div className="relative">
       {/* Horizontal scroll container */}
-      <div className="overflow-x-auto pb-4">
-        <div className="flex items-start gap-2 min-w-max px-2">
+      <div className="overflow-x-auto overflow-y-visible pb-4 pt-4">
+        <div className="flex items-start gap-2 min-w-max px-4">
           {steps.map((step, index) => {
             const isActive = step.id === activeStepId;
             const isLast = index === steps.length - 1;
