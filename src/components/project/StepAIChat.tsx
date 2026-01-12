@@ -18,6 +18,11 @@ interface Deliverable {
   completed: boolean;
 }
 
+interface ToolData {
+  toolName: string;
+  data: any;
+}
+
 interface StepAIChatProps {
   stepTitle: string;
   projectName: string;
@@ -28,6 +33,7 @@ interface StepAIChatProps {
   deliverables?: Deliverable[];
   allSteps?: { title: string; status: string; order_index: number | null }[];
   currentStepIndex?: number;
+  toolDataContent?: Record<string, ToolData>; // Tool content data for context
 }
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/expert-ai-chat`;
@@ -41,7 +47,8 @@ export function StepAIChat({
   notes,
   deliverables,
   allSteps,
-  currentStepIndex
+  currentStepIndex,
+  toolDataContent
 }: StepAIChatProps) {
   const { toast } = useToast();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -93,6 +100,57 @@ export function StepAIChat({
     if (notes && notes.trim()) {
       parts.push(`\n### Working Notes`);
       parts.push(notes);
+    }
+    
+    // Tool Data Content - include actual data from tools
+    if (toolDataContent && Object.keys(toolDataContent).length > 0) {
+      parts.push(`\n## Tool Data & Analysis Results`);
+      Object.values(toolDataContent).forEach(({ toolName, data }) => {
+        parts.push(`\n### ${toolName} Data`);
+        try {
+          // Format the tool data based on its structure
+          if (toolName === "SWOT Analysis" && data) {
+            if (data.strengths?.length) parts.push(`**Strengths:** ${data.strengths.map((s: any) => s.text || s).join(", ")}`);
+            if (data.weaknesses?.length) parts.push(`**Weaknesses:** ${data.weaknesses.map((w: any) => w.text || w).join(", ")}`);
+            if (data.opportunities?.length) parts.push(`**Opportunities:** ${data.opportunities.map((o: any) => o.text || o).join(", ")}`);
+            if (data.threats?.length) parts.push(`**Threats:** ${data.threats.map((t: any) => t.text || t).join(", ")}`);
+          } else if (toolName === "Business Model Canvas" && data) {
+            const sections = ["keyPartners", "keyActivities", "keyResources", "valuePropositions", "customerRelationships", "channels", "customerSegments", "costStructure", "revenueStreams"];
+            sections.forEach(section => {
+              if (data[section]?.length) {
+                const label = section.replace(/([A-Z])/g, ' $1').trim();
+                parts.push(`**${label}:** ${data[section].map((item: any) => item.text || item).join(", ")}`);
+              }
+            });
+          } else if (toolName === "7S Framework" && data) {
+            const sections = ["strategy", "structure", "systems", "sharedValues", "style", "staff", "skills"];
+            sections.forEach(section => {
+              if (data[section]?.length) {
+                const label = section.replace(/([A-Z])/g, ' $1').trim();
+                parts.push(`**${label}:** ${data[section].map((item: any) => item.text || item).join(", ")}`);
+              }
+            });
+          } else if (toolName === "Operating Model Canvas" && data) {
+            const sections = ["valueChain", "organization", "locations", "information", "suppliers", "managementSystem"];
+            sections.forEach(section => {
+              if (data[section]?.length) {
+                const label = section.replace(/([A-Z])/g, ' $1').trim();
+                parts.push(`**${label}:** ${data[section].map((item: any) => item.text || item).join(", ")}`);
+              }
+            });
+          } else if (toolName === "Transformation Roadmap" && data?.items) {
+            parts.push(`**Roadmap Items:** ${data.items.length} initiatives`);
+            data.items.forEach((item: any, i: number) => {
+              parts.push(`  ${i + 1}. ${item.title || item.text} (${item.status || 'planned'})`);
+            });
+          } else {
+            // Generic fallback - stringify the data
+            parts.push(JSON.stringify(data, null, 2).slice(0, 500));
+          }
+        } catch (e) {
+          parts.push(`(Tool data available but could not be formatted)`);
+        }
+      });
     }
     
     return parts.join("\n");
