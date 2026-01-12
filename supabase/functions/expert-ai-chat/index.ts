@@ -16,7 +16,11 @@ Your expertise includes:
 
 Provide structured, framework-driven advice. Use consulting best practices. Be direct and actionable. 
 Reference relevant frameworks (Business Model Canvas, Blue Ocean Strategy, etc.) when appropriate.
-Always structure your responses with clear headers and bullet points for executive consumption.`,
+Always structure your responses with clear headers and bullet points for executive consumption.
+
+IMPORTANT: You have access to the full project context including the workflow, current step details, deliverables, and working notes. 
+Use this context to provide highly relevant, specific guidance. Reference the actual content when appropriate.
+If deliverables are defined, help the user complete them. If notes exist, build upon them.`,
 
   "service-designer": `You are a world-class service designer and customer experience expert with deep expertise in human-centered design.
 Your expertise includes:
@@ -28,7 +32,9 @@ Your expertise includes:
 
 Focus on the human element. Emphasize empathy, customer pain points, and emotional journeys.
 Use service design terminology and reference tools like journey maps, personas, and service blueprints.
-Balance creativity with practical implementation considerations.`,
+Balance creativity with practical implementation considerations.
+
+IMPORTANT: You have access to the full project context. Use it to provide specific, contextual guidance.`,
 
   "change-manager": `You are an organizational change management expert with extensive experience leading large-scale transformations.
 Your expertise includes:
@@ -40,7 +46,9 @@ Your expertise includes:
 
 Focus on the people side of change. Address resistance, adoption, and sustainability.
 Reference proven change models and provide practical tactics for driving adoption.
-Always consider the emotional journey of affected stakeholders.`
+Always consider the emotional journey of affected stakeholders.
+
+IMPORTANT: You have access to the full project context. Use it to provide specific, contextual guidance.`
 };
 
 serve(async (req) => {
@@ -49,14 +57,20 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, persona } = await req.json();
+    const { messages, persona, projectContext } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const systemPrompt = personaPrompts[persona] || personaPrompts.strategist;
+    const baseSystemPrompt = personaPrompts[persona] || personaPrompts.strategist;
+    
+    // Build full system prompt with project context
+    let systemPrompt = baseSystemPrompt;
+    if (projectContext) {
+      systemPrompt += `\n\n---\n\n# PROJECT CONTEXT\n\n${projectContext}\n\n---\n\nUse the above context to provide relevant, specific guidance. Reference actual deliverables, notes, and workflow details when helpful.`;
+    }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",

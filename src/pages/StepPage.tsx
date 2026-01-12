@@ -732,6 +732,15 @@ export default function StepPage() {
                           projectName={project.name}
                           clientName={client?.name}
                           tools={task.tool_link?.split(", ").filter(Boolean) || []}
+                          description={description}
+                          notes={notes}
+                          deliverables={deliverables}
+                          allSteps={allTasks.map(t => ({ 
+                            title: t.title, 
+                            status: t.status, 
+                            order_index: t.order_index 
+                          }))}
+                          currentStepIndex={currentIndex}
                         />
                       </div>
                     </CardContent>

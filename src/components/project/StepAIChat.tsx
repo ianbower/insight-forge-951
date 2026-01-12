@@ -12,33 +12,125 @@ interface Message {
   content: string;
 }
 
+interface Deliverable {
+  id: string;
+  text: string;
+  completed: boolean;
+}
+
 interface StepAIChatProps {
   stepTitle: string;
   projectName: string;
   clientName?: string;
   tools: string[];
+  description?: string;
+  notes?: string;
+  deliverables?: Deliverable[];
+  allSteps?: { title: string; status: string; order_index: number | null }[];
+  currentStepIndex?: number;
 }
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/expert-ai-chat`;
 
-export function StepAIChat({ stepTitle, projectName, clientName, tools }: StepAIChatProps) {
+export function StepAIChat({ 
+  stepTitle, 
+  projectName, 
+  clientName, 
+  tools,
+  description,
+  notes,
+  deliverables,
+  allSteps,
+  currentStepIndex
+}: StepAIChatProps) {
   const { toast } = useToast();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Build rich context for the AI
+  const buildProjectContext = () => {
+    const parts: string[] = [];
+    
+    // Project overview
+    parts.push(`## Project Context`);
+    parts.push(`- **Project**: ${projectName}`);
+    if (clientName) parts.push(`- **Client**: ${clientName}`);
+    
+    // Workflow context
+    if (allSteps && allSteps.length > 0) {
+      parts.push(`\n## Workflow Overview (${allSteps.length} steps)`);
+      allSteps.forEach((step, i) => {
+        const marker = i === currentStepIndex ? "→ " : "  ";
+        const statusEmoji = step.status === "completed" ? "✅" : step.status === "in_progress" ? "🔄" : "⏳";
+        parts.push(`${marker}${i + 1}. ${step.title} ${statusEmoji}`);
+      });
+    }
+    
+    // Current step details
+    parts.push(`\n## Current Step: ${stepTitle}`);
+    if (tools.length > 0) {
+      parts.push(`- **Assigned Tools/Frameworks**: ${tools.join(", ")}`);
+    }
+    
+    // Description
+    if (description && description.trim()) {
+      parts.push(`\n### Step Description`);
+      parts.push(description);
+    }
+    
+    // Deliverables
+    if (deliverables && deliverables.length > 0) {
+      parts.push(`\n### Deliverables (${deliverables.filter(d => d.completed).length}/${deliverables.length} complete)`);
+      deliverables.forEach(d => {
+        const status = d.completed ? "✅" : "⬜";
+        parts.push(`${status} ${d.text}`);
+      });
+    }
+    
+    // Notes
+    if (notes && notes.trim()) {
+      parts.push(`\n### Working Notes`);
+      parts.push(notes);
+    }
+    
+    return parts.join("\n");
+  };
+
   // Initialize with context-aware greeting
   useEffect(() => {
-    const toolList = tools.length > 0 ? tools.join(", ") : "no specific tools";
+    const completedDeliverables = deliverables?.filter(d => d.completed).length || 0;
+    const totalDeliverables = deliverables?.length || 0;
+    const hasNotes = notes && notes.trim().length > 0;
+    const hasDescription = description && description.trim().length > 0;
+    
+    let greeting = `I'm here to help with the "${stepTitle}" step`;
+    if (clientName) greeting += ` for ${clientName}`;
+    greeting += ".";
+    
+    if (tools.length > 0) {
+      greeting += ` This step involves ${tools.join(", ")}.`;
+    }
+    
+    if (totalDeliverables > 0) {
+      greeting += ` You have ${completedDeliverables}/${totalDeliverables} deliverables completed.`;
+    }
+    
+    if (hasNotes || hasDescription) {
+      greeting += ` I've reviewed the content and notes for this step.`;
+    }
+    
+    greeting += ` What would you like guidance on?`;
+    
     setMessages([
       {
         id: "1",
         role: "assistant",
-        content: `I'm here to help with the "${stepTitle}" step${clientName ? ` for ${clientName}` : ""}. This step involves ${toolList}. What would you like guidance on?`,
+        content: greeting,
       },
     ]);
-  }, [stepTitle, clientName, tools]);
+  }, [stepTitle, clientName, tools, description, notes, deliverables]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -47,14 +139,21 @@ export function StepAIChat({ stepTitle, projectName, clientName, tools }: StepAI
   }, [messages]);
 
   const suggestedPrompts = [
+    `What questions should I ask the client a...`,
+    `What are common pitfalls when working on...`,
+    tools.length > 0 ? `How should I approach using ${tools[0]}?` : "What frameworks work best here?",
+    `Generate key talking points for ${stepTitle.slice(0, 15)}...`,
+  ];
+
+  const fullPrompts = [
     `What questions should I ask the client about ${stepTitle}?`,
     `What are common pitfalls when working on ${stepTitle}?`,
     tools.length > 0 ? `How should I approach using ${tools[0]}?` : "What frameworks work best here?",
     `Generate key talking points for ${stepTitle}`,
   ];
 
-  const handleSendMessage = async (messageText?: string) => {
-    const text = messageText || inputValue;
+  const handleSendMessage = async (messageText?: string, promptIndex?: number) => {
+    const text = promptIndex !== undefined ? fullPrompts[promptIndex] : (messageText || inputValue);
     if (!text.trim() || isLoading) return;
 
     const userMessage: Message = {
@@ -71,11 +170,8 @@ export function StepAIChat({ stepTitle, projectName, clientName, tools }: StepAI
     let assistantContent = "";
 
     try {
-      // Build context-aware messages for the AI
-      const contextMessage = {
-        role: "user" as const,
-        content: `Context: I'm working on the "${stepTitle}" step of the "${projectName}" project${clientName ? ` for client ${clientName}` : ""}. ${tools.length > 0 ? `The tools assigned to this step are: ${tools.join(", ")}.` : ""} Please provide guidance relevant to this consulting context.`,
-      };
+      // Build rich context for the AI
+      const projectContext = buildProjectContext();
 
       const resp = await fetch(CHAT_URL, {
         method: "POST",
@@ -84,11 +180,9 @@ export function StepAIChat({ stepTitle, projectName, clientName, tools }: StepAI
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
         body: JSON.stringify({
-          messages: [
-            contextMessage,
-            ...newMessages.map((m) => ({ role: m.role, content: m.content })),
-          ],
+          messages: newMessages.map((m) => ({ role: m.role, content: m.content })),
           persona: "strategist",
+          projectContext,
         }),
       });
 
@@ -178,11 +272,11 @@ export function StepAIChat({ stepTitle, projectName, clientName, tools }: StepAI
           {suggestedPrompts.map((prompt, i) => (
             <button
               key={i}
-              onClick={() => handleSendMessage(prompt)}
+              onClick={() => handleSendMessage(undefined, i)}
               disabled={isLoading}
               className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
             >
-              {prompt.length > 40 ? prompt.slice(0, 40) + "..." : prompt}
+              {prompt}
             </button>
           ))}
         </div>
