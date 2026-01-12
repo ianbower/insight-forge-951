@@ -314,10 +314,15 @@ function ToolBlockRenderer({
   
   useEffect(() => {
     const fetchTools = async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("consulting_tools")
         .select("id, name, category")
-        .order("category, name");
+        .order("category")
+        .order("name");
+      if (error) {
+        console.error("Error fetching tools:", error);
+        return;
+      }
       if (data) setTools(data);
     };
     fetchTools();
