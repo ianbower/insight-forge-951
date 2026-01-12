@@ -49,7 +49,6 @@ import {
 } from "@/components/project/blocks/BlockTypes";
 import { StepAIChat } from "@/components/project/StepAIChat";
 import { StepPreviewPanel } from "@/components/project/StepPreviewPanel";
-import { EmbeddedTool } from "@/components/project/EmbeddedTool";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -607,21 +606,6 @@ export default function StepPage() {
           {layout.blocks
             .sort((a, b) => a.order - b.order)
             .map((block) => {
-              // Render embedded tool blocks
-              if (block.type === 'tool') {
-                const toolBlock = block as ToolBlock;
-                return (
-                  <EmbeddedTool
-                    key={block.id}
-                    toolName={toolBlock.toolName}
-                    projectId={projectId || ""}
-                    stepId={stepId || ""}
-                    embedded={toolBlock.embedded}
-                    onOpenExternal={() => handleOpenTool(toolBlock.toolName)}
-                  />
-                );
-              }
-
               // Render special blocks with actual data
               if (block.type === 'deliverables') {
                 return (
