@@ -7,6 +7,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import Dashboard from "@/pages/Dashboard";
 import Projects from "@/pages/Projects";
 import ProjectDetail from "@/pages/ProjectDetail";
+import ProjectOutputs from "@/pages/ProjectOutputs";
 import StepPage from "@/pages/StepPage";
 import ToolLibrary from "@/pages/ToolLibrary";
 import Runbooks from "@/pages/Runbooks";
@@ -30,6 +31,7 @@ const App = () => (
             <Route path="/research" element={<Research />} />
             <Route path="/projects" element={<Projects />} />
             <Route path="/projects/:projectId" element={<ProjectDetail />} />
+            <Route path="/projects/:projectId/outputs" element={<ProjectOutputs />} />
             <Route path="/projects/:projectId/steps/:stepId" element={<StepPage />} />
             <Route path="/tools" element={<ToolLibrary />} />
             <Route path="/tools/:toolId" element={<ToolLibrary />} />

@@ -11,7 +11,8 @@ import {
   TrendingUp,
   Users,
   Presentation,
-  LayoutDashboard
+  LayoutDashboard,
+  FileOutput
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -278,8 +279,17 @@ export default function ProjectDetail() {
           </div>
         </div>
 
-        {/* View Mode Toggle */}
+        {/* View Mode Toggle & Outputs */}
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate(`/projects/${projectId}/outputs`)}
+            className="gap-2"
+          >
+            <FileOutput className="h-4 w-4" />
+            Outputs
+          </Button>
           <Button
             variant={viewMode === "workflow" ? "default" : "outline"}
             size="sm"

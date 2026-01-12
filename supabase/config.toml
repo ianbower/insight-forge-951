@@ -1,1 +1,13 @@
 project_id = "euuqyckvzwfnedunjoss"
+
+[functions.expert-ai-chat]
+verify_jwt = false
+
+[functions.layout-wizard]
+verify_jwt = false
+
+[functions.research-ai]
+verify_jwt = false
+
+[functions.generate-report]
+verify_jwt = false
