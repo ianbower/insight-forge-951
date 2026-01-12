@@ -20,6 +20,8 @@ import {
   Eye,
   Trash2,
   LayoutGrid,
+  Edit3,
+  Save,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -32,6 +34,8 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ToolPreviewCapture } from "@/components/outputs/ToolPreviewCapture";
+import { BlockEditor } from "@/components/outputs/BlockEditor";
+import { ReportBlockData } from "@/components/outputs/ReportBlock";
 import {
   Dialog,
   DialogContent,
@@ -126,10 +130,12 @@ export default function ProjectOutputs() {
 
   const [branding, setBranding] = useState<BrandingConfig>(defaultBranding);
   const [sections, setSections] = useState<ReportSection[]>([]);
+  const [blocks, setBlocks] = useState<ReportBlockData[]>([]);
   const [images, setImages] = useState<ReportImage[]>([]);
   const [activeTab, setActiveTab] = useState("branding");
   const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [editorMode, setEditorMode] = useState<"sections" | "blocks">("sections");
 
   const logoInputRef = useRef<HTMLInputElement>(null);
   const secondaryLogoInputRef = useRef<HTMLInputElement>(null);
@@ -313,15 +319,44 @@ export default function ProjectOutputs() {
       if (error) throw error;
 
       if (data?.sections) {
-        setSections(
-          data.sections.map((s: any, i: number) => ({
-            id: `section-${i}`,
-            title: s.title,
-            type: s.type,
-            content: s.content,
-            images: [],
-          }))
-        );
+        const newSections = data.sections.map((s: any, i: number) => ({
+          id: `section-${i}`,
+          title: s.title,
+          type: s.type,
+          content: s.content,
+          images: [],
+        }));
+        setSections(newSections);
+        
+        // Also convert sections to blocks for block editor
+        const newBlocks: ReportBlockData[] = [];
+        data.sections.forEach((s: any, i: number) => {
+          // Add section heading
+          newBlocks.push({
+            id: `block-heading-${i}-${Date.now()}`,
+            type: "heading1",
+            content: s.title,
+          });
+          // Add content as paragraph(s)
+          const paragraphs = s.content.split("\n\n").filter(Boolean);
+          paragraphs.forEach((p: string, j: number) => {
+            newBlocks.push({
+              id: `block-para-${i}-${j}-${Date.now()}`,
+              type: "paragraph",
+              content: p,
+            });
+          });
+          // Add divider between sections (except last)
+          if (i < data.sections.length - 1) {
+            newBlocks.push({
+              id: `block-divider-${i}-${Date.now()}`,
+              type: "divider",
+              content: "",
+            });
+          }
+        });
+        setBlocks(newBlocks);
+        
         setActiveTab("editor");
         toast({ title: "Report generated", description: "Review and customize your deliverable." });
       }
@@ -374,61 +409,172 @@ export default function ProjectOutputs() {
     pdf.setFontSize(12);
     pdf.text(new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" }), margin, pageHeight / 2 + 25);
 
-    // Content pages
-    sections.forEach((section, sectionIndex) => {
+    // Export based on editor mode
+    if (editorMode === "blocks" && blocks.length > 0) {
+      // Block-based export
       pdf.addPage();
       yPosition = margin;
 
-      // Section number and title
-      pdf.setTextColor(branding.accentColor);
-      pdf.setFontSize(12);
-      pdf.text(`${String(sectionIndex + 1).padStart(2, "0")}`, margin, yPosition);
-      
-      pdf.setTextColor(branding.primaryColor);
-      pdf.setFontSize(22);
-      yPosition += 12;
-      pdf.text(section.title, margin, yPosition);
-      
-      // Accent line
-      pdf.setDrawColor(branding.accentColor);
-      pdf.setLineWidth(0.5);
-      yPosition += 5;
-      pdf.line(margin, yPosition, margin + 40, yPosition);
-      yPosition += 15;
-
-      // Content
-      pdf.setTextColor("#374151");
-      pdf.setFontSize(11);
-      const lines = pdf.splitTextToSize(section.content, contentWidth);
-      lines.forEach((line: string) => {
-        if (yPosition > pageHeight - margin) {
+      blocks.forEach((block) => {
+        if (yPosition > pageHeight - margin - 20) {
           pdf.addPage();
           yPosition = margin;
         }
-        pdf.text(line, margin, yPosition);
-        yPosition += 6;
-      });
 
-      // Section images
-      const sectionImages = section.images.map((imgId) => images.find((img) => img.id === imgId)).filter(Boolean);
-      sectionImages.forEach((img) => {
-        if (!img) return;
-        if (yPosition > pageHeight - 80) {
-          pdf.addPage();
-          yPosition = margin;
+        switch (block.type) {
+          case "heading1":
+            pdf.setTextColor(branding.primaryColor);
+            pdf.setFontSize(22);
+            pdf.text(block.content || "", margin, yPosition);
+            yPosition += 12;
+            // Accent line
+            pdf.setDrawColor(branding.accentColor);
+            pdf.setLineWidth(0.5);
+            pdf.line(margin, yPosition, margin + 40, yPosition);
+            yPosition += 10;
+            break;
+
+          case "heading2":
+            pdf.setTextColor(branding.secondaryColor);
+            pdf.setFontSize(16);
+            pdf.text(block.content || "", margin, yPosition);
+            yPosition += 10;
+            break;
+
+          case "paragraph":
+            pdf.setTextColor("#374151");
+            pdf.setFontSize(11);
+            const lines = pdf.splitTextToSize(block.content || "", contentWidth);
+            lines.forEach((line: string) => {
+              if (yPosition > pageHeight - margin) {
+                pdf.addPage();
+                yPosition = margin;
+              }
+              pdf.text(line, margin, yPosition);
+              yPosition += 6;
+            });
+            yPosition += 4;
+            break;
+
+          case "bullet-list":
+          case "numbered-list":
+            pdf.setTextColor("#374151");
+            pdf.setFontSize(11);
+            (block.listItems || []).forEach((item, i) => {
+              if (yPosition > pageHeight - margin) {
+                pdf.addPage();
+                yPosition = margin;
+              }
+              const prefix = block.type === "numbered-list" ? `${i + 1}. ` : "• ";
+              const itemLines = pdf.splitTextToSize(prefix + item, contentWidth - 10);
+              itemLines.forEach((line: string) => {
+                pdf.text(line, margin + 5, yPosition);
+                yPosition += 6;
+              });
+            });
+            yPosition += 4;
+            break;
+
+          case "quote":
+            pdf.setTextColor("#6b7280");
+            pdf.setFontSize(11);
+            pdf.setDrawColor(branding.accentColor);
+            pdf.setLineWidth(1);
+            pdf.line(margin, yPosition - 2, margin, yPosition + 15);
+            const quoteLines = pdf.splitTextToSize(block.content || "", contentWidth - 10);
+            quoteLines.forEach((line: string) => {
+              pdf.text(line, margin + 5, yPosition);
+              yPosition += 6;
+            });
+            yPosition += 8;
+            break;
+
+          case "image":
+            if (block.imageUrl) {
+              if (yPosition > pageHeight - 80) {
+                pdf.addPage();
+                yPosition = margin;
+              }
+              try {
+                const imgWidth = contentWidth * 0.8;
+                const imgX = margin + (contentWidth - imgWidth) / 2;
+                pdf.addImage(block.imageUrl, "PNG", imgX, yPosition, imgWidth, 50);
+                yPosition += 55;
+                if (block.imageCaption) {
+                  pdf.setFontSize(9);
+                  pdf.setTextColor("#6b7280");
+                  pdf.text(block.imageCaption, pageWidth / 2, yPosition, { align: "center" });
+                  yPosition += 10;
+                }
+              } catch (e) {}
+            }
+            break;
+
+          case "divider":
+            pdf.setDrawColor("#e5e7eb");
+            pdf.setLineWidth(0.3);
+            pdf.line(margin, yPosition, pageWidth - margin, yPosition);
+            yPosition += 10;
+            break;
         }
-        try {
-          const imgWidth = contentWidth * 0.8;
-          const imgX = margin + (contentWidth - imgWidth) / 2;
-          pdf.addImage(img.src, "PNG", imgX, yPosition, imgWidth, 50);
-          yPosition += 55;
-          pdf.setFontSize(9);
-          pdf.setTextColor("#6b7280");
-          pdf.text(img.caption, pageWidth / 2, yPosition, { align: "center" });
-          yPosition += 15;
-        } catch (e) {}
       });
-    });
+    } else {
+      // Section-based export (original)
+      sections.forEach((section, sectionIndex) => {
+        pdf.addPage();
+        yPosition = margin;
+
+        // Section number and title
+        pdf.setTextColor(branding.accentColor);
+        pdf.setFontSize(12);
+        pdf.text(`${String(sectionIndex + 1).padStart(2, "0")}`, margin, yPosition);
+        
+        pdf.setTextColor(branding.primaryColor);
+        pdf.setFontSize(22);
+        yPosition += 12;
+        pdf.text(section.title, margin, yPosition);
+        
+        // Accent line
+        pdf.setDrawColor(branding.accentColor);
+        pdf.setLineWidth(0.5);
+        yPosition += 5;
+        pdf.line(margin, yPosition, margin + 40, yPosition);
+        yPosition += 15;
+
+        // Content
+        pdf.setTextColor("#374151");
+        pdf.setFontSize(11);
+        const lines = pdf.splitTextToSize(section.content, contentWidth);
+        lines.forEach((line: string) => {
+          if (yPosition > pageHeight - margin) {
+            pdf.addPage();
+            yPosition = margin;
+          }
+          pdf.text(line, margin, yPosition);
+          yPosition += 6;
+        });
+
+        // Section images
+        const sectionImages = section.images.map((imgId) => images.find((img) => img.id === imgId)).filter(Boolean);
+        sectionImages.forEach((img) => {
+          if (!img) return;
+          if (yPosition > pageHeight - 80) {
+            pdf.addPage();
+            yPosition = margin;
+          }
+          try {
+            const imgWidth = contentWidth * 0.8;
+            const imgX = margin + (contentWidth - imgWidth) / 2;
+            pdf.addImage(img.src, "PNG", imgX, yPosition, imgWidth, 50);
+            yPosition += 55;
+            pdf.setFontSize(9);
+            pdf.setTextColor("#6b7280");
+            pdf.text(img.caption, pageWidth / 2, yPosition, { align: "center" });
+            yPosition += 15;
+          } catch (e) {}
+        });
+      });
+    }
 
     pdf.save(`${project?.name?.replace(/\s+/g, "_") || "report"}.pdf`);
     toast({ title: "PDF exported successfully" });
@@ -437,10 +583,60 @@ export default function ProjectOutputs() {
   const handleExportHTML = async () => {
     toast({ title: "Generating HTML...", description: "Creating interactive website." });
 
+    // Generate content based on editor mode
+    const generateBlocksHTML = () => {
+      return blocks.map((block) => {
+        switch (block.type) {
+          case "heading1":
+            return `<h2 class="block-h1">${block.content || ""}</h2>`;
+          case "heading2":
+            return `<h3 class="block-h2">${block.content || ""}</h3>`;
+          case "paragraph":
+            return `<p>${block.content || ""}</p>`;
+          case "bullet-list":
+            return `<ul>${(block.listItems || []).map(item => `<li>${item}</li>`).join("")}</ul>`;
+          case "numbered-list":
+            return `<ol>${(block.listItems || []).map(item => `<li>${item}</li>`).join("")}</ol>`;
+          case "quote":
+            return `<blockquote>${block.content || ""}</blockquote>`;
+          case "image":
+            return block.imageUrl ? `<figure><img src="${block.imageUrl}" alt="${block.imageCaption || ""}"><figcaption>${block.imageCaption || ""}</figcaption></figure>` : "";
+          case "divider":
+            return `<hr class="section-divider">`;
+          default:
+            return "";
+        }
+      }).join("\n");
+    };
+
     const sectionImagesMap: Record<string, ReportImage[]> = {};
     sections.forEach((s) => {
       sectionImagesMap[s.id] = s.images.map((imgId) => images.find((img) => img.id === imgId)).filter(Boolean) as ReportImage[];
     });
+
+    const mainContent = editorMode === "blocks" && blocks.length > 0 
+      ? `<div class="blocks-content">${generateBlocksHTML()}</div>`
+      : sections.map((s, i) => `
+    <section class="section" id="${s.id}">
+      <div class="section-header">
+        <span class="section-number">${String(i + 1).padStart(2, "0")}</span>
+        <h2>${s.title}</h2>
+      </div>
+      <div class="section-content">
+        ${s.content.split("\n\n").map((p) => `<p>${p}</p>`).join("")}
+      </div>
+      ${sectionImagesMap[s.id]?.length ? `
+      <div class="section-images">
+        ${sectionImagesMap[s.id].map((img) => `
+        <figure class="section-image">
+          <img src="${img.src}" alt="${img.caption}">
+          <figcaption>${img.caption}</figcaption>
+        </figure>
+        `).join("")}
+      </div>
+      ` : ""}
+    </section>
+    `).join("");
 
     const htmlContent = `<!DOCTYPE html>
 <html lang="en">
@@ -605,6 +801,17 @@ export default function ProjectOutputs() {
     }
     footer p { opacity: 0.8; font-size: 0.875rem; }
     
+    .block-h1 { font-family: var(--heading-font); font-size: 2rem; font-weight: 600; color: var(--primary); margin: 2rem 0 1rem; padding-bottom: 0.5rem; border-bottom: 3px solid var(--accent); }
+    .block-h2 { font-family: var(--heading-font); font-size: 1.5rem; font-weight: 500; color: var(--secondary); margin: 1.5rem 0 0.75rem; }
+    .blocks-content { padding: 3rem; max-width: 900px; margin: 0 auto; }
+    .blocks-content ul, .blocks-content ol { margin: 1rem 0; padding-left: 2rem; }
+    .blocks-content li { margin-bottom: 0.5rem; }
+    .blocks-content blockquote { border-left: 4px solid var(--accent); padding: 1rem 1.5rem; margin: 1.5rem 0; background: #f9fafb; font-style: italic; }
+    .blocks-content figure { margin: 2rem 0; text-align: center; }
+    .blocks-content figure img { max-width: 100%; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    .blocks-content figcaption { margin-top: 0.75rem; font-size: 0.875rem; color: #6b7280; }
+    .section-divider { border: none; border-top: 2px solid #e5e7eb; margin: 3rem 0; }
+    
     /* Print Styles */
     @media print {
       nav, .cover::before { display: none; }
@@ -616,7 +823,7 @@ export default function ProjectOutputs() {
     @media (max-width: 768px) {
       .cover { padding: 2rem; }
       .cover h1 { font-size: 2rem; }
-      main { padding: 2rem 1rem; }
+      main, .blocks-content { padding: 2rem 1rem; }
     }
   </style>
 </head>
@@ -630,63 +837,21 @@ export default function ProjectOutputs() {
     </div>
   </section>
   
+  ${editorMode === "sections" && sections.length > 0 ? `
   <nav>
     <ul>
       ${sections.map((s, i) => `<li><a href="#${s.id}">${String(i + 1).padStart(2, "0")}. ${s.title}</a></li>`).join("")}
     </ul>
   </nav>
+  ` : ""}
   
   <main>
-    ${sections.map((s, i) => `
-    <section class="section" id="${s.id}">
-      <div class="section-header">
-        <span class="section-number">${String(i + 1).padStart(2, "0")}</span>
-        <h2>${s.title}</h2>
-      </div>
-      <div class="section-content">
-        ${s.content.split("\n\n").map((p) => `<p>${p}</p>`).join("")}
-      </div>
-      ${sectionImagesMap[s.id]?.length ? `
-      <div class="section-images">
-        ${sectionImagesMap[s.id].map((img) => `
-        <figure class="section-image">
-          <img src="${img.src}" alt="${img.caption}">
-          <figcaption>${img.caption}</figcaption>
-        </figure>
-        `).join("")}
-      </div>
-      ` : ""}
-    </section>
-    `).join("")}
+    ${mainContent}
   </main>
   
   <footer>
     <p>Confidential • ${new Date().getFullYear()}</p>
   </footer>
-  
-  <script>
-    // Smooth scroll and active state
-    const links = document.querySelectorAll('nav a');
-    const sections = document.querySelectorAll('.section');
-    
-    links.forEach(link => {
-      link.addEventListener('click', e => {
-        e.preventDefault();
-        document.querySelector(link.getAttribute('href')).scrollIntoView({ behavior: 'smooth' });
-      });
-    });
-    
-    window.addEventListener('scroll', () => {
-      let current = '';
-      sections.forEach(section => {
-        if (scrollY >= section.offsetTop - 100) current = section.getAttribute('id');
-      });
-      links.forEach(link => {
-        link.classList.remove('active');
-        if (link.getAttribute('href') === '#' + current) link.classList.add('active');
-      });
-    });
-  </script>
 </body>
 </html>`;
 
@@ -1087,121 +1252,181 @@ export default function ProjectOutputs() {
           </TabsContent>
 
           {/* Editor Tab */}
-          <TabsContent value="editor" className="space-y-4">
+          <TabsContent value="editor" className="space-y-6">
+            {/* Editor Mode Toggle & Actions */}
             <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                Edit content and assign images to each section
-              </p>
-              <Button variant="outline" size="sm" onClick={handleGenerateReport} disabled={generating}>
-                <RefreshCw className={cn("h-4 w-4 mr-2", generating && "animate-spin")} />
-                Regenerate
-              </Button>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center bg-muted rounded-lg p-1">
+                  <Button
+                    variant={editorMode === "sections" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setEditorMode("sections")}
+                    className="h-8 px-3 gap-2"
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                    Sections
+                  </Button>
+                  <Button
+                    variant={editorMode === "blocks" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setEditorMode("blocks")}
+                    className="h-8 px-3 gap-2"
+                  >
+                    <Edit3 className="h-3.5 w-3.5" />
+                    Block Editor
+                  </Button>
+                </div>
+                <span className="text-xs text-muted-foreground ml-2">
+                  {editorMode === "blocks" 
+                    ? "Drag to reorder, add headings, text, images & more" 
+                    : "Edit AI-generated sections"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={handleGenerateReport} disabled={generating}>
+                  <RefreshCw className={cn("h-4 w-4 mr-2", generating && "animate-spin")} />
+                  Regenerate
+                </Button>
+              </div>
             </div>
 
-            {sections.map((section, sectionIndex) => (
-              <Card key={section.id} className="shadow-sm overflow-hidden">
-                <CardHeader className="pb-3 bg-gradient-to-r from-muted/30 to-transparent">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className="text-accent font-semibold text-sm font-display">
-                        {String(sectionIndex + 1).padStart(2, "0")}
-                      </span>
-                      <CardTitle className="text-base font-display">{section.title}</CardTitle>
-                      <Badge variant="secondary" className="text-[10px] uppercase tracking-wider">
-                        {section.type.replace("-", " ")}
-                      </Badge>
-                    </div>
-                    <Button
-                      variant={editingSectionId === section.id ? "default" : "ghost"}
-                      size="sm"
-                      onClick={() => setEditingSectionId(editingSectionId === section.id ? null : section.id)}
-                    >
-                      {editingSectionId === section.id ? (
-                        <>
-                          <Check className="h-3 w-3 mr-1" />
-                          Done
-                        </>
-                      ) : (
-                        "Edit"
-                      )}
-                    </Button>
-                  </div>
+            {/* Block Editor Mode */}
+            {editorMode === "blocks" && (
+              <Card className="shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <Edit3 className="h-4 w-4 text-accent" />
+                    Visual Block Editor
+                  </CardTitle>
+                  <CardDescription>
+                    Drag blocks to reorder. Click the + button to add new elements.
+                  </CardDescription>
                 </CardHeader>
-                <CardContent className="pt-4">
-                  {editingSectionId === section.id ? (
-                    <Textarea
-                      value={section.content}
-                      onChange={(e) => handleUpdateSection(section.id, e.target.value)}
-                      rows={10}
-                      className="font-mono text-sm resize-none"
-                    />
-                  ) : (
-                    <div className="prose prose-sm max-w-none text-muted-foreground">
-                      {section.content.split("\n\n").map((p, i) => (
-                        <p key={i} className="mb-3 last:mb-0">{p}</p>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Section Images */}
-                  {section.images.length > 0 && (
-                    <div className="mt-4 pt-4 border-t">
-                      <Label className="text-xs text-muted-foreground mb-2 block">Attached Images</Label>
-                      <div className="flex flex-wrap gap-2">
-                        {section.images.map((imgId) => {
-                          const img = images.find((i) => i.id === imgId);
-                          return img ? (
-                            <div key={imgId} className="relative group">
-                              <img src={img.src} alt={img.caption} className="h-16 w-24 object-cover rounded border" />
-                              <button
-                                onClick={() => handleRemoveImageFromSection(section.id, imgId)}
-                                className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-xs"
-                              >
-                                <X className="h-2.5 w-2.5" />
-                              </button>
-                            </div>
-                          ) : null;
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Add Image to Section */}
-                  {images.length > 0 && (
-                    <div className="mt-4 pt-4 border-t">
-                      <Label className="text-xs text-muted-foreground mb-2 block">Add Image</Label>
-                      <ScrollArea className="w-full">
-                        <div className="flex gap-2 pb-2">
-                          {images
-                            .filter((img) => !section.images.includes(img.id))
-                            .map((img) => (
-                              <button
-                                key={img.id}
-                                onClick={() => handleAddImageToSection(section.id, img.id)}
-                                className="flex-shrink-0 h-12 w-20 rounded border-2 border-dashed hover:border-accent overflow-hidden transition-colors"
-                              >
-                                <img src={img.src} alt={img.caption} className="w-full h-full object-cover opacity-60 hover:opacity-100 transition-opacity" />
-                              </button>
-                            ))}
-                        </div>
-                      </ScrollArea>
-                    </div>
-                  )}
+                <CardContent>
+                  <BlockEditor
+                    blocks={blocks}
+                    onBlocksChange={setBlocks}
+                    images={images.map((img) => ({ id: img.id, src: img.src, caption: img.caption }))}
+                  />
                 </CardContent>
               </Card>
-            ))}
+            )}
 
-            {sections.length === 0 && (
+            {/* Section Editor Mode (original) */}
+            {editorMode === "sections" && (
+              <>
+                {sections.map((section, sectionIndex) => (
+                  <Card key={section.id} className="shadow-sm overflow-hidden">
+                    <CardHeader className="pb-3 bg-gradient-to-r from-muted/30 to-transparent">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className="text-accent font-semibold text-sm font-display">
+                            {String(sectionIndex + 1).padStart(2, "0")}
+                          </span>
+                          <CardTitle className="text-base font-display">{section.title}</CardTitle>
+                          <Badge variant="secondary" className="text-[10px] uppercase tracking-wider">
+                            {section.type.replace("-", " ")}
+                          </Badge>
+                        </div>
+                        <Button
+                          variant={editingSectionId === section.id ? "default" : "ghost"}
+                          size="sm"
+                          onClick={() => setEditingSectionId(editingSectionId === section.id ? null : section.id)}
+                        >
+                          {editingSectionId === section.id ? (
+                            <>
+                              <Check className="h-3 w-3 mr-1" />
+                              Done
+                            </>
+                          ) : (
+                            "Edit"
+                          )}
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-4">
+                      {editingSectionId === section.id ? (
+                        <Textarea
+                          value={section.content}
+                          onChange={(e) => handleUpdateSection(section.id, e.target.value)}
+                          rows={10}
+                          className="font-mono text-sm resize-none"
+                        />
+                      ) : (
+                        <div className="prose prose-sm max-w-none text-muted-foreground">
+                          {section.content.split("\n\n").map((p, i) => (
+                            <p key={i} className="mb-3 last:mb-0">{p}</p>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Section Images */}
+                      {section.images.length > 0 && (
+                        <div className="mt-4 pt-4 border-t">
+                          <Label className="text-xs text-muted-foreground mb-2 block">Attached Images</Label>
+                          <div className="flex flex-wrap gap-2">
+                            {section.images.map((imgId) => {
+                              const img = images.find((i) => i.id === imgId);
+                              return img ? (
+                                <div key={imgId} className="relative group">
+                                  <img src={img.src} alt={img.caption} className="h-16 w-24 object-cover rounded border" />
+                                  <button
+                                    onClick={() => handleRemoveImageFromSection(section.id, imgId)}
+                                    className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-xs"
+                                  >
+                                    <X className="h-2.5 w-2.5" />
+                                  </button>
+                                </div>
+                              ) : null;
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Add Image to Section */}
+                      {images.length > 0 && (
+                        <div className="mt-4 pt-4 border-t">
+                          <Label className="text-xs text-muted-foreground mb-2 block">Add Image</Label>
+                          <ScrollArea className="w-full">
+                            <div className="flex gap-2 pb-2">
+                              {images
+                                .filter((img) => !section.images.includes(img.id))
+                                .map((img) => (
+                                  <button
+                                    key={img.id}
+                                    onClick={() => handleAddImageToSection(section.id, img.id)}
+                                    className="flex-shrink-0 h-12 w-20 rounded border-2 border-dashed hover:border-accent overflow-hidden transition-colors"
+                                  >
+                                    <img src={img.src} alt={img.caption} className="w-full h-full object-cover opacity-60 hover:opacity-100 transition-opacity" />
+                                  </button>
+                                ))}
+                            </div>
+                          </ScrollArea>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </>
+            )}
+
+            {/* Empty State */}
+            {sections.length === 0 && blocks.length === 0 && (
               <Card className="border-dashed shadow-sm">
                 <CardContent className="py-16 text-center">
                   <FileText className="h-12 w-12 mx-auto text-muted-foreground/30 mb-4" />
-                  <h3 className="font-display font-semibold mb-2">No report generated yet</h3>
+                  <h3 className="font-display font-semibold mb-2">No report content yet</h3>
                   <p className="text-sm text-muted-foreground mb-6">
-                    Set up your branding, add images, then generate your report.
+                    Generate a report from your project data, or start from scratch with the block editor.
                   </p>
-                  <Button variant="outline" onClick={() => setActiveTab("branding")}>
-                    Go to Brand & Style
-                  </Button>
+                  <div className="flex items-center justify-center gap-3">
+                    <Button variant="outline" onClick={() => setActiveTab("branding")}>
+                      Set Up Branding
+                    </Button>
+                    <Button onClick={() => setEditorMode("blocks")}>
+                      Start Building
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             )}
