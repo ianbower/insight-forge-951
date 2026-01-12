@@ -1,17 +1,16 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Plus, Download, FileText, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StickyNote, stickyColors } from "./StickyNote";
 import { exportToPPT, exportToPDF, type StickyNoteData, type CanvasExportData } from "@/lib/exportUtils";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
 interface OperatingModelCanvasProps {
   projectId?: string;
   toolId?: string;
   initialData?: Record<string, StickyNoteData[]>;
-  onSave?: (data: Record<string, StickyNoteData[]>) => void;
+  onSave?: (data: Record<string, StickyNoteData[]>, options?: { silent?: boolean }) => Promise<void> | void;
 }
 
 const sections = [
@@ -27,6 +26,7 @@ export function OperatingModelCanvas({ projectId, toolId, initialData, onSave }:
   const { toast } = useToast();
   const [notes, setNotes] = useState<Record<string, StickyNoteData[]>>(initialData || {});
   const [saving, setSaving] = useState(false);
+  const autosaveTimerRef = useRef<number | null>(null);
 
   const addNote = useCallback((sectionId: string) => {
     const colorIndex = Math.floor(Math.random() * stickyColors.length);
@@ -68,24 +68,24 @@ export function OperatingModelCanvas({ projectId, toolId, initialData, onSave }:
     }));
   }, []);
 
+  // Autosave (debounced)
+  useEffect(() => {
+    if (!onSave) return;
+    if (autosaveTimerRef.current) window.clearTimeout(autosaveTimerRef.current);
+
+    autosaveTimerRef.current = window.setTimeout(() => {
+      onSave(notes, { silent: true });
+    }, 800);
+
+    return () => {
+      if (autosaveTimerRef.current) window.clearTimeout(autosaveTimerRef.current);
+    };
+  }, [notes, onSave]);
+
   const handleSave = async () => {
     setSaving(true);
     try {
-      if (projectId && toolId) {
-        const { error } = await supabase
-          .from("tool_data")
-          .upsert({
-            project_id: projectId,
-            tool_id: toolId,
-            content_json: JSON.parse(JSON.stringify(notes)),
-          }, { onConflict: "project_id,tool_id" });
-        
-        if (error) throw error;
-      }
-      onSave?.(notes);
-      toast({ title: "Saved", description: "Operating Model Canvas saved successfully" });
-    } catch (error) {
-      toast({ title: "Error", description: "Failed to save", variant: "destructive" });
+      await onSave?.(notes);
     } finally {
       setSaving(false);
     }

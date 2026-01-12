@@ -1,10 +1,9 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Plus, Download, FileText, Save, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { exportToPPT, exportToPDF, type CanvasExportData } from "@/lib/exportUtils";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
 interface RoadmapItem {
@@ -20,7 +19,7 @@ interface TransformationRoadmapProps {
   projectId?: string;
   toolId?: string;
   initialData?: { items: RoadmapItem[]; tracks: string[] };
-  onSave?: (data: { items: RoadmapItem[]; tracks: string[] }) => void;
+  onSave?: (data: { items: RoadmapItem[]; tracks: string[] }, options?: { silent?: boolean }) => Promise<void> | void;
 }
 
 const defaultTracks = ["Strategy", "Technology", "People", "Process"];
@@ -39,6 +38,7 @@ export function TransformationRoadmap({ projectId, toolId, initialData, onSave }
   const [tracks, setTracks] = useState<string[]>(initialData?.tracks || defaultTracks);
   const [saving, setSaving] = useState(false);
   const [editingItem, setEditingItem] = useState<string | null>(null);
+  const autosaveTimerRef = useRef<number | null>(null);
 
   const addItem = useCallback((track: string) => {
     const trackIndex = tracks.indexOf(track);
@@ -67,22 +67,7 @@ export function TransformationRoadmap({ projectId, toolId, initialData, onSave }
   const handleSave = async () => {
     setSaving(true);
     try {
-      const data = { items, tracks };
-      if (projectId && toolId) {
-        const { error } = await supabase
-          .from("tool_data")
-          .upsert({
-            project_id: projectId,
-            tool_id: toolId,
-            content_json: JSON.parse(JSON.stringify(data)),
-          }, { onConflict: "project_id,tool_id" });
-        
-        if (error) throw error;
-      }
-      onSave?.(data);
-      toast({ title: "Saved", description: "Roadmap saved successfully" });
-    } catch (error) {
-      toast({ title: "Error", description: "Failed to save", variant: "destructive" });
+      await onSave?.({ items, tracks });
     } finally {
       setSaving(false);
     }

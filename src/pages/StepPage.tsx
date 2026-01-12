@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { 
   ArrowLeft, 
@@ -118,6 +118,13 @@ export default function StepPage() {
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Autosave state
+  const [autoSaveState, setAutoSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const autoSaveTimerRef = useRef<number | null>(null);
+  const autoSaveSeqRef = useRef(0);
+  const hasLoadedRef = useRef(false);
+  const savedStateTimerRef = useRef<number | null>(null);
   
   // Content state
   const [layout, setLayout] = useState<StepLayout>(DEFAULT_STEP_LAYOUT);
@@ -218,6 +225,9 @@ export default function StepPage() {
           setLayout(defaultLayout);
         }
 
+        // Mark initial load complete (prevents autosave from firing immediately)
+        hasLoadedRef.current = true;
+
         // Fetch tool data for this step to provide context to AI
         const { data: toolDataRecords } = await supabase
           .from("tool_data")
@@ -311,6 +321,62 @@ export default function StepPage() {
       setToolDataContent(toolContent);
     }
   }, [projectId, stepId]);
+
+  // Listen for tool saves and refresh tool context
+  useEffect(() => {
+    const handler = (e: Event) => {
+      // Refresh tool data for the current step
+      refreshToolData();
+    };
+    window.addEventListener('tool-data-saved', handler as EventListener);
+    return () => window.removeEventListener('tool-data-saved', handler as EventListener);
+  }, [refreshToolData]);
+
+  // Autosave step content (layout, notes, deliverables, description)
+  useEffect(() => {
+    if (!task?.id) return;
+    if (!hasLoadedRef.current) return;
+
+    // Clear previous timers
+    if (autoSaveTimerRef.current) window.clearTimeout(autoSaveTimerRef.current);
+    if (savedStateTimerRef.current) window.clearTimeout(savedStateTimerRef.current);
+
+    const seq = ++autoSaveSeqRef.current;
+
+    autoSaveTimerRef.current = window.setTimeout(async () => {
+      setAutoSaveState('saving');
+      try {
+        const notesArray = notes
+          .split("\n")
+          .filter(Boolean)
+          .map((text) => ({ text, timestamp: new Date().toISOString() }));
+
+        const { error } = await supabase
+          .from('project_tasks')
+          .update({
+            description,
+            notes_json: notesArray,
+            deliverables: JSON.parse(JSON.stringify(deliverables)),
+            layout_json: JSON.parse(JSON.stringify(layout)),
+          })
+          .eq('id', task.id);
+
+        if (seq !== autoSaveSeqRef.current) return; // stale save
+        if (error) throw error;
+
+        setAutoSaveState('saved');
+        savedStateTimerRef.current = window.setTimeout(() => setAutoSaveState('idle'), 1500);
+      } catch (err) {
+        if (seq !== autoSaveSeqRef.current) return;
+        setAutoSaveState('error');
+        toast({ title: 'Autosave failed', variant: 'destructive' });
+      }
+    }, 800);
+
+    return () => {
+      if (autoSaveTimerRef.current) window.clearTimeout(autoSaveTimerRef.current);
+    };
+  }, [task?.id, description, notes, deliverables, layout, toast]);
 
   const createNewBlock = (type: StepBlock['type'], order: number): StepBlock => {
     const id = `${type}-${Date.now()}`;

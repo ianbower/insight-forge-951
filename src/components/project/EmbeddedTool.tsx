@@ -20,6 +20,8 @@ interface EmbeddedToolProps {
   onOpenExternal?: () => void;
 }
 
+type SaveOptions = { silent?: boolean };
+
 // Map tool names to info about their components
 const CANVAS_TOOLS = ["SWOT Analysis", "Business Model Canvas", "7S Framework", "Operating Model Canvas"];
 const ROADMAP_TOOLS = ["Transformation Roadmap"];
@@ -72,7 +74,7 @@ export function EmbeddedTool({
     fetchToolData();
   }, [toolName, projectId, stepId]);
 
-  const handleSave = async (data: unknown) => {
+  const handleSave = async (data: unknown, options?: SaveOptions) => {
     if (!toolId) return;
 
     try {
@@ -101,7 +103,12 @@ export function EmbeddedTool({
           });
       }
 
-      toast({ title: "Tool data saved", description: `${toolName} data saved to this step` });
+      // Notify other parts of the app (AI context, etc.)
+      window.dispatchEvent(new CustomEvent('tool-data-saved', { detail: { projectId, stepId, toolId } }));
+
+      if (!options?.silent) {
+        toast({ title: "Saved", description: `${toolName} saved to this step` });
+      }
     } catch (error) {
       console.error("Error saving tool data:", error);
       toast({ title: "Error saving", variant: "destructive" });
@@ -172,25 +179,25 @@ export function EmbeddedTool({
         "Operating Model Canvas": OperatingModelCanvas,
       }[toolName]!;
 
-      return (
-        <CanvasComponent
-          projectId={projectId}
-          toolId={toolId || undefined}
-          initialData={initialData as Record<string, any> | undefined}
-          onSave={handleSave}
-        />
-      );
+        return (
+          <CanvasComponent
+            projectId={projectId}
+            toolId={toolId || undefined}
+            initialData={initialData as Record<string, any> | undefined}
+            onSave={handleSave}
+          />
+        );
     }
 
     if (isRoadmapTool) {
-      return (
-        <TransformationRoadmap
-          projectId={projectId}
-          toolId={toolId || undefined}
-          initialData={initialData as { items: any[]; tracks: string[] } | undefined}
-          onSave={handleSave}
-        />
-      );
+        return (
+          <TransformationRoadmap
+            projectId={projectId}
+            toolId={toolId || undefined}
+            initialData={initialData as { items: any[]; tracks: string[] } | undefined}
+            onSave={handleSave}
+          />
+        );
     }
 
     return null;
