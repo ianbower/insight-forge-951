@@ -14,10 +14,18 @@ export type BlockType =
   | 'deliverables'
   | 'notes';
 
+export interface GridPosition {
+  x: number;  // Grid column (0-11 for 12-column grid)
+  y: number;  // Grid row
+  w: number;  // Width in grid units
+  h: number;  // Height in grid units
+}
+
 export interface BaseBlock {
   id: string;
   type: BlockType;
   order: number;
+  gridPosition?: GridPosition; // Optional grid position for grid layout mode
 }
 
 export interface HeadingBlock extends BaseBlock {
