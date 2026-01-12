@@ -141,9 +141,8 @@ function SortableBlock({
         isEditing={editingBlockId === block.id}
         onStartEdit={() => onStartEdit(block.id)}
         onEndEdit={onEndEdit}
-        onDragStart={() => {}}
         isDragging={isDragging}
-        {...listeners}
+        dragHandleProps={{ ...attributes, ...listeners }}
       />
     </div>
   );
@@ -320,7 +319,6 @@ export function GridBlockEditor({ blocks, onBlocksChange, images }: GridBlockEdi
                 isEditing={false}
                 onStartEdit={() => {}}
                 onEndEdit={() => {}}
-                onDragStart={() => {}}
                 isDragging
               />
             </div>
