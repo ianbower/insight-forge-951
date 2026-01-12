@@ -293,7 +293,7 @@ export default function StepPage() {
       case 'divider':
         return { ...base, type: 'divider' } as DividerBlock;
       case 'tool':
-        return { ...base, type: 'tool', toolName: 'Select Tool', embedded: false } as ToolBlock;
+        return { ...base, type: 'tool', toolName: '', embedded: false } as ToolBlock;
       case 'checklist':
         return { ...base, type: 'checklist', title: 'Checklist', items: [] } as ChecklistBlock;
       case 'form':
