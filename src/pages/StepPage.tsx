@@ -110,6 +110,10 @@ export default function StepPage() {
   const [newDeliverable, setNewDeliverable] = useState("");
   const [showAIChat, setShowAIChat] = useState(false);
   const [showPreviewPanel, setShowPreviewPanel] = useState(true);
+  const [sidebarSize, setSidebarSize] = useState(() => {
+    const saved = localStorage.getItem('step-sidebar-size');
+    return saved ? parseFloat(saved) : 18;
+  });
   
   // Drag and drop state
   const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null);
@@ -433,10 +437,14 @@ export default function StepPage() {
         {showPreviewPanel && (
           <>
             <ResizablePanel 
-              defaultSize={18} 
+              defaultSize={sidebarSize} 
               minSize={12} 
               maxSize={35}
               className="border-r border-border"
+              onResize={(size) => {
+                setSidebarSize(size);
+                localStorage.setItem('step-sidebar-size', size.toString());
+              }}
             >
               <StepPreviewPanel
                 tasks={allTasks}
@@ -454,7 +462,7 @@ export default function StepPage() {
         )}
 
         {/* Main Content Area */}
-        <ResizablePanel defaultSize={showPreviewPanel ? 82 : 100} minSize={50}>
+        <ResizablePanel defaultSize={showPreviewPanel ? (100 - sidebarSize) : 100} minSize={50}>
         <div className="flex-1 flex flex-col min-w-0 h-screen overflow-auto">
       {/* Fixed Header */}
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
