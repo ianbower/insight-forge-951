@@ -53,8 +53,8 @@ interface GridBlockProps {
   isEditing: boolean;
   onStartEdit: () => void;
   onEndEdit: () => void;
-  onDragStart: () => void;
   isDragging?: boolean;
+  dragHandleProps?: React.HTMLAttributes<HTMLDivElement>;
 }
 
 const blockTypeIcons: Record<BlockType, React.ReactNode> = {
@@ -100,8 +100,8 @@ export function GridBlock({
   isEditing,
   onStartEdit,
   onEndEdit,
-  onDragStart,
   isDragging,
+  dragHandleProps,
 }: GridBlockProps) {
   const [isResizing, setIsResizing] = useState(false);
 
@@ -385,11 +385,11 @@ export function GridBlock({
     >
       {/* Drag Handle */}
       <div
+        {...dragHandleProps}
         className={cn(
           "absolute -left-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg bg-muted/80 backdrop-blur-sm cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-all hover:bg-primary hover:text-primary-foreground",
           isDragging && "opacity-100"
         )}
-        onMouseDown={onDragStart}
       >
         <GripVertical className="h-4 w-4" />
       </div>
