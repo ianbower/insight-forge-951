@@ -142,7 +142,7 @@ export function StepPreviewPanel({
 
       {/* Step List */}
       <ScrollArea className="flex-1">
-        <div className="p-2 space-y-2">
+        <div className="p-2 pt-4 space-y-3">
           {tasks.map((task, index) => {
             const isCurrent = task.id === currentStepId;
             
@@ -151,20 +151,30 @@ export function StepPreviewPanel({
                 key={task.id}
                 onClick={() => onNavigate(task.id)}
                 className={cn(
-                  "w-full rounded-lg border transition-all text-left group",
+                  "w-full rounded-lg border transition-all text-left group relative",
                   isCurrent
                     ? "border-primary bg-primary/5 ring-2 ring-primary/20"
                     : "border-border bg-card hover:border-primary/50 hover:bg-accent/50"
                 )}
               >
+                {/* Step Number Badge - positioned absolutely */}
+                <div
+                  className={cn(
+                    "absolute -top-2 -left-1 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold z-10",
+                    isCurrent
+                      ? "bg-primary text-primary-foreground"
+                      : task.status === "completed"
+                      ? "bg-success text-success-foreground"
+                      : task.status === "in_progress"
+                      ? "bg-warning text-warning-foreground"
+                      : "bg-muted-foreground text-muted"
+                  )}
+                >
+                  {index + 1}
+                </div>
+
                 {/* Step Header */}
-                <div className="flex items-center gap-2 p-2 border-b border-border/50">
-                  <Badge
-                    variant={isCurrent ? "default" : "outline"}
-                    className="h-5 w-5 p-0 flex items-center justify-center text-[10px]"
-                  >
-                    {index + 1}
-                  </Badge>
+                <div className="flex items-center gap-2 p-2 pt-3 border-b border-border/50">
                   <span className={cn(
                     "text-xs truncate flex-1",
                     isCurrent && "font-medium"
