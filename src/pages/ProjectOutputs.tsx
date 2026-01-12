@@ -34,8 +34,8 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ToolPreviewCapture } from "@/components/outputs/ToolPreviewCapture";
-import { BlockEditor } from "@/components/outputs/BlockEditor";
-import { ReportBlockData } from "@/components/outputs/ReportBlock";
+import { GridBlockEditor } from "@/components/outputs/GridBlockEditor";
+import { GridBlockData } from "@/components/outputs/GridBlock";
 import {
   Dialog,
   DialogContent,
@@ -130,7 +130,7 @@ export default function ProjectOutputs() {
 
   const [branding, setBranding] = useState<BrandingConfig>(defaultBranding);
   const [sections, setSections] = useState<ReportSection[]>([]);
-  const [blocks, setBlocks] = useState<ReportBlockData[]>([]);
+  const [blocks, setBlocks] = useState<GridBlockData[]>([]);
   const [images, setImages] = useState<ReportImage[]>([]);
   const [activeTab, setActiveTab] = useState("branding");
   const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
@@ -328,14 +328,15 @@ export default function ProjectOutputs() {
         }));
         setSections(newSections);
         
-        // Also convert sections to blocks for block editor
-        const newBlocks: ReportBlockData[] = [];
+        // Also convert sections to blocks for grid block editor
+        const newBlocks: GridBlockData[] = [];
         data.sections.forEach((s: any, i: number) => {
           // Add section heading
           newBlocks.push({
             id: `block-heading-${i}-${Date.now()}`,
             type: "heading1",
             content: s.title,
+            width: 12,
           });
           // Add content as paragraph(s)
           const paragraphs = s.content.split("\n\n").filter(Boolean);
@@ -344,6 +345,7 @@ export default function ProjectOutputs() {
               id: `block-para-${i}-${j}-${Date.now()}`,
               type: "paragraph",
               content: p,
+              width: 12,
             });
           });
           // Add divider between sections (except last)
@@ -352,6 +354,7 @@ export default function ProjectOutputs() {
               id: `block-divider-${i}-${Date.now()}`,
               type: "divider",
               content: "",
+              width: 12,
             });
           }
         });
@@ -581,28 +584,41 @@ export default function ProjectOutputs() {
   };
 
   const handleExportHTML = async () => {
-    toast({ title: "Generating HTML...", description: "Creating interactive website." });
+    toast({ title: "Generating HTML...", description: "Creating premium interactive website." });
 
-    // Generate content based on editor mode
+    // Generate animated block-based HTML with grid support
     const generateBlocksHTML = () => {
-      return blocks.map((block) => {
+      let delay = 0;
+      return blocks.map((block, index) => {
+        const animDelay = delay;
+        delay += 100;
+        const widthClass = block.width <= 4 ? "grid-half" : block.width <= 6 ? "grid-half" : block.width <= 8 ? "grid-two-third" : "grid-full";
+        
         switch (block.type) {
           case "heading1":
-            return `<h2 class="block-h1">${block.content || ""}</h2>`;
+            return `<h2 class="block-h1 animate-item ${widthClass}" style="animation-delay: ${animDelay}ms">${block.content || ""}</h2>`;
           case "heading2":
-            return `<h3 class="block-h2">${block.content || ""}</h3>`;
+            return `<h3 class="block-h2 animate-item ${widthClass}" style="animation-delay: ${animDelay}ms">${block.content || ""}</h3>`;
           case "paragraph":
-            return `<p>${block.content || ""}</p>`;
+            return `<p class="animate-item ${widthClass}" style="animation-delay: ${animDelay}ms">${block.content || ""}</p>`;
           case "bullet-list":
-            return `<ul>${(block.listItems || []).map(item => `<li>${item}</li>`).join("")}</ul>`;
+            return `<ul class="animate-item ${widthClass}" style="animation-delay: ${animDelay}ms">${(block.listItems || []).map(item => `<li>${item}</li>`).join("")}</ul>`;
           case "numbered-list":
-            return `<ol>${(block.listItems || []).map(item => `<li>${item}</li>`).join("")}</ol>`;
+            return `<ol class="animate-item ${widthClass}" style="animation-delay: ${animDelay}ms">${(block.listItems || []).map(item => `<li>${item}</li>`).join("")}</ol>`;
           case "quote":
-            return `<blockquote>${block.content || ""}</blockquote>`;
+            return `<blockquote class="animate-item ${widthClass}" style="animation-delay: ${animDelay}ms">${block.content || ""}</blockquote>`;
+          case "callout":
+            const calloutClass = block.calloutStyle === "warning" ? "callout-warning" : block.calloutStyle === "success" ? "callout-success" : "callout-info";
+            return `<div class="callout ${calloutClass} animate-item ${widthClass}" style="animation-delay: ${animDelay}ms">${block.content || ""}</div>`;
+          case "two-column":
+            const cols = block.columnContent || { left: "", right: "" };
+            return `<div class="two-column animate-item grid-full" style="animation-delay: ${animDelay}ms"><div class="col">${cols.left}</div><div class="col">${cols.right}</div></div>`;
           case "image":
-            return block.imageUrl ? `<figure><img src="${block.imageUrl}" alt="${block.imageCaption || ""}"><figcaption>${block.imageCaption || ""}</figcaption></figure>` : "";
+            return block.imageUrl ? `<figure class="animate-item image-block ${widthClass}" style="animation-delay: ${animDelay}ms"><img src="${block.imageUrl}" alt="${block.imageCaption || ""}" loading="lazy"><figcaption>${block.imageCaption || ""}</figcaption></figure>` : "";
           case "divider":
-            return `<hr class="section-divider">`;
+            return `<hr class="section-divider animate-item grid-full" style="animation-delay: ${animDelay}ms">`;
+          case "spacer":
+            return `<div class="spacer grid-full"></div>`;
           default:
             return "";
         }
@@ -615,9 +631,9 @@ export default function ProjectOutputs() {
     });
 
     const mainContent = editorMode === "blocks" && blocks.length > 0 
-      ? `<div class="blocks-content">${generateBlocksHTML()}</div>`
+      ? `<div class="blocks-grid">${generateBlocksHTML()}</div>`
       : sections.map((s, i) => `
-    <section class="section" id="${s.id}">
+    <section class="section animate-section" id="${s.id}">
       <div class="section-header">
         <span class="section-number">${String(i + 1).padStart(2, "0")}</span>
         <h2>${s.title}</h2>
@@ -628,8 +644,8 @@ export default function ProjectOutputs() {
       ${sectionImagesMap[s.id]?.length ? `
       <div class="section-images">
         ${sectionImagesMap[s.id].map((img) => `
-        <figure class="section-image">
-          <img src="${img.src}" alt="${img.caption}">
+        <figure class="section-image animate-image">
+          <img src="${img.src}" alt="${img.caption}" loading="lazy">
           <figcaption>${img.caption}</figcaption>
         </figure>
         `).join("")}
@@ -657,19 +673,62 @@ export default function ProjectOutputs() {
     html { scroll-behavior: smooth; }
     body {
       font-family: var(--body-font);
-      line-height: 1.7;
+      line-height: 1.8;
       color: #1f2937;
-      background: #fafafa;
+      background: linear-gradient(180deg, #fafafa 0%, #f5f5f5 100%);
+      overflow-x: hidden;
     }
     
-    /* Cover Section */
+    /* Premium Animations */
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes scaleIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    @keyframes slideInLeft {
+      from { opacity: 0; transform: translateX(-40px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+    
+    .animate-item {
+      opacity: 0;
+      animation: fadeInUp 0.7s ease-out forwards;
+    }
+    .animate-section {
+      opacity: 0;
+      animation: fadeInUp 0.8s ease-out forwards;
+    }
+    .animate-image {
+      opacity: 0;
+      animation: scaleIn 0.6s ease-out forwards;
+      animation-delay: 0.3s;
+    }
+    
+    /* Cover Section - Premium Hero */
     .cover {
       min-height: 100vh;
-      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 50%, var(--primary) 100%);
+      background-size: 200% 200%;
+      animation: shimmer 15s ease infinite;
       display: flex;
       flex-direction: column;
       justify-content: center;
-      padding: 4rem;
+      padding: 5rem;
       color: white;
       position: relative;
       overflow: hidden;
@@ -677,35 +736,90 @@ export default function ProjectOutputs() {
     .cover::before {
       content: '';
       position: absolute;
-      top: 0; right: 0; bottom: 0; left: 0;
-      background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+      top: -50%; right: -50%;
+      width: 100%; height: 100%;
+      background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+      animation: float 8s ease-in-out infinite;
     }
-    .cover-logo { max-height: 60px; margin-bottom: 3rem; }
+    .cover::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 200px;
+      background: linear-gradient(to top, rgba(0,0,0,0.2), transparent);
+    }
+    .cover-content {
+      position: relative;
+      z-index: 1;
+      animation: slideInLeft 1s ease-out;
+    }
+    .cover-logo { 
+      max-height: 70px; 
+      margin-bottom: 3rem;
+      filter: drop-shadow(0 4px 20px rgba(0,0,0,0.3));
+    }
     .cover h1 {
       font-family: var(--heading-font);
-      font-size: clamp(2.5rem, 6vw, 4.5rem);
-      font-weight: 600;
+      font-size: clamp(3rem, 7vw, 5rem);
+      font-weight: 700;
       line-height: 1.1;
-      margin-bottom: 1.5rem;
-      max-width: 800px;
+      margin-bottom: 2rem;
+      max-width: 900px;
+      text-shadow: 0 4px 30px rgba(0,0,0,0.3);
     }
     .cover-meta {
-      font-size: 1.125rem;
-      opacity: 0.9;
+      font-size: 1.25rem;
+      opacity: 0.95;
       display: flex;
       flex-direction: column;
-      gap: 0.5rem;
+      gap: 0.75rem;
     }
-    .cover-date { opacity: 0.7; font-size: 0.875rem; }
+    .cover-date { 
+      opacity: 0.7; 
+      font-size: 1rem;
+      letter-spacing: 0.05em;
+    }
+    .scroll-indicator {
+      position: absolute;
+      bottom: 3rem;
+      left: 50%;
+      transform: translateX(-50%);
+      animation: float 2s ease-in-out infinite;
+      opacity: 0.7;
+    }
+    .scroll-indicator::before {
+      content: '';
+      display: block;
+      width: 30px;
+      height: 50px;
+      border: 2px solid white;
+      border-radius: 15px;
+      position: relative;
+    }
+    .scroll-indicator::after {
+      content: '';
+      display: block;
+      width: 6px;
+      height: 10px;
+      background: white;
+      border-radius: 3px;
+      position: absolute;
+      left: 50%;
+      top: 12px;
+      transform: translateX(-50%);
+      animation: fadeInUp 1.5s ease-in-out infinite;
+    }
     
     /* Navigation */
     nav {
       position: sticky;
       top: 0;
-      background: white;
-      border-bottom: 1px solid #e5e7eb;
+      background: rgba(255,255,255,0.95);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(0,0,0,0.05);
       z-index: 100;
       padding: 0 2rem;
+      box-shadow: 0 4px 30px rgba(0,0,0,0.05);
     }
     nav ul {
       display: flex;
@@ -718,123 +832,288 @@ export default function ProjectOutputs() {
     nav li { flex-shrink: 0; }
     nav a {
       display: block;
-      padding: 1rem 1.5rem;
+      padding: 1.25rem 1.75rem;
       color: var(--secondary);
       text-decoration: none;
       font-size: 0.875rem;
       font-weight: 500;
-      border-bottom: 2px solid transparent;
-      transition: all 0.2s;
+      border-bottom: 3px solid transparent;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
     nav a:hover, nav a.active {
       color: var(--primary);
       border-bottom-color: var(--accent);
+      background: linear-gradient(to bottom, transparent, rgba(var(--accent), 0.05));
     }
     
     /* Main Content */
-    main { max-width: 900px; margin: 0 auto; padding: 4rem 2rem; }
+    main { 
+      max-width: 1100px; 
+      margin: 0 auto; 
+      padding: 5rem 2rem;
+    }
+    
+    /* Grid Layout for Blocks */
+    .blocks-grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 2rem;
+      align-items: start;
+    }
+    .grid-full { grid-column: span 12; }
+    .grid-two-third { grid-column: span 12; }
+    .grid-half { grid-column: span 12; }
+    @media (min-width: 768px) {
+      .grid-two-third { grid-column: span 8; }
+      .grid-half { grid-column: span 6; }
+    }
+    
+    /* Block Styles */
+    .block-h1 { 
+      font-family: var(--heading-font); 
+      font-size: 2.5rem; 
+      font-weight: 700; 
+      color: var(--primary); 
+      margin: 1rem 0;
+      padding-bottom: 1rem;
+      border-bottom: 4px solid var(--accent);
+      position: relative;
+    }
+    .block-h1::after {
+      content: '';
+      position: absolute;
+      bottom: -4px;
+      left: 0;
+      width: 60px;
+      height: 4px;
+      background: var(--primary);
+    }
+    .block-h2 { 
+      font-family: var(--heading-font); 
+      font-size: 1.75rem; 
+      font-weight: 600; 
+      color: var(--secondary); 
+      margin: 1.5rem 0 1rem;
+    }
+    .blocks-grid p { 
+      font-size: 1.125rem;
+      line-height: 1.9;
+      color: #374151;
+      margin-bottom: 1rem;
+    }
+    .blocks-grid ul, .blocks-grid ol { 
+      margin: 1.5rem 0; 
+      padding-left: 2rem;
+      font-size: 1.0625rem;
+    }
+    .blocks-grid li { 
+      margin-bottom: 0.75rem;
+      line-height: 1.7;
+    }
+    .blocks-grid blockquote { 
+      border-left: 5px solid var(--accent); 
+      padding: 1.5rem 2rem; 
+      margin: 2rem 0; 
+      background: linear-gradient(135deg, rgba(var(--accent), 0.03), transparent);
+      font-style: italic;
+      font-size: 1.25rem;
+      color: #4b5563;
+      border-radius: 0 12px 12px 0;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+    }
+    
+    /* Callout Boxes */
+    .callout {
+      padding: 1.5rem 2rem;
+      border-radius: 12px;
+      border-left: 5px solid;
+      margin: 1.5rem 0;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+    }
+    .callout-info {
+      background: linear-gradient(135deg, #eff6ff, #dbeafe);
+      border-color: #3b82f6;
+      color: #1e40af;
+    }
+    .callout-warning {
+      background: linear-gradient(135deg, #fffbeb, #fef3c7);
+      border-color: #f59e0b;
+      color: #92400e;
+    }
+    .callout-success {
+      background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+      border-color: #10b981;
+      color: #065f46;
+    }
+    
+    /* Two Column Layout */
+    .two-column {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3rem;
+      margin: 2rem 0;
+    }
+    .two-column .col {
+      line-height: 1.8;
+      color: #374151;
+    }
+    @media (max-width: 768px) {
+      .two-column { grid-template-columns: 1fr; gap: 1.5rem; }
+    }
+    
+    /* Image Blocks */
+    .image-block {
+      margin: 2rem 0;
+      text-align: center;
+    }
+    .image-block img {
+      max-width: 100%;
+      border-radius: 16px;
+      box-shadow: 0 20px 40px -12px rgba(0,0,0,0.2);
+      transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.5s ease;
+    }
+    .image-block:hover img {
+      transform: translateY(-8px) scale(1.02);
+      box-shadow: 0 30px 60px -15px rgba(0,0,0,0.3);
+    }
+    .image-block figcaption {
+      margin-top: 1rem;
+      font-size: 0.9375rem;
+      color: #6b7280;
+      font-style: italic;
+    }
+    
+    .spacer { height: 3rem; }
+    .section-divider { 
+      border: none; 
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      margin: 4rem 0;
+    }
     
     /* Sections */
     .section {
       margin-bottom: 5rem;
-      scroll-margin-top: 80px;
+      scroll-margin-top: 100px;
     }
     .section-header {
       display: flex;
       align-items: baseline;
-      gap: 1rem;
-      margin-bottom: 2rem;
-      padding-bottom: 1rem;
-      border-bottom: 1px solid #e5e7eb;
+      gap: 1.5rem;
+      margin-bottom: 2.5rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 2px solid #e5e7eb;
+      position: relative;
+    }
+    .section-header::after {
+      content: '';
+      position: absolute;
+      bottom: -2px;
+      left: 0;
+      width: 80px;
+      height: 2px;
+      background: var(--accent);
     }
     .section-number {
       font-family: var(--heading-font);
-      font-size: 0.875rem;
-      font-weight: 600;
+      font-size: 1rem;
+      font-weight: 700;
       color: var(--accent);
-      letter-spacing: 0.05em;
+      letter-spacing: 0.1em;
     }
     .section h2 {
       font-family: var(--heading-font);
-      font-size: 1.75rem;
+      font-size: 2rem;
       font-weight: 600;
       color: var(--primary);
     }
     .section-content {
-      font-size: 1.0625rem;
+      font-size: 1.125rem;
       color: #374151;
     }
-    .section-content p { margin-bottom: 1.25rem; }
+    .section-content p { margin-bottom: 1.5rem; }
     
-    /* Images */
+    /* Section Images with Premium Effects */
     .section-images {
       display: grid;
       gap: 2rem;
-      margin: 2rem 0;
+      margin: 3rem 0;
     }
     .section-image {
       background: white;
-      border-radius: 8px;
+      border-radius: 16px;
       overflow: hidden;
-      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+      box-shadow: 0 10px 40px -10px rgba(0,0,0,0.15);
+      transition: transform 0.4s ease, box-shadow 0.4s ease;
+    }
+    .section-image:hover {
+      transform: translateY(-8px);
+      box-shadow: 0 20px 50px -15px rgba(0,0,0,0.25);
     }
     .section-image img {
       width: 100%;
       height: auto;
       display: block;
+      transition: transform 0.6s ease;
+    }
+    .section-image:hover img {
+      transform: scale(1.03);
     }
     .section-image figcaption {
-      padding: 1rem;
-      font-size: 0.875rem;
+      padding: 1.25rem 1.5rem;
+      font-size: 0.9375rem;
       color: #6b7280;
       text-align: center;
-      background: #f9fafb;
+      background: linear-gradient(to bottom, #f9fafb, white);
       border-top: 1px solid #e5e7eb;
     }
     
     /* Footer */
     footer {
-      background: var(--primary);
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
       color: white;
-      padding: 3rem 2rem;
+      padding: 4rem 2rem;
       text-align: center;
+      position: relative;
+      overflow: hidden;
     }
-    footer p { opacity: 0.8; font-size: 0.875rem; }
-    
-    .block-h1 { font-family: var(--heading-font); font-size: 2rem; font-weight: 600; color: var(--primary); margin: 2rem 0 1rem; padding-bottom: 0.5rem; border-bottom: 3px solid var(--accent); }
-    .block-h2 { font-family: var(--heading-font); font-size: 1.5rem; font-weight: 500; color: var(--secondary); margin: 1.5rem 0 0.75rem; }
-    .blocks-content { padding: 3rem; max-width: 900px; margin: 0 auto; }
-    .blocks-content ul, .blocks-content ol { margin: 1rem 0; padding-left: 2rem; }
-    .blocks-content li { margin-bottom: 0.5rem; }
-    .blocks-content blockquote { border-left: 4px solid var(--accent); padding: 1rem 1.5rem; margin: 1.5rem 0; background: #f9fafb; font-style: italic; }
-    .blocks-content figure { margin: 2rem 0; text-align: center; }
-    .blocks-content figure img { max-width: 100%; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-    .blocks-content figcaption { margin-top: 0.75rem; font-size: 0.875rem; color: #6b7280; }
-    .section-divider { border: none; border-top: 2px solid #e5e7eb; margin: 3rem 0; }
+    footer::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+      background: var(--accent);
+    }
+    footer p { opacity: 0.9; font-size: 0.9375rem; letter-spacing: 0.05em; }
     
     /* Print Styles */
     @media print {
-      nav, .cover::before { display: none; }
-      .cover { min-height: auto; padding: 2rem; page-break-after: always; }
+      nav, .cover::before, .cover::after, .scroll-indicator { display: none; }
+      .cover { min-height: auto; padding: 2rem; page-break-after: always; animation: none; }
       .section { page-break-inside: avoid; }
+      .animate-item, .animate-section, .animate-image { animation: none; opacity: 1; }
     }
     
     /* Responsive */
     @media (max-width: 768px) {
-      .cover { padding: 2rem; }
-      .cover h1 { font-size: 2rem; }
-      main, .blocks-content { padding: 2rem 1rem; }
+      .cover { padding: 3rem 1.5rem; }
+      .cover h1 { font-size: 2.5rem; }
+      main { padding: 3rem 1.25rem; }
+      .blocks-grid { gap: 1.5rem; }
     }
   </style>
 </head>
 <body>
   <section class="cover">
-    ${branding.primaryLogo ? `<img src="${branding.primaryLogo}" alt="Logo" class="cover-logo">` : ""}
-    <h1>${project?.name || "Strategic Report"}</h1>
-    <div class="cover-meta">
-      <span>Prepared for ${client?.name || "Client"}</span>
-      <span class="cover-date">${new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}</span>
+    <div class="cover-content">
+      ${branding.primaryLogo ? `<img src="${branding.primaryLogo}" alt="Logo" class="cover-logo">` : ""}
+      <h1>${project?.name || "Strategic Report"}</h1>
+      <div class="cover-meta">
+        <span>Prepared for ${client?.name || "Client"}</span>
+        <span class="cover-date">${new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}</span>
+      </div>
     </div>
+    <div class="scroll-indicator"></div>
   </section>
   
   ${editorMode === "sections" && sections.length > 0 ? `
@@ -852,6 +1131,39 @@ export default function ProjectOutputs() {
   <footer>
     <p>Confidential • ${new Date().getFullYear()}</p>
   </footer>
+  
+  <script>
+    // Intersection Observer for scroll animations
+    const observerOptions = { threshold: 0.1, rootMargin: '0px 0px -50px 0px' };
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.style.animationPlayState = 'running';
+          observer.unobserve(entry.target);
+        }
+      });
+    }, observerOptions);
+    
+    document.querySelectorAll('.animate-item, .animate-section, .animate-image').forEach(el => {
+      el.style.animationPlayState = 'paused';
+      observer.observe(el);
+    });
+    
+    // Smooth nav highlighting
+    const sections = document.querySelectorAll('.section');
+    const navLinks = document.querySelectorAll('nav a');
+    window.addEventListener('scroll', () => {
+      let current = '';
+      sections.forEach(section => {
+        const sectionTop = section.offsetTop - 150;
+        if (scrollY >= sectionTop) current = section.id;
+      });
+      navLinks.forEach(link => {
+        link.classList.remove('active');
+        if (link.getAttribute('href') === '#' + current) link.classList.add('active');
+      });
+    });
+  </script>
 </body>
 </html>`;
 
@@ -865,7 +1177,7 @@ export default function ProjectOutputs() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 
-    toast({ title: "HTML exported", description: "Open in any browser to view." });
+    toast({ title: "Premium HTML exported", description: "Open in any browser to view with animations." });
   };
 
   if (loading) {
@@ -1303,7 +1615,7 @@ export default function ProjectOutputs() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <BlockEditor
+                  <GridBlockEditor
                     blocks={blocks}
                     onBlocksChange={setBlocks}
                     images={images.map((img) => ({ id: img.id, src: img.src, caption: img.caption }))}
