@@ -105,14 +105,21 @@ serve(async (req) => {
       ? `\n\nStyle/Tone Guidelines: ${branding.styleGuideNotes}`
       : "";
 
-    const systemPrompt = `You are an expert consulting report writer. Generate a comprehensive, professional consulting deliverable report. 
+    const systemPrompt = `You are an expert consulting report writer for a top-tier strategy firm like McKinsey, BCG, or Bain. Generate a comprehensive, professional consulting deliverable report.
 
-The report should be structured with clear sections that flow logically. Use professional consulting language while remaining accessible. 
+CRITICAL FORMATTING RULES:
+- DO NOT use any markdown formatting like **bold**, *italics*, or ## headings
+- Write in clean, plain prose suitable for a professional white paper
+- Use proper sentence structure and paragraphs, not bullet points or lists
+- Write complete, flowing sentences that read elegantly
+- Avoid jargon overload - be precise but accessible
+
+The report should be structured with clear sections that flow logically. Use sophisticated consulting language while remaining accessible.
 
 The output must be a JSON object with a "sections" array, where each section has:
-- "title": Section heading
+- "title": Section heading (plain text, no markdown)
 - "type": One of "executive-summary", "methodology", "step-content", "tool-output", "recommendations", "appendix"
-- "content": The full text content for that section
+- "content": The full text content for that section (plain prose, no markdown formatting)
 
 Create the following sections:
 1. Executive Summary - High-level overview of the engagement, key findings, and critical recommendations
