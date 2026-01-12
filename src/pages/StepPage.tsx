@@ -9,11 +9,10 @@ import {
   CheckCircle2,
   PlayCircle,
   Circle,
-  Settings,
   Eye,
   PanelLeftClose,
   PanelLeft,
-  GripVertical
+  Plus
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -31,7 +30,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { BlockRenderer } from "@/components/project/blocks/BlockRenderer";
+import { GridBlockLayout } from "@/components/project/blocks/GridBlockLayout";
 import { 
   StepBlock, 
   StepLayout, 
@@ -53,8 +52,27 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { Trash2, Plus } from "lucide-react";
+import { Trash2 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import {
+  Type,
+  FileText,
+  Minus,
+  Wrench,
+  ListChecks,
+  FileInput,
+  BarChart3,
+  Bot,
+  StickyNote,
+  Image as ImageIcon,
+  Video,
+} from "lucide-react";
 
 interface Deliverable {
   id: string;
@@ -239,46 +257,17 @@ export default function StepPage() {
     });
   }, [layout.blocks]);
 
-  const handleDragStart = useCallback((blockId: string) => {
-    setDraggedBlockId(blockId);
+  const handleBlocksChange = useCallback((newBlocks: StepBlock[]) => {
+    setLayout(prev => ({ ...prev, blocks: newBlocks }));
   }, []);
 
-  const handleDragEnd = useCallback(() => {
-    setDraggedBlockId(null);
-    setDragOverBlockId(null);
-  }, []);
-
-  const handleDragOver = useCallback((e: React.DragEvent, blockId: string) => {
-    e.preventDefault();
-    if (draggedBlockId && draggedBlockId !== blockId) {
-      setDragOverBlockId(blockId);
-    }
-  }, [draggedBlockId]);
-
-  const handleDrop = useCallback((e: React.DragEvent, targetBlockId: string) => {
-    e.preventDefault();
-    if (!draggedBlockId || draggedBlockId === targetBlockId) return;
-
-    setLayout(prev => {
-      const blocks = [...prev.blocks];
-      const draggedIndex = blocks.findIndex(b => b.id === draggedBlockId);
-      const targetIndex = blocks.findIndex(b => b.id === targetBlockId);
-      
-      if (draggedIndex === -1 || targetIndex === -1) return prev;
-      
-      // Remove dragged block and insert at target position
-      const [draggedBlock] = blocks.splice(draggedIndex, 1);
-      blocks.splice(targetIndex, 0, draggedBlock);
-      
-      // Update order indices
-      blocks.forEach((b, i) => b.order = i);
-      
-      return { ...prev, blocks };
-    });
-
-    setDraggedBlockId(null);
-    setDragOverBlockId(null);
-  }, [draggedBlockId]);
+  const handleAddNewBlock = useCallback((type: StepBlock['type']) => {
+    const newBlock = createNewBlock(type, layout.blocks.length);
+    setLayout(prev => ({
+      ...prev,
+      blocks: [...prev.blocks, newBlock]
+    }));
+  }, [layout.blocks.length]);
 
   const createNewBlock = (type: StepBlock['type'], order: number): StepBlock => {
     const id = `${type}-${Date.now()}`;
@@ -600,164 +589,107 @@ export default function StepPage() {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8 max-w-4xl">
-        <div className="space-y-6">
-          {/* Render Layout Blocks */}
-          {layout.blocks
-            .sort((a, b) => a.order - b.order)
-            .map((block) => {
-              // Render special blocks with actual data
-              if (block.type === 'deliverables') {
-                return (
-                  <Card key={block.id}>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-base flex items-center justify-between">
-                        <span>Deliverables</span>
-                        {deliverables.length > 0 && (
-                          <Badge variant="secondary">
-                            {completedDeliverables}/{deliverables.length}
-                          </Badge>
-                        )}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      {/* Progress */}
-                      {deliverables.length > 0 && (
-                        <div className="mb-4">
-                          <Progress 
-                            value={(completedDeliverables / deliverables.length) * 100} 
-                            className="h-2"
-                          />
-                        </div>
-                      )}
+      <main className="container mx-auto px-4 py-8 max-w-5xl">
+        {/* Add Block Button */}
+        {isEditing && (
+          <div className="mb-6 flex justify-end">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Block
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={() => handleAddNewBlock('heading')}>
+                  <Type className="h-4 w-4 mr-2" /> Heading
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleAddNewBlock('text')}>
+                  <FileText className="h-4 w-4 mr-2" /> Text
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleAddNewBlock('divider')}>
+                  <Minus className="h-4 w-4 mr-2" /> Divider
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleAddNewBlock('tool')}>
+                  <Wrench className="h-4 w-4 mr-2" /> Tool Canvas
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => handleAddNewBlock('checklist')}>
+                  <ListChecks className="h-4 w-4 mr-2" /> Checklist
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleAddNewBlock('form')}>
+                  <FileInput className="h-4 w-4 mr-2" /> Form
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleAddNewBlock('poll')}>
+                  <BarChart3 className="h-4 w-4 mr-2" /> Poll
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleAddNewBlock('ai-chat')}>
+                  <Bot className="h-4 w-4 mr-2" /> AI Assistant
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => handleAddNewBlock('deliverables')}>
+                  <ListChecks className="h-4 w-4 mr-2" /> Deliverables
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleAddNewBlock('notes')}>
+                  <StickyNote className="h-4 w-4 mr-2" /> Notes
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
 
-                      {/* List */}
-                      {deliverables.map((d) => (
-                        <div 
-                          key={d.id}
-                          className={cn(
-                            "flex items-center gap-3 p-3 rounded-lg border transition-all",
-                            d.completed 
-                              ? "bg-success/5 border-success/20" 
-                              : "bg-muted/20 border-border"
-                          )}
-                        >
-                          <Checkbox
-                            checked={d.completed}
-                            onCheckedChange={() => handleToggleDeliverable(d.id)}
-                          />
-                          <span className={cn(
-                            "flex-1",
-                            d.completed && "line-through text-muted-foreground"
-                          )}>
-                            {d.text}
-                          </span>
-                          {isEditing && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => setDeliverables(deliverables.filter(x => x.id !== d.id))}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                      ))}
-
-                      {/* Add new */}
-                      <div className="flex gap-2">
-                        <Input
-                          value={newDeliverable}
-                          onChange={(e) => setNewDeliverable(e.target.value)}
-                          placeholder="Add deliverable..."
-                          onKeyPress={(e) => e.key === 'Enter' && handleAddDeliverable()}
-                        />
-                        <Button onClick={handleAddDeliverable} disabled={!newDeliverable.trim()}>
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              }
-
-              if (block.type === 'notes') {
-                return (
-                  <Card key={block.id}>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-base">Notes</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <Textarea
-                        value={notes}
-                        onChange={(e) => setNotes(e.target.value)}
-                        placeholder="Working notes, observations, questions..."
-                        className="min-h-[150px]"
-                      />
-                    </CardContent>
-                  </Card>
-                );
-              }
-
-              if (block.type === 'ai-chat') {
-                return (
-                  <Card key={block.id} className="border-primary/20">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-base flex items-center gap-2">
-                        <span>AI Assistant</span>
-                        <Badge variant="secondary" className="text-xs">Context-Aware</Badge>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-0">
-                      <div className="h-[400px]">
-                        <StepAIChat
-                          stepTitle={task.title}
-                          projectName={project.name}
-                          clientName={client?.name}
-                          tools={task.tool_link?.split(", ").filter(Boolean) || []}
-                          description={description}
-                          notes={notes}
-                          deliverables={deliverables}
-                          allSteps={allTasks.map(t => ({ 
-                            title: t.title, 
-                            status: t.status, 
-                            order_index: t.order_index 
-                          }))}
-                          currentStepIndex={currentIndex}
-                        />
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              }
-
-              // Render other blocks via BlockRenderer
-              return (
-                <BlockRenderer
-                  key={block.id}
-                  block={block}
-                  isEditing={isEditing}
-                  onUpdate={handleUpdateBlock}
-                  onDelete={handleDeleteBlock}
-                  onAddBlock={handleAddBlock}
-                  onOpenTool={handleOpenTool}
-                  projectId={projectId}
-                  stepId={stepId}
-                  isDragging={draggedBlockId === block.id}
-                  dragHandleProps={{
-                    onDragStart: (e) => {
-                      e.dataTransfer.effectAllowed = 'move';
-                      handleDragStart(block.id);
-                    },
-                    onDragEnd: handleDragEnd
-                  }}
-                  onDragOver={(e) => handleDragOver(e, block.id)}
-                  onDrop={(e) => handleDrop(e, block.id)}
-                />
-              );
-            })}
-        </div>
+        {/* Grid Block Layout */}
+        <GridBlockLayout
+          blocks={layout.blocks}
+          isEditing={isEditing}
+          onBlocksChange={handleBlocksChange}
+          onBlockUpdate={handleUpdateBlock}
+          onBlockDelete={handleDeleteBlock}
+          onAddBlock={handleAddBlock}
+          onOpenTool={handleOpenTool}
+          projectId={projectId}
+          stepId={stepId}
+          renderDeliverables={() => (
+            <Card className="h-full">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center justify-between">
+                  <span>Deliverables</span>
+                  {deliverables.length > 0 && (
+                    <Badge variant="secondary">{completedDeliverables}/{deliverables.length}</Badge>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {deliverables.map((d) => (
+                  <div key={d.id} className={cn("flex items-center gap-2 p-2 rounded border", d.completed ? "bg-success/5" : "bg-muted/20")}>
+                    <Checkbox checked={d.completed} onCheckedChange={() => handleToggleDeliverable(d.id)} />
+                    <span className={cn("flex-1 text-sm", d.completed && "line-through text-muted-foreground")}>{d.text}</span>
+                  </div>
+                ))}
+                <div className="flex gap-2 mt-2">
+                  <Input value={newDeliverable} onChange={(e) => setNewDeliverable(e.target.value)} placeholder="Add..." onKeyPress={(e) => e.key === 'Enter' && handleAddDeliverable()} className="h-8 text-sm" />
+                  <Button size="sm" onClick={handleAddDeliverable} disabled={!newDeliverable.trim()}><Plus className="h-3 w-3" /></Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          renderNotes={() => (
+            <Card className="h-full">
+              <CardHeader className="pb-3"><CardTitle className="text-base">Notes</CardTitle></CardHeader>
+              <CardContent><Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Working notes..." className="min-h-[100px]" /></CardContent>
+            </Card>
+          )}
+          renderAIChat={() => (
+            <Card className="h-full border-primary/20">
+              <CardHeader className="pb-3"><CardTitle className="text-base flex items-center gap-2"><span>AI Assistant</span><Badge variant="secondary" className="text-xs">Context-Aware</Badge></CardTitle></CardHeader>
+              <CardContent className="p-0">
+                <div className="h-[300px]">
+                  <StepAIChat stepTitle={task.title} projectName={project.name} clientName={client?.name} tools={task.tool_link?.split(", ").filter(Boolean) || []} description={description} notes={notes} deliverables={deliverables} allSteps={allTasks.map(t => ({ title: t.title, status: t.status, order_index: t.order_index }))} currentStepIndex={currentIndex} />
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        />
       </main>
       </div>
         </ResizablePanel>
