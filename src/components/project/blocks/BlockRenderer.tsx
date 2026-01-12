@@ -344,13 +344,13 @@ function ToolBlockRenderer({
             <div className="flex-1">
               <Label className="text-xs text-muted-foreground">Select Tool</Label>
               <Select 
-                value={block.toolName} 
+                value={block.toolName || undefined}
                 onValueChange={(value) => onUpdate({ ...block, toolName: value })}
               >
                 <SelectTrigger className="mt-1">
                   <SelectValue placeholder="Choose a tool..." />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[100]">
                   {tools.map((tool) => (
                     <SelectItem key={tool.id} value={tool.name}>
                       <span className="flex items-center gap-2">
@@ -373,7 +373,7 @@ function ToolBlockRenderer({
               />
               <Label htmlFor="embedded" className="text-sm">Embed inline</Label>
             </div>
-            {!isSupported && block.toolName !== "Select Tool" && (
+            {!isSupported && block.toolName && (
               <Badge variant="secondary" className="text-xs">Opens in new page</Badge>
             )}
           </div>
@@ -405,9 +405,9 @@ function ToolBlockRenderer({
               <Wrench className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <p className="font-medium">{block.toolName}</p>
+              <p className="font-medium">{block.toolName || "No tool selected"}</p>
               <p className="text-sm text-muted-foreground">
-                {isSupported ? "Click to open canvas" : "Tool not available for embedding"}
+                {!block.toolName ? "Edit to select a tool" : isSupported ? "Click to open canvas" : "Tool not available for embedding"}
               </p>
             </div>
           </div>
