@@ -12,7 +12,8 @@ import {
   Settings,
   Eye,
   PanelLeftClose,
-  PanelLeft
+  PanelLeft,
+  GripVertical
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +23,11 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  ResizablePanelGroup,
+  ResizablePanel,
+  ResizableHandle,
+} from "@/components/ui/resizable";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -421,23 +427,35 @@ export default function StepPage() {
   const completedDeliverables = deliverables.filter(d => d.completed).length;
 
   return (
-    <div className="min-h-screen bg-background flex">
-      {/* Step Preview Panel */}
-      {showPreviewPanel && (
-        <StepPreviewPanel
-          tasks={allTasks}
-          currentStepId={stepId || ""}
-          projectId={projectId || ""}
-          onNavigate={(id) => navigate(`/projects/${projectId}/steps/${id}`)}
-          onPrev={() => handleNavigate("prev")}
-          onNext={() => handleNavigate("next")}
-          canGoPrev={currentIndex > 0}
-          canGoNext={currentIndex < totalSteps - 1}
-        />
-      )}
+    <div className="min-h-screen bg-background">
+      <ResizablePanelGroup direction="horizontal" className="min-h-screen">
+        {/* Step Preview Panel - Resizable */}
+        {showPreviewPanel && (
+          <>
+            <ResizablePanel 
+              defaultSize={18} 
+              minSize={12} 
+              maxSize={35}
+              className="border-r border-border"
+            >
+              <StepPreviewPanel
+                tasks={allTasks}
+                currentStepId={stepId || ""}
+                projectId={projectId || ""}
+                onNavigate={(id) => navigate(`/projects/${projectId}/steps/${id}`)}
+                onPrev={() => handleNavigate("prev")}
+                onNext={() => handleNavigate("next")}
+                canGoPrev={currentIndex > 0}
+                canGoNext={currentIndex < totalSteps - 1}
+              />
+            </ResizablePanel>
+            <ResizableHandle withHandle className="bg-border hover:bg-primary/20 transition-colors" />
+          </>
+        )}
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+        {/* Main Content Area */}
+        <ResizablePanel defaultSize={showPreviewPanel ? 82 : 100} minSize={50}>
+        <div className="flex-1 flex flex-col min-w-0 h-screen overflow-auto">
       {/* Fixed Header */}
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
         <div className="px-4 py-3">
@@ -739,6 +757,8 @@ export default function StepPage() {
         </div>
       </main>
       </div>
+        </ResizablePanel>
+      </ResizablePanelGroup>
     </div>
   );
 }

@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { CheckCircle2, PlayCircle, Circle, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { StepLayout, StepBlock } from "@/components/project/blocks/BlockTypes";
 
@@ -39,50 +38,50 @@ export function StepPreviewPanel({
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "completed":
-        return <CheckCircle2 className="h-3 w-3 text-success" />;
+        return <CheckCircle2 className="h-3 w-3 text-success flex-shrink-0" />;
       case "in_progress":
-        return <PlayCircle className="h-3 w-3 text-warning" />;
+        return <PlayCircle className="h-3 w-3 text-warning flex-shrink-0" />;
       default:
-        return <Circle className="h-3 w-3 text-muted-foreground" />;
+        return <Circle className="h-3 w-3 text-muted-foreground flex-shrink-0" />;
     }
   };
 
   const getBlockPreview = (block: StepBlock) => {
     switch (block.type) {
       case "heading":
-        return <div className="h-1.5 bg-foreground/60 rounded w-3/4" />;
+        return <div className="h-2 bg-foreground/60 rounded w-3/4" />;
       case "text":
         return (
-          <div className="space-y-0.5">
-            <div className="h-1 bg-muted-foreground/30 rounded w-full" />
-            <div className="h-1 bg-muted-foreground/30 rounded w-4/5" />
+          <div className="space-y-1">
+            <div className="h-1.5 bg-muted-foreground/30 rounded w-full" />
+            <div className="h-1.5 bg-muted-foreground/30 rounded w-4/5" />
           </div>
         );
       case "tool":
-        return <div className="h-6 bg-primary/20 rounded border border-primary/30" />;
+        return <div className="h-8 bg-primary/20 rounded border border-primary/30" />;
       case "checklist":
         return (
-          <div className="space-y-0.5">
-            <div className="flex items-center gap-1">
-              <div className="h-1.5 w-1.5 border border-muted-foreground/50 rounded-sm" />
-              <div className="h-1 bg-muted-foreground/30 rounded flex-1" />
+          <div className="space-y-1">
+            <div className="flex items-center gap-1.5">
+              <div className="h-2 w-2 border border-muted-foreground/50 rounded-sm flex-shrink-0" />
+              <div className="h-1.5 bg-muted-foreground/30 rounded flex-1" />
             </div>
-            <div className="flex items-center gap-1">
-              <div className="h-1.5 w-1.5 bg-success/50 rounded-sm" />
-              <div className="h-1 bg-muted-foreground/30 rounded flex-1" />
+            <div className="flex items-center gap-1.5">
+              <div className="h-2 w-2 bg-success/50 rounded-sm flex-shrink-0" />
+              <div className="h-1.5 bg-muted-foreground/30 rounded flex-1" />
             </div>
           </div>
         );
       case "deliverables":
-        return <div className="h-4 bg-success/10 rounded border border-success/20" />;
+        return <div className="h-6 bg-success/10 rounded border border-success/20" />;
       case "ai-chat":
-        return <div className="h-4 bg-primary/10 rounded border border-primary/20" />;
+        return <div className="h-6 bg-primary/10 rounded border border-primary/20" />;
       case "notes":
-        return <div className="h-3 bg-muted/50 rounded border border-border" />;
+        return <div className="h-5 bg-muted/50 rounded border border-border" />;
       case "divider":
-        return <div className="h-px bg-border my-1" />;
+        return <div className="h-px bg-border my-1.5" />;
       default:
-        return <div className="h-2 bg-muted rounded" />;
+        return <div className="h-3 bg-muted rounded" />;
     }
   };
 
@@ -94,18 +93,18 @@ export function StepPreviewPanel({
     const previewBlocks = blocks.slice(0, 5);
 
     return (
-      <div className="p-2 space-y-1">
+      <div className="p-3 space-y-1.5">
         {previewBlocks.length > 0 ? (
           previewBlocks.map((block, i) => (
             <div key={i}>{getBlockPreview(block)}</div>
           ))
         ) : (
-          <div className="text-[8px] text-muted-foreground text-center py-2">
+          <div className="text-xs text-muted-foreground text-center py-4">
             No layout
           </div>
         )}
         {blocks.length > 5 && (
-          <div className="text-[8px] text-muted-foreground text-center">
+          <div className="text-xs text-muted-foreground text-center pt-1">
             +{blocks.length - 5} more
           </div>
         )}
@@ -114,35 +113,35 @@ export function StepPreviewPanel({
   };
 
   return (
-    <div className="w-48 flex flex-col border-r border-border bg-muted/30">
+    <div className="h-full flex flex-col bg-muted/30">
       {/* Header */}
-      <div className="p-3 border-b border-border flex items-center justify-between">
-        <span className="text-xs font-medium">Steps</span>
+      <div className="p-3 border-b border-border flex items-center justify-between flex-shrink-0">
+        <span className="text-sm font-medium">Steps</span>
         <div className="flex gap-1">
           <Button
             variant="ghost"
             size="icon"
-            className="h-6 w-6"
+            className="h-7 w-7"
             onClick={onPrev}
             disabled={!canGoPrev}
           >
-            <ChevronLeft className="h-3 w-3" />
+            <ChevronLeft className="h-4 w-4" />
           </Button>
           <Button
             variant="ghost"
             size="icon"
-            className="h-6 w-6"
+            className="h-7 w-7"
             onClick={onNext}
             disabled={!canGoNext}
           >
-            <ChevronRight className="h-3 w-3" />
+            <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
       {/* Step List */}
       <ScrollArea className="flex-1">
-        <div className="p-2 pt-4 space-y-3">
+        <div className="p-3 pt-5 space-y-4">
           {tasks.map((task, index) => {
             const isCurrent = task.id === currentStepId;
             
@@ -160,7 +159,7 @@ export function StepPreviewPanel({
                 {/* Step Number Badge - positioned absolutely */}
                 <div
                   className={cn(
-                    "absolute -top-2 -left-1 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold z-10",
+                    "absolute -top-2.5 -left-1.5 flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold z-10 shadow-sm",
                     isCurrent
                       ? "bg-primary text-primary-foreground"
                       : task.status === "completed"
@@ -174,9 +173,9 @@ export function StepPreviewPanel({
                 </div>
 
                 {/* Step Header */}
-                <div className="flex items-center gap-2 p-2 pt-3 border-b border-border/50">
+                <div className="flex items-center gap-2 p-3 pt-4 border-b border-border/50">
                   <span className={cn(
-                    "text-xs truncate flex-1",
+                    "text-sm truncate flex-1",
                     isCurrent && "font-medium"
                   )}>
                     {task.title}
@@ -184,8 +183,8 @@ export function StepPreviewPanel({
                   {getStatusIcon(task.status)}
                 </div>
 
-                {/* Mini Preview */}
-                <div className="min-h-[60px] bg-background/50">
+                {/* Mini Preview - scales with panel width */}
+                <div className="min-h-[80px] bg-background/50">
                   {renderMiniPreview(task)}
                 </div>
               </button>
