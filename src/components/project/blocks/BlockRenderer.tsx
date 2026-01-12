@@ -72,6 +72,10 @@ export function BlockRenderer({
   onDrop
 }: BlockRendererProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  // Keep hover state active while dropdown is open
+  const showControls = isHovered || isDropdownOpen;
 
   const renderBlock = () => {
     switch (block.type) {
@@ -130,7 +134,7 @@ export function BlockRenderer({
       onDragOver={onDragOver}
       onDrop={onDrop}
     >
-      {isEditing && isHovered && (
+      {isEditing && showControls && (
         <div className="absolute -left-10 top-0 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
           <div 
             className="cursor-grab active:cursor-grabbing p-1 rounded hover:bg-muted"
@@ -153,21 +157,21 @@ export function BlockRenderer({
       
       <div className={cn(
         "transition-all",
-        isEditing && isHovered && "ring-2 ring-primary/20 rounded-lg"
+        isEditing && showControls && "ring-2 ring-primary/20 rounded-lg"
       )}>
         {renderBlock()}
       </div>
 
-      {isEditing && isHovered && (
-        <div className="flex justify-center my-2 opacity-0 group-hover:opacity-100 transition-opacity">
-          <DropdownMenu>
+      {isEditing && showControls && (
+        <div className="flex justify-center my-2">
+          <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="h-6 gap-1 text-xs">
                 <Plus className="h-3 w-3" />
                 Add block
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="center" className="w-48">
+            <DropdownMenuContent align="center" className="w-48 z-50">
               <DropdownMenuItem className="text-xs font-medium text-muted-foreground" disabled>
                 Content
               </DropdownMenuItem>
