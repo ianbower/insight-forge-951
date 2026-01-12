@@ -132,9 +132,8 @@ export default function StepPage() {
     return saved ? parseFloat(saved) : 18;
   });
   
-  // Drag and drop state
-  const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null);
-  const [dragOverBlockId, setDragOverBlockId] = useState<string | null>(null);
+  // Tool data state - stores content from all tools used in this step
+  const [toolDataContent, setToolDataContent] = useState<Record<string, { toolName: string; data: any }>>({});
 
   const currentIndex = allTasks.findIndex(t => t.id === stepId);
   const totalSteps = allTasks.length;
@@ -219,6 +218,26 @@ export default function StepPage() {
           setLayout(defaultLayout);
         }
 
+        // Fetch tool data for this step to provide context to AI
+        const { data: toolDataRecords } = await supabase
+          .from("tool_data")
+          .select("tool_id, content_json, consulting_tools(name)")
+          .eq("project_id", projectId)
+          .eq("step_id", stepId);
+
+        if (toolDataRecords && toolDataRecords.length > 0) {
+          const toolContent: Record<string, { toolName: string; data: any }> = {};
+          toolDataRecords.forEach((record: any) => {
+            if (record.content_json && record.consulting_tools?.name) {
+              toolContent[record.tool_id] = {
+                toolName: record.consulting_tools.name,
+                data: record.content_json
+              };
+            }
+          });
+          setToolDataContent(toolContent);
+        }
+
       } catch (error) {
         console.error("Error fetching data:", error);
         toast({ title: "Error loading step", variant: "destructive" });
@@ -268,6 +287,30 @@ export default function StepPage() {
       blocks: [...prev.blocks, newBlock]
     }));
   }, [layout.blocks.length]);
+
+  // Refresh tool data from database (called when tools save)
+  const refreshToolData = useCallback(async () => {
+    if (!projectId || !stepId) return;
+    
+    const { data: toolDataRecords } = await supabase
+      .from("tool_data")
+      .select("tool_id, content_json, consulting_tools(name)")
+      .eq("project_id", projectId)
+      .eq("step_id", stepId);
+
+    if (toolDataRecords && toolDataRecords.length > 0) {
+      const toolContent: Record<string, { toolName: string; data: any }> = {};
+      toolDataRecords.forEach((record: any) => {
+        if (record.content_json && record.consulting_tools?.name) {
+          toolContent[record.tool_id] = {
+            toolName: record.consulting_tools.name,
+            data: record.content_json
+          };
+        }
+      });
+      setToolDataContent(toolContent);
+    }
+  }, [projectId, stepId]);
 
   const createNewBlock = (type: StepBlock['type'], order: number): StepBlock => {
     const id = `${type}-${Date.now()}`;
@@ -684,7 +727,18 @@ export default function StepPage() {
               <CardHeader className="pb-3"><CardTitle className="text-base flex items-center gap-2"><span>AI Assistant</span><Badge variant="secondary" className="text-xs">Context-Aware</Badge></CardTitle></CardHeader>
               <CardContent className="p-0">
                 <div className="h-[300px]">
-                  <StepAIChat stepTitle={task.title} projectName={project.name} clientName={client?.name} tools={task.tool_link?.split(", ").filter(Boolean) || []} description={description} notes={notes} deliverables={deliverables} allSteps={allTasks.map(t => ({ title: t.title, status: t.status, order_index: t.order_index }))} currentStepIndex={currentIndex} />
+                  <StepAIChat 
+                    stepTitle={task.title} 
+                    projectName={project.name} 
+                    clientName={client?.name} 
+                    tools={task.tool_link?.split(", ").filter(Boolean) || []} 
+                    description={description} 
+                    notes={notes} 
+                    deliverables={deliverables} 
+                    allSteps={allTasks.map(t => ({ title: t.title, status: t.status, order_index: t.order_index }))} 
+                    currentStepIndex={currentIndex}
+                    toolDataContent={toolDataContent}
+                  />
                 </div>
               </CardContent>
             </Card>
