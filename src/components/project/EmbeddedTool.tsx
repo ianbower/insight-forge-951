@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { ExternalLink, Loader2 } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { ExternalLink, Loader2, Check, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +37,8 @@ export function EmbeddedTool({
   const [loading, setLoading] = useState(true);
   const [toolId, setToolId] = useState<string | null>(null);
   const [initialData, setInitialData] = useState<Json | null>(null);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const saveStatusTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     const fetchToolData = async () => {
@@ -74,8 +76,13 @@ export function EmbeddedTool({
     fetchToolData();
   }, [toolName, projectId, stepId]);
 
-  const handleSave = async (data: unknown, options?: SaveOptions) => {
+  const handleSave = useCallback(async (data: unknown, options?: SaveOptions) => {
     if (!toolId) return;
+
+    // Clear any existing timer
+    if (saveStatusTimerRef.current) window.clearTimeout(saveStatusTimerRef.current);
+    
+    setSaveStatus("saving");
 
     try {
       // Check if record exists
@@ -106,14 +113,19 @@ export function EmbeddedTool({
       // Notify other parts of the app (AI context, etc.)
       window.dispatchEvent(new CustomEvent('tool-data-saved', { detail: { projectId, stepId, toolId } }));
 
+      setSaveStatus("saved");
+      saveStatusTimerRef.current = window.setTimeout(() => setSaveStatus("idle"), 2000);
+
       if (!options?.silent) {
         toast({ title: "Saved", description: `${toolName} saved to this step` });
       }
     } catch (error) {
       console.error("Error saving tool data:", error);
+      setSaveStatus("error");
+      saveStatusTimerRef.current = window.setTimeout(() => setSaveStatus("idle"), 3000);
       toast({ title: "Error saving", variant: "destructive" });
     }
-  };
+  }, [toolId, projectId, stepId, toolName, toast]);
 
   const isCanvasTool = CANVAS_TOOLS.includes(toolName);
   const isRoadmapTool = ROADMAP_TOOLS.includes(toolName);
@@ -203,12 +215,42 @@ export function EmbeddedTool({
     return null;
   };
 
+  const renderSaveStatus = () => {
+    switch (saveStatus) {
+      case "saving":
+        return (
+          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            Saving...
+          </span>
+        );
+      case "saved":
+        return (
+          <span className="flex items-center gap-1 text-xs text-green-600">
+            <Check className="h-3 w-3" />
+            Saved
+          </span>
+        );
+      case "error":
+        return (
+          <span className="flex items-center gap-1 text-xs text-destructive">
+            <AlertCircle className="h-3 w-3" />
+            Error saving
+          </span>
+        );
+      default:
+        return (
+          <span className="text-xs text-muted-foreground">Auto-saves</span>
+        );
+    }
+  };
+
   return (
     <Card className="overflow-hidden">
       <CardHeader className="pb-2 flex flex-row items-center justify-between">
         <CardTitle className="text-base flex items-center gap-2">
           <Badge variant="secondary">{toolName}</Badge>
-          <span className="text-xs text-muted-foreground">Auto-saves to this step</span>
+          {renderSaveStatus()}
         </CardTitle>
         {onOpenExternal && (
           <Button variant="ghost" size="sm" onClick={onOpenExternal}>
