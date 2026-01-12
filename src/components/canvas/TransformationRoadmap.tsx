@@ -39,6 +39,27 @@ export function TransformationRoadmap({ projectId, toolId, initialData, onSave }
   const [saving, setSaving] = useState(false);
   const [editingItem, setEditingItem] = useState<string | null>(null);
   const autosaveTimerRef = useRef<number | null>(null);
+  const hasLoadedRef = useRef(false);
+
+  // Mark initial load complete
+  useEffect(() => {
+    hasLoadedRef.current = true;
+  }, []);
+
+  // Autosave (debounced)
+  useEffect(() => {
+    if (!onSave) return;
+    if (!hasLoadedRef.current) return;
+    if (autosaveTimerRef.current) window.clearTimeout(autosaveTimerRef.current);
+
+    autosaveTimerRef.current = window.setTimeout(() => {
+      onSave({ items, tracks }, { silent: true });
+    }, 800);
+
+    return () => {
+      if (autosaveTimerRef.current) window.clearTimeout(autosaveTimerRef.current);
+    };
+  }, [items, tracks, onSave]);
 
   const addItem = useCallback((track: string) => {
     const trackIndex = tracks.indexOf(track);
