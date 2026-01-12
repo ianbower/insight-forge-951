@@ -395,25 +395,40 @@ function ToolBlockRenderer({
     );
   }
 
-  // Otherwise show a link card
+  // Otherwise show a tool selector with dropdown
   return (
     <Card className="border-dashed hover:border-primary/50 transition-colors">
-      <CardContent className="pt-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-              <Wrench className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <p className="font-medium">{block.toolName || "No tool selected"}</p>
-              <p className="text-sm text-muted-foreground">
-                {!block.toolName ? "Edit to select a tool" : isSupported ? "Click to open canvas" : "Tool not available for embedding"}
-              </p>
-            </div>
-          </div>
-          <Button onClick={() => onOpenTool?.(block.toolName)}>
-            Open Canvas
-          </Button>
+      <CardContent className="py-4">
+        <div className="flex items-center gap-3">
+          <Select 
+            value={block.toolName || undefined}
+            onValueChange={(value) => {
+              onUpdate({ ...block, toolName: value });
+              // Auto-open the tool when selected
+              if (value) {
+                onOpenTool?.(value);
+              }
+            }}
+          >
+            <SelectTrigger className="w-[250px]">
+              <SelectValue placeholder="Select a tool..." />
+            </SelectTrigger>
+            <SelectContent className="z-[100]">
+              {tools.map((tool) => (
+                <SelectItem key={tool.id} value={tool.name}>
+                  <span className="flex items-center gap-2">
+                    <Wrench className="h-4 w-4" />
+                    {tool.name}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {block.toolName && (
+            <span className="text-sm text-muted-foreground">
+              {isSupported ? "Tool ready" : "Opens in new page"}
+            </span>
+          )}
         </div>
       </CardContent>
     </Card>
