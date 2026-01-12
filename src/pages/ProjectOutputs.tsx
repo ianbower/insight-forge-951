@@ -31,6 +31,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { ToolPreviewCapture } from "@/components/outputs/ToolPreviewCapture";
 import {
   Dialog,
   DialogContent,
@@ -977,62 +978,47 @@ export default function ProjectOutputs() {
 
           {/* Images Tab */}
           <TabsContent value="images" className="space-y-6">
-            <div className="grid gap-6 lg:grid-cols-2">
-              {/* Tool Screenshots */}
+            {/* Tool Screenshots with Live Previews */}
+            {availableTools.length > 0 && (
               <Card className="shadow-sm">
                 <CardHeader>
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
                     <LayoutGrid className="h-4 w-4 text-accent" />
-                    Available Tools
+                    Strategic Analysis Tools
                   </CardTitle>
-                  <CardDescription>Capture screenshots from your strategic analysis tools</CardDescription>
+                  <CardDescription>
+                    Preview your tool outputs and capture them for your report
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {availableTools.length > 0 ? (
-                    <div className="space-y-2">
-                      {availableTools.map((tool) => (
-                        <div
-                          key={tool.id}
-                          className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="h-8 w-8 rounded bg-accent/10 flex items-center justify-center">
-                              <LayoutGrid className="h-4 w-4 text-accent" />
-                            </div>
-                            <span className="font-medium text-sm">{tool.consulting_tools?.name}</span>
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              // Navigate to tool to capture, or add placeholder
-                              const toolImage: ReportImage = {
-                                id: `tool-${Date.now()}`,
-                                src: `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300"><rect fill="#f1f5f9" width="400" height="300"/><text x="50%" y="50%" fill="#94a3b8" font-family="system-ui" font-size="14" text-anchor="middle" dy=".3em">${tool.consulting_tools?.name}</text></svg>`)}`,
-                                caption: tool.consulting_tools?.name || "Tool Analysis",
-                                type: "tool",
-                                toolName: tool.consulting_tools?.name,
-                              };
-                              setImages((prev) => [...prev, toolImage]);
-                              toast({ title: "Tool added", description: "Visit the tool page to capture a live screenshot" });
-                            }}
-                            className="gap-1.5"
-                          >
-                            <Plus className="h-3 w-3" />
-                            Add
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <LayoutGrid className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                      <p className="text-sm">No tools used in this project yet</p>
-                    </div>
-                  )}
+                  <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                    {availableTools.map((tool) => (
+                      <ToolPreviewCapture
+                        key={tool.id}
+                        toolName={tool.consulting_tools?.name || "Unknown Tool"}
+                        toolData={tool.content_json}
+                        onCapture={(imageData) => {
+                          const newImage: ReportImage = {
+                            id: `tool-${Date.now()}`,
+                            src: imageData,
+                            caption: tool.consulting_tools?.name || "Tool Analysis",
+                            type: "tool",
+                            toolName: tool.consulting_tools?.name,
+                          };
+                          setImages((prev) => [...prev, newImage]);
+                          toast({
+                            title: "Screenshot captured",
+                            description: `${tool.consulting_tools?.name} added to your image library`,
+                          });
+                        }}
+                      />
+                    ))}
+                  </div>
                 </CardContent>
               </Card>
+            )}
 
+            <div className="grid gap-6 lg:grid-cols-2">
               {/* Custom Images Upload */}
               <Card className="shadow-sm">
                 <CardHeader>
