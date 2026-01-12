@@ -758,6 +758,8 @@ export default function StepPage() {
                   onDelete={handleDeleteBlock}
                   onAddBlock={handleAddBlock}
                   onOpenTool={handleOpenTool}
+                  projectId={projectId}
+                  stepId={stepId}
                   isDragging={draggedBlockId === block.id}
                   dragHandleProps={{
                     onDragStart: (e) => {

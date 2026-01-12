@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   GripVertical, 
   Trash2, 
@@ -15,7 +15,8 @@ import {
   FileText,
   StickyNote,
   Check,
-  X
+  X,
+  ChevronDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +24,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,7 +33,15 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 import { 
   StepBlock, 
   HeadingBlock, 
@@ -41,6 +52,7 @@ import {
   ToolBlock,
   FormBlock
 } from "./BlockTypes";
+import { EmbeddedTool } from "@/components/project/EmbeddedTool";
 
 interface BlockRendererProps {
   block: StepBlock;
@@ -49,6 +61,8 @@ interface BlockRendererProps {
   onDelete: (blockId: string) => void;
   onAddBlock: (afterBlockId: string, type: StepBlock['type']) => void;
   onOpenTool?: (toolName: string) => void;
+  projectId?: string;
+  stepId?: string;
   // Drag and drop props
   isDragging?: boolean;
   dragHandleProps?: {
@@ -66,6 +80,8 @@ export function BlockRenderer({
   onDelete,
   onAddBlock,
   onOpenTool,
+  projectId,
+  stepId,
   isDragging,
   dragHandleProps,
   onDragOver,
@@ -86,7 +102,16 @@ export function BlockRenderer({
       case 'divider':
         return <div className="border-t border-border my-6" />;
       case 'tool':
-        return <ToolBlockRenderer block={block} isEditing={isEditing} onOpenTool={onOpenTool} />;
+        return (
+          <ToolBlockRenderer 
+            block={block} 
+            isEditing={isEditing} 
+            onUpdate={onUpdate}
+            onOpenTool={onOpenTool}
+            projectId={projectId}
+            stepId={stepId}
+          />
+        );
       case 'checklist':
         return <ChecklistBlockRenderer block={block} isEditing={isEditing} onUpdate={onUpdate} />;
       case 'poll':
@@ -273,14 +298,101 @@ function TextBlockRenderer({
 function ToolBlockRenderer({ 
   block, 
   isEditing,
-  onOpenTool 
+  onUpdate,
+  onOpenTool,
+  projectId,
+  stepId
 }: { 
   block: ToolBlock; 
   isEditing: boolean;
+  onUpdate: (block: StepBlock) => void;
   onOpenTool?: (toolName: string) => void;
+  projectId?: string;
+  stepId?: string;
 }) {
+  const [tools, setTools] = useState<{ id: string; name: string; category: string }[]>([]);
+  
+  useEffect(() => {
+    const fetchTools = async () => {
+      const { data } = await supabase
+        .from("consulting_tools")
+        .select("id, name, category")
+        .order("category, name");
+      if (data) setTools(data);
+    };
+    fetchTools();
+  }, []);
+
+  // Supported tools for embedding
+  const SUPPORTED_TOOLS = ["SWOT Analysis", "Business Model Canvas", "7S Framework", "Operating Model Canvas", "Transformation Roadmap"];
+  const isSupported = SUPPORTED_TOOLS.includes(block.toolName);
+
+  // If editing, show tool selector
+  if (isEditing) {
+    return (
+      <Card className="border-dashed border-primary/50">
+        <CardContent className="pt-6 space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+              <Wrench className="h-5 w-5 text-primary" />
+            </div>
+            <div className="flex-1">
+              <Label className="text-xs text-muted-foreground">Select Tool</Label>
+              <Select 
+                value={block.toolName} 
+                onValueChange={(value) => onUpdate({ ...block, toolName: value })}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Choose a tool..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {tools.map((tool) => (
+                    <SelectItem key={tool.id} value={tool.name}>
+                      <span className="flex items-center gap-2">
+                        {tool.name}
+                        <Badge variant="outline" className="text-[10px] ml-2">{tool.category}</Badge>
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Switch 
+                id="embedded" 
+                checked={block.embedded}
+                onCheckedChange={(checked) => onUpdate({ ...block, embedded: checked })}
+              />
+              <Label htmlFor="embedded" className="text-sm">Embed inline</Label>
+            </div>
+            {!isSupported && block.toolName !== "Select Tool" && (
+              <Badge variant="secondary" className="text-xs">Opens in new page</Badge>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // If not editing and embedded, show the actual tool
+  if (block.embedded && isSupported && projectId && stepId) {
+    return (
+      <EmbeddedTool
+        toolName={block.toolName}
+        projectId={projectId}
+        stepId={stepId}
+        embedded={true}
+        onOpenExternal={() => onOpenTool?.(block.toolName)}
+      />
+    );
+  }
+
+  // Otherwise show a link card
   return (
-    <Card className="border-dashed">
+    <Card className="border-dashed hover:border-primary/50 transition-colors">
       <CardContent className="pt-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -290,7 +402,7 @@ function ToolBlockRenderer({
             <div>
               <p className="font-medium">{block.toolName}</p>
               <p className="text-sm text-muted-foreground">
-                {block.embedded ? 'Embedded canvas' : 'Link to canvas'}
+                {isSupported ? "Click to open canvas" : "Tool not available for embedding"}
               </p>
             </div>
           </div>
