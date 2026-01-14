@@ -30,6 +30,7 @@ import { RAIDLog, type Issue } from "@/components/project/RAIDLog";
 import { type Risk } from "@/components/project/RiskMatrix";
 import { RiskForm } from "@/components/project/RiskForm";
 import { IssueForm } from "@/components/project/IssueForm";
+import { TeamAssignmentForm } from "@/components/project/TeamAssignmentForm";
 import { TeamMemberCard, type TeamMember } from "@/components/team/TeamMemberCard";
 import {
   AreaChart,
@@ -116,6 +117,8 @@ export default function ProjectDetail() {
   // Team state
   const [teamAssignments, setTeamAssignments] = useState<TeamAssignment[]>([]);
   const [allTeamMembers, setAllTeamMembers] = useState<TeamMember[]>([]);
+  const [assignmentFormOpen, setAssignmentFormOpen] = useState(false);
+  const [editingAssignment, setEditingAssignment] = useState<TeamAssignment | null>(null);
 
   // Fetch milestones
   const fetchMilestones = useCallback(async () => {
@@ -259,6 +262,53 @@ export default function ProjectDetail() {
     toast({ title: issue.id ? "Issue updated" : "Issue added" });
   };
 
+  // Fetch team assignments
+  const fetchTeamAssignments = useCallback(async () => {
+    if (!projectId) return;
+    const { data } = await supabase
+      .from("project_team_assignments")
+      .select("*, team_members(*)")
+      .eq("project_id", projectId);
+    if (data) {
+      setTeamAssignments(data.map(a => ({
+        id: a.id,
+        team_member_id: a.team_member_id,
+        role_in_project: a.role_in_project,
+        allocation_percentage: a.allocation_percentage,
+        team_member: a.team_members ? {
+          ...a.team_members,
+          skills: Array.isArray(a.team_members.skills) ? a.team_members.skills as { name: string; proficiency?: number }[] : [],
+        } : undefined,
+      })));
+    }
+  }, [projectId]);
+
+  // Handle save team assignment
+  const handleSaveAssignment = async (assignment: { id?: string; team_member_id: string; role_in_project: string; allocation_percentage: number }) => {
+    if (assignment.id) {
+      await supabase.from("project_team_assignments").update({
+        role_in_project: assignment.role_in_project,
+        allocation_percentage: assignment.allocation_percentage,
+      }).eq("id", assignment.id);
+    } else {
+      await supabase.from("project_team_assignments").insert({
+        project_id: projectId,
+        team_member_id: assignment.team_member_id,
+        role_in_project: assignment.role_in_project,
+        allocation_percentage: assignment.allocation_percentage,
+      });
+    }
+    fetchTeamAssignments();
+    toast({ title: assignment.id ? "Assignment updated" : "Team member assigned" });
+  };
+
+  // Handle delete team assignment
+  const handleDeleteAssignment = async (id: string) => {
+    await supabase.from("project_team_assignments").delete().eq("id", id);
+    fetchTeamAssignments();
+    toast({ title: "Team member removed from project" });
+  };
+
   useEffect(() => {
     const fetchProjectData = async () => {
       if (!projectId) return;
@@ -314,7 +364,12 @@ export default function ProjectDetail() {
     };
 
     fetchProjectData();
-  }, [projectId, navigate, toast]);
+    fetchMilestones();
+    fetchRisks();
+    fetchIssues();
+    fetchTeamMembers();
+    fetchTeamAssignments();
+  }, [projectId, navigate, toast, fetchMilestones, fetchRisks, fetchIssues, fetchTeamMembers, fetchTeamAssignments]);
 
   const updateTaskStatus = async (taskId: string, newStatus: string) => {
     try {
@@ -609,10 +664,22 @@ export default function ProjectDetail() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-medium">Project Team</CardTitle>
-                <Button size="sm" onClick={() => navigate('/team')} className="gap-2">
-                  <UserPlus className="h-4 w-4" />
-                  Manage Team
-                </Button>
+                <div className="flex items-center gap-2">
+                  {allTeamMembers.length > 0 && (
+                    <Button 
+                      size="sm" 
+                      onClick={() => { setEditingAssignment(null); setAssignmentFormOpen(true); }}
+                      className="gap-2"
+                    >
+                      <UserPlus className="h-4 w-4" />
+                      Assign Member
+                    </Button>
+                  )}
+                  <Button size="sm" variant="outline" onClick={() => navigate('/team')} className="gap-2">
+                    <Users className="h-4 w-4" />
+                    Team Library
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -620,7 +687,11 @@ export default function ProjectDetail() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {teamAssignments.map((assignment) => (
                     assignment.team_member && (
-                      <div key={assignment.id} className="relative">
+                      <div 
+                        key={assignment.id} 
+                        className="relative group cursor-pointer p-3 rounded-lg border border-border/50 hover:border-primary/30 transition-all hover:shadow-md"
+                        onClick={() => { setEditingAssignment(assignment); setAssignmentFormOpen(true); }}
+                      >
                         <TeamMemberCard member={assignment.team_member} compact />
                         <div className="mt-2 flex items-center gap-2">
                           <Badge variant="outline">{assignment.role_in_project}</Badge>
@@ -640,6 +711,16 @@ export default function ProjectDetail() {
                       : "Add team members in the Team Library first"
                     }
                   </p>
+                  {allTeamMembers.length > 0 && (
+                    <Button 
+                      variant="link" 
+                      size="sm" 
+                      onClick={() => { setEditingAssignment(null); setAssignmentFormOpen(true); }}
+                      className="mt-2"
+                    >
+                      Assign your first team member
+                    </Button>
+                  )}
                 </div>
               )}
             </CardContent>
@@ -760,6 +841,19 @@ export default function ProjectDetail() {
         projectId={projectId!}
         risk={editingRisk}
         onSave={handleSaveRisk}
+      />
+
+      {/* Team Assignment Form */}
+      <TeamAssignmentForm
+        open={assignmentFormOpen}
+        onOpenChange={setAssignmentFormOpen}
+        assignment={editingAssignment}
+        availableMembers={allTeamMembers.filter(m => 
+          !teamAssignments.some(a => a.team_member_id === m.id) || 
+          editingAssignment?.team_member_id === m.id
+        )}
+        onSave={handleSaveAssignment}
+        onDelete={handleDeleteAssignment}
       />
 
       {/* Issue Form */}
