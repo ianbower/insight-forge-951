@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { X, Plus } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import type { TeamMember } from "./TeamMemberCard";
 
 interface TeamMemberFormProps {
@@ -60,7 +60,7 @@ export function TeamMemberForm({ open, onOpenChange, member, onSave }: TeamMembe
     setSkills(skills.filter(s => s.name !== skillName));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     onSave({
       id: member?.id,
