@@ -1,13 +1,14 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { StatusDashboard } from "@/components/dashboard/StatusDashboard";
+import { PresentationMode } from "@/components/dashboard/PresentationMode";
 import { MilestoneForm } from "@/components/project/MilestoneForm";
 import { RiskForm } from "@/components/project/RiskForm";
 import { IssueForm } from "@/components/project/IssueForm";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Settings, Share2 } from "lucide-react";
+import { ArrowLeft, Settings, Share2, Presentation } from "lucide-react";
 import type { Milestone } from "@/components/project/MilestoneTimeline";
 import type { Risk } from "@/components/project/RiskMatrix";
 import type { Issue } from "@/components/project/RAIDLog";
@@ -33,7 +34,7 @@ export default function ProjectStatus() {
   const [editingRisk, setEditingRisk] = useState<Risk | null>(null);
   const [issueFormOpen, setIssueFormOpen] = useState(false);
   const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
-
+  const [presentationMode, setPresentationMode] = useState(false);
   useEffect(() => {
     if (projectId) {
       fetchAllData();
@@ -276,6 +277,15 @@ export default function ProjectStatus() {
             Back to Project
           </Button>
           <div className="flex items-center gap-2">
+            <Button 
+              variant="default" 
+              size="sm" 
+              className="gap-2"
+              onClick={() => setPresentationMode(true)}
+            >
+              <Presentation className="h-4 w-4" />
+              Present
+            </Button>
             <Button variant="outline" size="sm" className="gap-2">
               <Share2 className="h-4 w-4" />
               Share
@@ -331,7 +341,18 @@ export default function ProjectStatus() {
           projectId={projectId!}
           onSave={handleSaveIssue}
           onDelete={handleDeleteIssue}
-      />
+        />
+
+        <PresentationMode
+          isOpen={presentationMode}
+          onClose={() => setPresentationMode(false)}
+          project={project}
+          tasks={tasks}
+          milestones={milestones}
+          risks={risks}
+          issues={issues}
+          teamMembers={teamMembers}
+        />
     </div>
   );
 }
