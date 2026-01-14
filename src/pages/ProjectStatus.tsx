@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { AppLayout } from "@/components/layout/AppLayout";
 import { StatusDashboard } from "@/components/dashboard/StatusDashboard";
 import { MilestoneForm } from "@/components/project/MilestoneForm";
 import { RiskForm } from "@/components/project/RiskForm";
@@ -254,27 +253,22 @@ export default function ProjectStatus() {
 
   if (loading) {
     return (
-      <AppLayout>
-        <div className="flex items-center justify-center h-full">
-          <p className="text-muted-foreground">Loading dashboard...</p>
-        </div>
-      </AppLayout>
+      <div className="flex items-center justify-center h-full">
+        <p className="text-muted-foreground">Loading dashboard...</p>
+      </div>
     );
   }
 
   if (!project) {
     return (
-      <AppLayout>
-        <div className="flex items-center justify-center h-full">
-          <p className="text-muted-foreground">Project not found</p>
-        </div>
-      </AppLayout>
+      <div className="flex items-center justify-center h-full">
+        <p className="text-muted-foreground">Project not found</p>
+      </div>
     );
   }
 
   return (
-    <AppLayout>
-      <div className="p-6">
+    <div className="p-6">
         {/* Top Bar */}
         <div className="flex items-center justify-between mb-6">
           <Button variant="ghost" onClick={() => navigate(`/projects/${projectId}`)} className="gap-2">
@@ -337,8 +331,7 @@ export default function ProjectStatus() {
           projectId={projectId!}
           onSave={handleSaveIssue}
           onDelete={handleDeleteIssue}
-        />
-      </div>
-    </AppLayout>
+      />
+    </div>
   );
 }
