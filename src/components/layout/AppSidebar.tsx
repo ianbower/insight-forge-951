@@ -10,6 +10,7 @@ import {
   ChevronRight,
   Sparkles,
   Search,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -21,6 +22,7 @@ const navItems = [
   { icon: Briefcase, label: "Tool Library", path: "/tools" },
   { icon: BookOpen, label: "Runbooks", path: "/runbooks" },
   { icon: FolderKanban, label: "Projects", path: "/projects" },
+  { icon: Users, label: "Team", path: "/team" },
   { icon: Bot, label: "Expert AI", path: "/ai-chat" },
   { icon: Settings, label: "Admin", path: "/admin" },
 ];
