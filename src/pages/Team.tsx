@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { AppLayout } from "@/components/layout/AppLayout";
 import { TeamMemberCard, type TeamMember } from "@/components/team/TeamMemberCard";
 import { TeamMemberForm } from "@/components/team/TeamMemberForm";
 import { Button } from "@/components/ui/button";
@@ -129,7 +128,7 @@ export default function Team() {
   const skillsSet = new Set(members.flatMap((m) => m.skills.map((s) => s.name)));
 
   return (
-    <AppLayout>
+    <>
       <div className="p-6 space-y-6 animate-in fade-in duration-500">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -247,6 +246,6 @@ export default function Team() {
           onSave={handleSave}
         />
       </div>
-    </AppLayout>
+    </>
   );
 }
