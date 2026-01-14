@@ -1,18 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { 
   ArrowLeft, 
   Calendar, 
   CheckCircle2, 
-  Circle, 
   Clock, 
-  PlayCircle,
   Target,
   TrendingUp,
   Users,
   Presentation,
   LayoutDashboard,
-  FileOutput
+  FileOutput,
+  AlertTriangle,
+  UserPlus
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +24,13 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { WorkflowTimeline, WorkflowStep } from "@/components/project/WorkflowTimeline";
 import { StepDetailPanel, StepDetail } from "@/components/project/StepDetailPanel";
+import { MilestoneTimeline, type Milestone } from "@/components/project/MilestoneTimeline";
+import { MilestoneForm } from "@/components/project/MilestoneForm";
+import { RAIDLog, type Issue } from "@/components/project/RAIDLog";
+import { type Risk } from "@/components/project/RiskMatrix";
+import { RiskForm } from "@/components/project/RiskForm";
+import { IssueForm } from "@/components/project/IssueForm";
+import { TeamMemberCard, type TeamMember } from "@/components/team/TeamMemberCard";
 import {
   AreaChart,
   Area,
@@ -71,6 +78,14 @@ interface Runbook {
   workflow_json: any;
 }
 
+interface TeamAssignment {
+  id: string;
+  team_member_id: string;
+  role_in_project: string;
+  allocation_percentage: number;
+  team_member?: TeamMember;
+}
+
 const COLORS = ["hsl(var(--success))", "hsl(var(--warning))", "hsl(var(--muted))"];
 
 export default function ProjectDetail() {
@@ -83,7 +98,166 @@ export default function ProjectDetail() {
   const [runbook, setRunbook] = useState<Runbook | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeStep, setActiveStep] = useState<StepDetail | null>(null);
-  const [viewMode, setViewMode] = useState<"workflow" | "dashboard">("workflow");
+  const [activeTab, setActiveTab] = useState("workflow");
+  
+  // Milestones state
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [milestoneFormOpen, setMilestoneFormOpen] = useState(false);
+  const [editingMilestone, setEditingMilestone] = useState<Milestone | null>(null);
+  
+  // Risks & Issues state
+  const [risks, setRisks] = useState<Risk[]>([]);
+  const [issues, setIssues] = useState<Issue[]>([]);
+  const [riskFormOpen, setRiskFormOpen] = useState(false);
+  const [issueFormOpen, setIssueFormOpen] = useState(false);
+  const [editingRisk, setEditingRisk] = useState<Risk | null>(null);
+  const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
+  
+  // Team state
+  const [teamAssignments, setTeamAssignments] = useState<TeamAssignment[]>([]);
+  const [allTeamMembers, setAllTeamMembers] = useState<TeamMember[]>([]);
+
+  // Fetch milestones
+  const fetchMilestones = useCallback(async () => {
+    if (!projectId) return;
+    const { data } = await supabase
+      .from("project_milestones")
+      .select("*")
+      .eq("project_id", projectId)
+      .order("order_index");
+    if (data) {
+      setMilestones(data.map(m => ({
+        ...m,
+        status: m.status as Milestone["status"],
+      })));
+    }
+  }, [projectId]);
+
+  // Fetch risks
+  const fetchRisks = useCallback(async () => {
+    if (!projectId) return;
+    const { data } = await supabase
+      .from("project_risks")
+      .select("*")
+      .eq("project_id", projectId);
+    if (data) {
+      setRisks(data.map(r => ({
+        ...r,
+        likelihood: r.likelihood as Risk["likelihood"],
+        impact: r.impact as Risk["impact"],
+        status: r.status as Risk["status"],
+      })));
+    }
+  }, [projectId]);
+
+  // Fetch issues
+  const fetchIssues = useCallback(async () => {
+    if (!projectId) return;
+    const { data } = await supabase
+      .from("project_issues")
+      .select("*")
+      .eq("project_id", projectId);
+    if (data) {
+      setIssues(data.map(i => ({
+        ...i,
+        priority: i.priority as Issue["priority"],
+        status: i.status as Issue["status"],
+      })));
+    }
+  }, [projectId]);
+
+  // Fetch team members
+  const fetchTeamMembers = useCallback(async () => {
+    const { data } = await supabase
+      .from("team_members")
+      .select("*")
+      .order("level");
+    if (data) {
+      setAllTeamMembers(data.map(m => ({
+        ...m,
+        skills: Array.isArray(m.skills) ? m.skills as { name: string; proficiency?: number }[] : [],
+      })));
+    }
+  }, []);
+
+  // Handle save milestone
+  const handleSaveMilestone = async (milestone: Omit<Milestone, "id"> & { id?: string }) => {
+    if (milestone.id) {
+      await supabase.from("project_milestones").update({
+        title: milestone.title,
+        description: milestone.description,
+        target_date: milestone.target_date,
+        status: milestone.status,
+        completed_date: milestone.completed_date,
+      }).eq("id", milestone.id);
+    } else {
+      await supabase.from("project_milestones").insert({
+        project_id: projectId,
+        title: milestone.title,
+        description: milestone.description,
+        target_date: milestone.target_date,
+        status: milestone.status,
+        order_index: milestones.length,
+      });
+    }
+    fetchMilestones();
+    toast({ title: milestone.id ? "Milestone updated" : "Milestone added" });
+  };
+
+  // Handle save risk
+  const handleSaveRisk = async (risk: Omit<Risk, "id"> & { id?: string }) => {
+    if (risk.id) {
+      await supabase.from("project_risks").update({
+        title: risk.title,
+        description: risk.description,
+        category: risk.category,
+        likelihood: risk.likelihood,
+        impact: risk.impact,
+        status: risk.status,
+        mitigation_plan: risk.mitigation_plan,
+      }).eq("id", risk.id);
+    } else {
+      await supabase.from("project_risks").insert({
+        project_id: projectId,
+        title: risk.title,
+        description: risk.description,
+        category: risk.category,
+        likelihood: risk.likelihood,
+        impact: risk.impact,
+        status: risk.status,
+        mitigation_plan: risk.mitigation_plan,
+      });
+    }
+    fetchRisks();
+    toast({ title: risk.id ? "Risk updated" : "Risk added" });
+  };
+
+  // Handle save issue
+  const handleSaveIssue = async (issue: Omit<Issue, "id"> & { id?: string }) => {
+    if (issue.id) {
+      await supabase.from("project_issues").update({
+        title: issue.title,
+        description: issue.description,
+        priority: issue.priority,
+        status: issue.status,
+        resolution: issue.resolution,
+        target_resolution_date: issue.target_resolution_date,
+        resolved_date: issue.status === "Resolved" ? new Date().toISOString().split("T")[0] : null,
+      }).eq("id", issue.id);
+    } else {
+      await supabase.from("project_issues").insert({
+        project_id: projectId,
+        title: issue.title,
+        description: issue.description,
+        priority: issue.priority,
+        status: issue.status,
+        raised_date: new Date().toISOString().split("T")[0],
+        target_resolution_date: issue.target_resolution_date,
+      });
+    }
+    fetchIssues();
+    toast({ title: issue.id ? "Issue updated" : "Issue added" });
+  };
 
   useEffect(() => {
     const fetchProjectData = async () => {
@@ -291,22 +465,13 @@ export default function ProjectDetail() {
             Outputs
           </Button>
           <Button
-            variant={viewMode === "workflow" ? "default" : "outline"}
+            variant="outline"
             size="sm"
-            onClick={() => setViewMode("workflow")}
-            className="gap-2"
-          >
-            <Presentation className="h-4 w-4" />
-            Workflow
-          </Button>
-          <Button
-            variant={viewMode === "dashboard" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setViewMode("dashboard")}
+            onClick={() => navigate(`/projects/${projectId}/status`)}
             className="gap-2"
           >
             <LayoutDashboard className="h-4 w-4" />
-            Dashboard
+            Status Dashboard
           </Button>
         </div>
       </div>
@@ -371,55 +536,191 @@ export default function ProjectDetail() {
         </Card>
       </div>
 
-      {/* Workflow View */}
-      {viewMode === "workflow" && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base font-medium">
-                {runbook ? `Workflow: ${runbook.name}` : "Project Workflow"}
-              </CardTitle>
-              <Badge variant="secondary">
-                {completedTasks} of {totalTasks} complete
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <WorkflowTimeline
-              steps={tasks}
-              activeStepId={activeStep?.id || null}
-              onStepClick={handleStepClick}
-            />
-          </CardContent>
-        </Card>
-      )}
+      {/* Tabs for different views */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList className="bg-muted/50">
+          <TabsTrigger value="workflow" className="gap-2">
+            <Presentation className="h-4 w-4" />
+            Workflow
+          </TabsTrigger>
+          <TabsTrigger value="milestones" className="gap-2">
+            <Target className="h-4 w-4" />
+            Milestones
+          </TabsTrigger>
+          <TabsTrigger value="raid" className="gap-2">
+            <AlertTriangle className="h-4 w-4" />
+            Risks & Issues
+          </TabsTrigger>
+          <TabsTrigger value="team" className="gap-2">
+            <Users className="h-4 w-4" />
+            Team
+          </TabsTrigger>
+          <TabsTrigger value="dashboard" className="gap-2">
+            <LayoutDashboard className="h-4 w-4" />
+            Dashboard
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Dashboard View */}
-      {viewMode === "dashboard" && (
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* Task Status Pie Chart */}
+        {/* Workflow Tab */}
+        <TabsContent value="workflow">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base font-medium">Task Distribution</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base font-medium">
+                  {runbook ? `Workflow: ${runbook.name}` : "Project Workflow"}
+                </CardTitle>
+                <Badge variant="secondary">
+                  {completedTasks} of {totalTasks} complete
+                </Badge>
+              </div>
             </CardHeader>
             <CardContent>
-              {taskStatusData.length > 0 ? (
+              <WorkflowTimeline
+                steps={tasks}
+                activeStepId={activeStep?.id || null}
+                onStepClick={handleStepClick}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="milestones">
+          <MilestoneTimeline
+            milestones={milestones}
+            onAddMilestone={() => { setEditingMilestone(null); setMilestoneFormOpen(true); }}
+            onEditMilestone={(m) => { setEditingMilestone(m); setMilestoneFormOpen(true); }}
+          />
+        </TabsContent>
+
+        <TabsContent value="raid">
+          <RAIDLog
+            risks={risks}
+            issues={issues}
+            onAddRisk={() => { setEditingRisk(null); setRiskFormOpen(true); }}
+            onAddIssue={() => { setEditingIssue(null); setIssueFormOpen(true); }}
+            onEditRisk={(r) => { setEditingRisk(r); setRiskFormOpen(true); }}
+            onEditIssue={(i) => { setEditingIssue(i); setIssueFormOpen(true); }}
+          />
+        </TabsContent>
+
+        {/* Team Tab */}
+        <TabsContent value="team">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base font-medium">Project Team</CardTitle>
+                <Button size="sm" onClick={() => navigate('/team')} className="gap-2">
+                  <UserPlus className="h-4 w-4" />
+                  Manage Team
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {teamAssignments.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {teamAssignments.map((assignment) => (
+                    assignment.team_member && (
+                      <div key={assignment.id} className="relative">
+                        <TeamMemberCard member={assignment.team_member} compact />
+                        <div className="mt-2 flex items-center gap-2">
+                          <Badge variant="outline">{assignment.role_in_project}</Badge>
+                          <Badge variant="secondary">{assignment.allocation_percentage}%</Badge>
+                        </div>
+                      </div>
+                    )
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No team members assigned yet</p>
+                  <p className="text-sm mt-2">
+                    {allTeamMembers.length > 0 
+                      ? `${allTeamMembers.length} team members available in the library`
+                      : "Add team members in the Team Library first"
+                    }
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Dashboard Tab */}
+        <TabsContent value="dashboard">
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Task Status Pie Chart */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base font-medium">Task Distribution</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {taskStatusData.length > 0 ? (
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={taskStatusData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={60}
+                          outerRadius={80}
+                          paddingAngle={5}
+                          dataKey="value"
+                        >
+                          {taskStatusData.map((_, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "hsl(var(--card))",
+                            border: "1px solid hsl(var(--border))",
+                            borderRadius: "8px",
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center h-64 text-muted-foreground">
+                    No tasks yet
+                  </div>
+                )}
+                <div className="flex justify-center gap-6 mt-4">
+                  {taskStatusData.map((entry, index) => (
+                    <div key={entry.name} className="flex items-center gap-2">
+                      <div
+                        className="h-3 w-3 rounded-full"
+                        style={{ backgroundColor: COLORS[index] }}
+                      />
+                      <span className="text-sm text-muted-foreground">
+                        {entry.name} ({entry.value})
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Progress Over Time */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base font-medium">Progress Over Time</CardTitle>
+              </CardHeader>
+              <CardContent>
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={taskStatusData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={80}
-                        paddingAngle={5}
-                        dataKey="value"
-                      >
-                        {taskStatusData.map((_, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
+                    <AreaChart data={weeklyProgress}>
+                      <defs>
+                        <linearGradient id="progressGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="week" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                      <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
                       <Tooltip
                         contentStyle={{
                           backgroundColor: "hsl(var(--card))",
@@ -427,69 +728,48 @@ export default function ProjectDetail() {
                           borderRadius: "8px",
                         }}
                       />
-                    </PieChart>
+                      <Area
+                        type="monotone"
+                        dataKey="tasks"
+                        stroke="hsl(var(--primary))"
+                        fill="url(#progressGradient)"
+                        strokeWidth={2}
+                      />
+                    </AreaChart>
                   </ResponsiveContainer>
                 </div>
-              ) : (
-                <div className="flex items-center justify-center h-64 text-muted-foreground">
-                  No tasks yet
-                </div>
-              )}
-              <div className="flex justify-center gap-6 mt-4">
-                {taskStatusData.map((entry, index) => (
-                  <div key={entry.name} className="flex items-center gap-2">
-                    <div
-                      className="h-3 w-3 rounded-full"
-                      style={{ backgroundColor: COLORS[index] }}
-                    />
-                    <span className="text-sm text-muted-foreground">
-                      {entry.name} ({entry.value})
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
 
-          {/* Progress Over Time */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base font-medium">Progress Over Time</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={weeklyProgress}>
-                    <defs>
-                      <linearGradient id="progressGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="week" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "8px",
-                      }}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="tasks"
-                      stroke="hsl(var(--primary))"
-                      fill="url(#progressGradient)"
-                      strokeWidth={2}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      {/* Milestone Form */}
+      <MilestoneForm
+        open={milestoneFormOpen}
+        onOpenChange={setMilestoneFormOpen}
+        projectId={projectId!}
+        milestone={editingMilestone}
+        onSave={handleSaveMilestone}
+      />
+
+      {/* Risk Form */}
+      <RiskForm
+        open={riskFormOpen}
+        onOpenChange={setRiskFormOpen}
+        projectId={projectId!}
+        risk={editingRisk}
+        onSave={handleSaveRisk}
+      />
+
+      {/* Issue Form */}
+      <IssueForm
+        open={issueFormOpen}
+        onOpenChange={setIssueFormOpen}
+        projectId={projectId!}
+        issue={editingIssue}
+        onSave={handleSaveIssue}
+      />
 
       {/* Step Detail Panel (Slide-in) */}
       {activeStep && (
