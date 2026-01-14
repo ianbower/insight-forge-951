@@ -12,7 +12,8 @@ import {
   LayoutDashboard,
   FileOutput,
   AlertTriangle,
-  UserPlus
+  UserPlus,
+  DollarSign
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +33,7 @@ import { RiskForm } from "@/components/project/RiskForm";
 import { IssueForm } from "@/components/project/IssueForm";
 import { TeamAssignmentForm } from "@/components/project/TeamAssignmentForm";
 import { TeamMemberCard, type TeamMember } from "@/components/team/TeamMemberCard";
+import { ProjectBudget } from "@/components/project/ProjectBudget";
 import {
   AreaChart,
   Area,
@@ -610,6 +612,10 @@ export default function ProjectDetail() {
             <Users className="h-4 w-4" />
             Team
           </TabsTrigger>
+          <TabsTrigger value="budget" className="gap-2">
+            <DollarSign className="h-4 w-4" />
+            Budget
+          </TabsTrigger>
           <TabsTrigger value="dashboard" className="gap-2">
             <LayoutDashboard className="h-4 w-4" />
             Dashboard
@@ -725,6 +731,15 @@ export default function ProjectDetail() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Budget Tab */}
+        <TabsContent value="budget">
+          <ProjectBudget 
+            assignments={teamAssignments}
+            projectStartDate={project.start_date}
+            projectEndDate={project.end_date}
+          />
         </TabsContent>
 
         {/* Dashboard Tab */}
