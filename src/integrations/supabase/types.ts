@@ -49,6 +49,383 @@ export type Database = {
           },
         ]
       }
+      assessment_benchmarks: {
+        Row: {
+          assessment_template_id: string | null
+          benchmark_type: string
+          created_at: string
+          data_date: string | null
+          dimension_id: string | null
+          framework: string | null
+          id: string
+          industry: string | null
+          metadata: Json | null
+          sample_size: number | null
+          score_average: number | null
+          score_percentile_25: number | null
+          score_percentile_50: number | null
+          score_percentile_75: number | null
+          source: string | null
+          updated_at: string
+        }
+        Insert: {
+          assessment_template_id?: string | null
+          benchmark_type: string
+          created_at?: string
+          data_date?: string | null
+          dimension_id?: string | null
+          framework?: string | null
+          id?: string
+          industry?: string | null
+          metadata?: Json | null
+          sample_size?: number | null
+          score_average?: number | null
+          score_percentile_25?: number | null
+          score_percentile_50?: number | null
+          score_percentile_75?: number | null
+          source?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assessment_template_id?: string | null
+          benchmark_type?: string
+          created_at?: string
+          data_date?: string | null
+          dimension_id?: string | null
+          framework?: string | null
+          id?: string
+          industry?: string | null
+          metadata?: Json | null
+          sample_size?: number | null
+          score_average?: number | null
+          score_percentile_25?: number | null
+          score_percentile_50?: number | null
+          score_percentile_75?: number | null
+          source?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_benchmarks_assessment_template_id_fkey"
+            columns: ["assessment_template_id"]
+            isOneToOne: false
+            referencedRelation: "assessment_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assessment_benchmarks_dimension_id_fkey"
+            columns: ["dimension_id"]
+            isOneToOne: false
+            referencedRelation: "assessment_dimensions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assessment_dimensions: {
+        Row: {
+          assessment_template_id: string
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          order_index: number
+          weight: number | null
+        }
+        Insert: {
+          assessment_template_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          order_index?: number
+          weight?: number | null
+        }
+        Update: {
+          assessment_template_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          order_index?: number
+          weight?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_dimensions_assessment_template_id_fkey"
+            columns: ["assessment_template_id"]
+            isOneToOne: false
+            referencedRelation: "assessment_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assessment_instances: {
+        Row: {
+          allow_anonymous: boolean
+          assessment_template_id: string
+          created_at: string
+          description: string | null
+          end_date: string | null
+          id: string
+          name: string
+          project_id: string | null
+          settings: Json | null
+          start_date: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          allow_anonymous?: boolean
+          assessment_template_id: string
+          created_at?: string
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          name: string
+          project_id?: string | null
+          settings?: Json | null
+          start_date?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          allow_anonymous?: boolean
+          assessment_template_id?: string
+          created_at?: string
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          name?: string
+          project_id?: string | null
+          settings?: Json | null
+          start_date?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_instances_assessment_template_id_fkey"
+            columns: ["assessment_template_id"]
+            isOneToOne: false
+            referencedRelation: "assessment_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assessment_instances_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assessment_questions: {
+        Row: {
+          assessment_template_id: string
+          created_at: string
+          dimension_id: string | null
+          id: string
+          options: Json | null
+          order_index: number
+          question_text: string
+          question_type: string
+          required: boolean
+          scale_config: Json | null
+          weight: number | null
+        }
+        Insert: {
+          assessment_template_id: string
+          created_at?: string
+          dimension_id?: string | null
+          id?: string
+          options?: Json | null
+          order_index?: number
+          question_text: string
+          question_type?: string
+          required?: boolean
+          scale_config?: Json | null
+          weight?: number | null
+        }
+        Update: {
+          assessment_template_id?: string
+          created_at?: string
+          dimension_id?: string | null
+          id?: string
+          options?: Json | null
+          order_index?: number
+          question_text?: string
+          question_type?: string
+          required?: boolean
+          scale_config?: Json | null
+          weight?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_questions_assessment_template_id_fkey"
+            columns: ["assessment_template_id"]
+            isOneToOne: false
+            referencedRelation: "assessment_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assessment_questions_dimension_id_fkey"
+            columns: ["dimension_id"]
+            isOneToOne: false
+            referencedRelation: "assessment_dimensions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assessment_recipients: {
+        Row: {
+          assessment_instance_id: string
+          completed_at: string | null
+          email: string
+          id: string
+          industry: string | null
+          invited_at: string
+          name: string | null
+          organization: string | null
+          reminder_sent_at: string | null
+          role: string | null
+          started_at: string | null
+          status: string
+          token: string
+        }
+        Insert: {
+          assessment_instance_id: string
+          completed_at?: string | null
+          email: string
+          id?: string
+          industry?: string | null
+          invited_at?: string
+          name?: string | null
+          organization?: string | null
+          reminder_sent_at?: string | null
+          role?: string | null
+          started_at?: string | null
+          status?: string
+          token?: string
+        }
+        Update: {
+          assessment_instance_id?: string
+          completed_at?: string | null
+          email?: string
+          id?: string
+          industry?: string | null
+          invited_at?: string
+          name?: string | null
+          organization?: string | null
+          reminder_sent_at?: string | null
+          role?: string | null
+          started_at?: string | null
+          status?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_recipients_assessment_instance_id_fkey"
+            columns: ["assessment_instance_id"]
+            isOneToOne: false
+            referencedRelation: "assessment_instances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assessment_responses: {
+        Row: {
+          assessment_instance_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          question_id: string
+          recipient_id: string | null
+          response_value: Json
+          updated_at: string
+        }
+        Insert: {
+          assessment_instance_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          question_id: string
+          recipient_id?: string | null
+          response_value: Json
+          updated_at?: string
+        }
+        Update: {
+          assessment_instance_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          question_id?: string
+          recipient_id?: string | null
+          response_value?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_responses_assessment_instance_id_fkey"
+            columns: ["assessment_instance_id"]
+            isOneToOne: false
+            referencedRelation: "assessment_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assessment_responses_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "assessment_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assessment_responses_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "assessment_recipients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assessment_templates: {
+        Row: {
+          category: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          framework_type: string | null
+          id: string
+          industry: string | null
+          is_public: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          framework_type?: string | null
+          id?: string
+          industry?: string | null
+          is_public?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          framework_type?: string | null
+          id?: string
+          industry?: string | null
+          is_public?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       clients: {
         Row: {
           created_at: string
@@ -135,6 +512,55 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      project_assessments: {
+        Row: {
+          assessment_instance_id: string
+          created_at: string
+          id: string
+          notes_json: Json | null
+          project_id: string
+          step_id: string | null
+        }
+        Insert: {
+          assessment_instance_id: string
+          created_at?: string
+          id?: string
+          notes_json?: Json | null
+          project_id: string
+          step_id?: string | null
+        }
+        Update: {
+          assessment_instance_id?: string
+          created_at?: string
+          id?: string
+          notes_json?: Json | null
+          project_id?: string
+          step_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_assessments_assessment_instance_id_fkey"
+            columns: ["assessment_instance_id"]
+            isOneToOne: false
+            referencedRelation: "assessment_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_assessments_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_assessments_step_id_fkey"
+            columns: ["step_id"]
+            isOneToOne: false
+            referencedRelation: "project_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       project_issues: {
         Row: {
