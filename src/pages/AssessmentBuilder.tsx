@@ -356,7 +356,7 @@ export default function AssessmentBuilder() {
             <Settings className="h-4 w-4" />
             Settings
           </Button>
-          <Button className="gap-2">
+          <Button className="gap-2" onClick={() => navigate(`/assessments/${assessmentId}/launch`)}>
             <Play className="h-4 w-4" />
             Launch Assessment
           </Button>
