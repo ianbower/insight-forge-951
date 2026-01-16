@@ -1,5 +1,7 @@
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 
 export interface Risk {
   id: string;
@@ -17,6 +19,7 @@ export interface Risk {
 interface RiskMatrixProps {
   risks: Risk[];
   onRiskClick?: (risk: Risk) => void;
+  onAddRisk?: () => void;
 }
 
 const likelihoodLevels = ["Low", "Medium", "High"] as const;
@@ -34,7 +37,7 @@ const cellColors: Record<string, string> = {
   "High-High": "bg-red-500/40 hover:bg-red-500/50",
 };
 
-export function RiskMatrix({ risks, onRiskClick }: RiskMatrixProps) {
+export function RiskMatrix({ risks, onRiskClick, onAddRisk }: RiskMatrixProps) {
   const openRisks = risks.filter((r) => r.status !== "Closed");
 
   const getRisksInCell = (likelihood: string, impact: string) => {
@@ -44,9 +47,17 @@ export function RiskMatrix({ risks, onRiskClick }: RiskMatrixProps) {
   return (
     <TooltipProvider>
       <div className="space-y-4">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <span className="font-medium">Risk Matrix</span>
-          <span>({openRisks.length} open risks)</span>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span className="font-medium">Risk Matrix</span>
+            <span>({openRisks.length} open risks)</span>
+          </div>
+          {onAddRisk && (
+            <Button variant="outline" size="sm" onClick={onAddRisk} className="h-7 gap-1">
+              <Plus className="h-3 w-3" />
+              Add Risk
+            </Button>
+          )}
         </div>
 
         <div className="relative">

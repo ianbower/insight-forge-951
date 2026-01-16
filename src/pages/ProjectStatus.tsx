@@ -8,8 +8,7 @@ import { IssueForm } from "@/components/project/IssueForm";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Settings, Share2, Presentation, FileDown } from "lucide-react";
-import { exportProjectReportToPDF } from "@/lib/projectReportExport";
+import { ArrowLeft, Settings, Share2, Presentation } from "lucide-react";
 import type { Milestone } from "@/components/project/MilestoneTimeline";
 import type { Risk } from "@/components/project/RiskMatrix";
 import type { Issue } from "@/components/project/RAIDLog";
@@ -279,22 +278,6 @@ export default function ProjectStatus() {
           </Button>
           <div className="flex items-center gap-2">
             <Button 
-              variant="outline" 
-              size="sm" 
-              className="gap-2"
-              onClick={() => exportProjectReportToPDF({
-                project,
-                tasks,
-                milestones,
-                risks,
-                issues,
-                teamMembers,
-              })}
-            >
-              <FileDown className="h-4 w-4" />
-              Export PDF
-            </Button>
-            <Button 
               variant="default" 
               size="sm" 
               className="gap-2"
@@ -328,6 +311,10 @@ export default function ProjectStatus() {
           }}
           onRiskClick={(r) => {
             setEditingRisk(r);
+            setRiskFormOpen(true);
+          }}
+          onAddRisk={() => {
+            setEditingRisk(null);
             setRiskFormOpen(true);
           }}
         />
