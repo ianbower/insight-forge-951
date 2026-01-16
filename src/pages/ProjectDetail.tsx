@@ -13,7 +13,8 @@ import {
   FileOutput,
   AlertTriangle,
   UserPlus,
-  DollarSign
+  DollarSign,
+  ClipboardCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +35,7 @@ import { IssueForm } from "@/components/project/IssueForm";
 import { TeamAssignmentForm } from "@/components/project/TeamAssignmentForm";
 import { TeamMemberCard, type TeamMember } from "@/components/team/TeamMemberCard";
 import { ProjectBudget } from "@/components/project/ProjectBudget";
+import { ProjectAssessmentEmbed } from "@/components/assessments/ProjectAssessmentEmbed";
 import {
   AreaChart,
   Area,
@@ -616,6 +618,10 @@ export default function ProjectDetail() {
             <DollarSign className="h-4 w-4" />
             Budget
           </TabsTrigger>
+          <TabsTrigger value="assessments" className="gap-2">
+            <ClipboardCheck className="h-4 w-4" />
+            Assessments
+          </TabsTrigger>
           <TabsTrigger value="dashboard" className="gap-2">
             <LayoutDashboard className="h-4 w-4" />
             Dashboard
@@ -740,6 +746,21 @@ export default function ProjectDetail() {
             projectStartDate={project.start_date}
             projectEndDate={project.end_date}
           />
+        </TabsContent>
+
+        {/* Assessments Tab */}
+        <TabsContent value="assessments">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base font-medium flex items-center gap-2">
+                <ClipboardCheck className="h-5 w-5" />
+                Linked Assessments
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ProjectAssessmentEmbed projectId={projectId!} />
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Dashboard Tab */}

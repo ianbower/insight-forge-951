@@ -30,6 +30,7 @@ import { AssessmentRadarChart } from "@/components/assessments/AssessmentRadarCh
 import { AssessmentHeatMap } from "@/components/assessments/AssessmentHeatMap";
 import { GapAnalysisChart } from "@/components/assessments/GapAnalysisChart";
 import { AssessmentTrendChart } from "@/components/assessments/AssessmentTrendChart";
+import { AIInsightsPanel } from "@/components/assessments/AIInsightsPanel";
 
 interface Dimension {
   id: string;
@@ -384,6 +385,7 @@ export default function AssessmentResults() {
       <Tabs defaultValue="overview" className="w-full">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="insights">AI Insights</TabsTrigger>
           <TabsTrigger value="details">Detailed Analysis</TabsTrigger>
           <TabsTrigger value="trends">Trends</TabsTrigger>
           <TabsTrigger value="gaps">Gap Analysis</TabsTrigger>
@@ -398,6 +400,29 @@ export default function AssessmentResults() {
               showTarget
             />
             <AssessmentHeatMap data={heatMapData} title="Question Scores" />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="insights" className="mt-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <AIInsightsPanel
+              templateName={templateName}
+              instanceName={instanceName}
+              dimensionScores={dimensionScores}
+              gapData={gapData}
+              responseCount={completedCount}
+              overallScore={overallScore}
+              industry={filterIndustry !== "all" ? filterIndustry : undefined}
+            />
+            <div className="space-y-6">
+              <AssessmentRadarChart
+                data={dimensionScores}
+                title="Current Maturity"
+                showBenchmark
+                showTarget
+              />
+              <GapAnalysisChart data={gapData} title="Priority Gaps" />
+            </div>
           </div>
         </TabsContent>
 
