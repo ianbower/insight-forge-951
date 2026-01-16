@@ -313,10 +313,6 @@ export default function ProjectStatus() {
             setEditingRisk(r);
             setRiskFormOpen(true);
           }}
-          onAddRisk={() => {
-            setEditingRisk(null);
-            setRiskFormOpen(true);
-          }}
         />
 
         {/* Forms */}

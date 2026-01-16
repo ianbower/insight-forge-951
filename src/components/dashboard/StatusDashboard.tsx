@@ -5,7 +5,6 @@ import { cn } from "@/lib/utils";
 import { MetricCounter } from "./MetricCounter";
 import { RiskMatrix, type Risk } from "@/components/project/RiskMatrix";
 import { MilestoneTimeline, type Milestone } from "@/components/project/MilestoneTimeline";
-import { GanttChart } from "@/components/project/GanttChart";
 import { TeamMemberCard, type TeamMember } from "@/components/team/TeamMemberCard";
 import {
   AlertTriangle,
@@ -16,35 +15,25 @@ import {
   Users,
   Target,
   Activity,
-  BarChart3,
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from "recharts";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-interface Task {
-  id: string;
-  title?: string;
-  status: string;
-  order_index?: number | null;
-}
 
 interface StatusDashboardProps {
   project: {
     id: string;
     name: string;
     status: string;
-    start_date?: string | null;
-    end_date?: string | null;
+    start_date?: string;
+    end_date?: string;
     progress?: number;
   };
-  tasks: Task[];
+  tasks: { id: string; status: string }[];
   milestones: Milestone[];
   risks: Risk[];
   issues: { id: string; status: string; priority: string }[];
   teamMembers: TeamMember[];
   onMilestoneClick?: (milestone: Milestone) => void;
   onRiskClick?: (risk: Risk) => void;
-  onAddRisk?: () => void;
 }
 
 const ragColors = {
@@ -62,7 +51,6 @@ export function StatusDashboard({
   teamMembers,
   onMilestoneClick,
   onRiskClick,
-  onAddRisk,
 }: StatusDashboardProps) {
   // Calculate metrics
   const completedTasks = tasks.filter((t) => t.status === "completed").length;
@@ -237,46 +225,23 @@ export function StatusDashboard({
             </CardContent>
           </Card>
 
-          {/* Milestones & Gantt */}
+          {/* Milestones */}
           <Card className="border-border/50">
-            <CardHeader className="pb-2">
+            <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Calendar className="h-5 w-5" />
-                Timeline
+                Milestones
                 <Badge variant="outline" className="ml-2">
-                  {completedMilestones}/{milestones.length} milestones
+                  {completedMilestones}/{milestones.length}
                 </Badge>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <Tabs defaultValue="gantt" className="w-full">
-                <TabsList className="mb-4">
-                  <TabsTrigger value="gantt" className="gap-2">
-                    <BarChart3 className="h-4 w-4" />
-                    Gantt Chart
-                  </TabsTrigger>
-                  <TabsTrigger value="list" className="gap-2">
-                    <Calendar className="h-4 w-4" />
-                    Timeline
-                  </TabsTrigger>
-                </TabsList>
-                <TabsContent value="gantt">
-                  <GanttChart
-                    tasks={tasks.map((t) => ({ ...t, title: t.title || `Task ${t.id.slice(0, 8)}` }))}
-                    milestones={milestones}
-                    projectStartDate={project.start_date}
-                    projectEndDate={project.end_date}
-                    onMilestoneClick={onMilestoneClick}
-                  />
-                </TabsContent>
-                <TabsContent value="list">
-                  <MilestoneTimeline
-                    milestones={milestones}
-                    onEditMilestone={onMilestoneClick}
-                    compact
-                  />
-                </TabsContent>
-              </Tabs>
+              <MilestoneTimeline
+                milestones={milestones}
+                onEditMilestone={onMilestoneClick}
+                compact
+              />
             </CardContent>
           </Card>
         </div>
@@ -327,7 +292,7 @@ export function StatusDashboard({
           {/* Risk Matrix */}
           <Card className="border-border/50">
             <CardContent className="pt-6">
-              <RiskMatrix risks={risks} onRiskClick={onRiskClick} onAddRisk={onAddRisk} />
+              <RiskMatrix risks={risks} onRiskClick={onRiskClick} />
             </CardContent>
           </Card>
 

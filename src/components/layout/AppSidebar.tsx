@@ -11,7 +11,6 @@ import {
   Sparkles,
   Search,
   Users,
-  ClipboardCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -21,7 +20,6 @@ const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
   { icon: Search, label: "Research", path: "/research" },
   { icon: Briefcase, label: "Tool Library", path: "/tools" },
-  { icon: ClipboardCheck, label: "Assessments", path: "/assessments" },
   { icon: BookOpen, label: "Runbooks", path: "/runbooks" },
   { icon: FolderKanban, label: "Projects", path: "/projects" },
   { icon: Users, label: "Team", path: "/team" },
