@@ -17,6 +17,8 @@ import ExpertAI from "@/pages/ExpertAI";
 import Research from "@/pages/Research";
 import Team from "@/pages/Team";
 import Admin from "@/pages/Admin";
+import Assessments from "@/pages/Assessments";
+import AssessmentBuilder from "@/pages/AssessmentBuilder";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -40,6 +42,8 @@ const App = () => (
             <Route path="/tools/:toolId" element={<ToolLibrary />} />
             <Route path="/runbooks" element={<Runbooks />} />
             <Route path="/runbooks/design/:id" element={<RunbookDesigner />} />
+            <Route path="/assessments" element={<Assessments />} />
+            <Route path="/assessments/:assessmentId/builder" element={<AssessmentBuilder />} />
             <Route path="/ai-chat" element={<ExpertAI />} />
             <Route path="/team" element={<Team />} />
             <Route path="/admin" element={<Admin />} />
