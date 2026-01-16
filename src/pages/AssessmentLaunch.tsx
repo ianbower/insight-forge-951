@@ -52,6 +52,7 @@ import {
   Download,
   RefreshCw,
   ExternalLink,
+  BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -437,6 +438,16 @@ export default function AssessmentLaunch() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {stats.completed > 0 && (
+            <Button 
+              variant="outline" 
+              onClick={() => navigate(`/assessments/${assessmentId}/results/${instanceId}`)}
+              className="gap-2"
+            >
+              <BarChart3 className="h-4 w-4" />
+              View Results
+            </Button>
+          )}
           {instance.status === "draft" ? (
             <Button onClick={handleLaunchAssessment} className="gap-2">
               <Play className="h-4 w-4" />

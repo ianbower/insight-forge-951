@@ -21,6 +21,7 @@ import Assessments from "@/pages/Assessments";
 import AssessmentBuilder from "@/pages/AssessmentBuilder";
 import AssessmentLaunch from "@/pages/AssessmentLaunch";
 import AssessmentResponse from "@/pages/AssessmentResponse";
+import AssessmentResults from "@/pages/AssessmentResults";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -55,6 +56,7 @@ const App = () => (
                 <Route path="/assessments/:assessmentId/builder" element={<AssessmentBuilder />} />
                 <Route path="/assessments/:assessmentId/launch" element={<AssessmentLaunch />} />
                 <Route path="/assessments/:assessmentId/launch/:instanceId" element={<AssessmentLaunch />} />
+                <Route path="/assessments/:assessmentId/results/:instanceId" element={<AssessmentResults />} />
                 <Route path="/ai-chat" element={<ExpertAI />} />
                 <Route path="/team" element={<Team />} />
                 <Route path="/admin" element={<Admin />} />
