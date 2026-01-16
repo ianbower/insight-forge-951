@@ -53,6 +53,8 @@ import {
   RefreshCw,
   ExternalLink,
   BarChart3,
+  Eye,
+  FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -438,6 +440,24 @@ export default function AssessmentLaunch() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            onClick={() => navigate(`/assessments/${assessmentId}/take/${instanceId}?mode=test`)}
+            className="gap-2"
+          >
+            <Eye className="h-4 w-4" />
+            Test Assessment
+          </Button>
+          {instance.status === "active" && (
+            <Button 
+              variant="outline" 
+              onClick={() => navigate(`/assessments/${assessmentId}/take/${instanceId}`)}
+              className="gap-2"
+            >
+              <FileText className="h-4 w-4" />
+              Take In-App
+            </Button>
+          )}
           {stats.completed > 0 && (
             <Button 
               variant="outline" 
