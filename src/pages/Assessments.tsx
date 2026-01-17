@@ -281,11 +281,7 @@ export default function Assessments() {
             {filteredTemplates.map((template) => (
               <Card
                 key={template.id}
-                className="border-border hover:border-primary/50 transition-colors cursor-pointer group"
-                onClick={() => {
-                  setSelectedTemplate(template);
-                  setLaunchDialogOpen(true);
-                }}
+                className="border-border hover:border-primary/50 transition-colors group"
               >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
@@ -295,7 +291,31 @@ export default function Assessments() {
                     >
                       {template.category}
                     </Badge>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedTemplate(template);
+                          setBuilderDialogOpen(true);
+                        }}
+                      >
+                        <Settings2 className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => {
+                          setSelectedTemplate(template);
+                          setLaunchDialogOpen(true);
+                        }}
+                      >
+                        <Send className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                   <CardTitle className="text-lg mt-2">{template.name}</CardTitle>
                   {template.description && (
@@ -305,19 +325,33 @@ export default function Assessments() {
                   )}
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    {template.framework_type && (
-                      <div className="flex items-center gap-1">
-                        <FileText className="h-3.5 w-3.5" />
-                        <span>{template.framework_type}</span>
-                      </div>
-                    )}
-                    {template.industry && (
-                      <div className="flex items-center gap-1">
-                        <Layers className="h-3.5 w-3.5" />
-                        <span>{template.industry}</span>
-                      </div>
-                    )}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      {template.framework_type && (
+                        <div className="flex items-center gap-1">
+                          <FileText className="h-3.5 w-3.5" />
+                          <span>{template.framework_type}</span>
+                        </div>
+                      )}
+                      {template.industry && (
+                        <div className="flex items-center gap-1">
+                          <Layers className="h-3.5 w-3.5" />
+                          <span>{template.industry}</span>
+                        </div>
+                      )}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => {
+                        setSelectedTemplate(template);
+                        setLaunchDialogOpen(true);
+                      }}
+                    >
+                      <Send className="h-3.5 w-3.5" />
+                      Launch
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -426,7 +460,6 @@ export default function Assessments() {
                 </Card>
               ))}
             </div>
-          ) : (
           ) : (
             <Card className="border-dashed">
               <CardContent className="py-12 text-center">
@@ -584,6 +617,35 @@ export default function Assessments() {
               Launch Assessment
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Builder Dialog */}
+      <Dialog open={builderDialogOpen} onOpenChange={setBuilderDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          {selectedTemplate && (
+            <AssessmentBuilder
+              templateId={selectedTemplate.id}
+              templateName={selectedTemplate.name}
+              onClose={() => {
+                setBuilderDialogOpen(false);
+                fetchData();
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Results Dialog */}
+      <Dialog open={resultsDialogOpen} onOpenChange={setResultsDialogOpen}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          {selectedInstance && (
+            <AssessmentResults
+              instanceId={selectedInstance.id}
+              instanceName={selectedInstance.name}
+              onClose={() => setResultsDialogOpen(false)}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>
