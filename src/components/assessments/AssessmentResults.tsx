@@ -23,9 +23,10 @@ import {
   AssessmentGapAnalysis,
   AssessmentTrendChart,
   AssessmentScoreCard,
+  BenchmarkComparison,
 } from "./AssessmentVisualizations";
 import { AssessmentInsights } from "./AssessmentInsights";
-import { Users, BarChart3, Target, TrendingUp, Sparkles, Download, Filter } from "lucide-react";
+import { Users, BarChart3, Target, TrendingUp, Sparkles, Download, Filter, Database } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AssessmentResultsProps {
@@ -42,14 +43,29 @@ interface ResponseData {
   recipient_organization?: string;
 }
 
+interface BenchmarkData {
+  id: string;
+  benchmark_type: string;
+  industry: string | null;
+  dimension_id: string | null;
+  score_average: number | null;
+  score_percentile_25: number | null;
+  score_percentile_50: number | null;
+  score_percentile_75: number | null;
+  source: string | null;
+  sample_size: number | null;
+}
+
 export function AssessmentResults({ instanceId, instanceName, onClose }: AssessmentResultsProps) {
   const [loading, setLoading] = useState(true);
   const [responses, setResponses] = useState<ResponseData[]>([]);
   const [dimensions, setDimensions] = useState<any[]>([]);
   const [questions, setQuestions] = useState<any[]>([]);
   const [recipients, setRecipients] = useState<any[]>([]);
+  const [benchmarks, setBenchmarks] = useState<BenchmarkData[]>([]);
   const [filterIndustry, setFilterIndustry] = useState<string>("all");
   const [filterOrg, setFilterOrg] = useState<string>("all");
+  const [benchmarkFilter, setBenchmarkFilter] = useState<string>("all");
   const [showInsights, setShowInsights] = useState(false);
 
   useEffect(() => {
@@ -99,6 +115,14 @@ export function AssessmentResults({ instanceId, instanceName, onClose }: Assessm
 
     setRecipients(recipientsData || []);
 
+    // Fetch benchmarks for this template
+    const { data: benchmarksData } = await supabase
+      .from("assessment_benchmarks")
+      .select("*")
+      .eq("assessment_template_id", templateId);
+
+    setBenchmarks(benchmarksData || []);
+
     // Fetch responses with recipient info
     const { data: responsesData } = await supabase
       .from("assessment_responses")
@@ -136,6 +160,12 @@ export function AssessmentResults({ instanceId, instanceName, onClose }: Assessm
     return ["all", ...Array.from(unique)];
   }, [recipients]);
 
+  // Benchmark type options
+  const benchmarkTypes = useMemo(() => {
+    const unique = new Set(benchmarks.map((b) => b.benchmark_type));
+    return ["all", ...Array.from(unique)];
+  }, [benchmarks]);
+
   // Filtered responses
   const filteredResponses = useMemo(() => {
     return responses.filter((r) => {
@@ -145,27 +175,47 @@ export function AssessmentResults({ instanceId, instanceName, onClose }: Assessm
     });
   }, [responses, filterIndustry, filterOrg]);
 
-  // Calculate dimension scores
+  // Get benchmark for a dimension
+  const getBenchmarkForDimension = (dimensionId: string | null) => {
+    const filtered = benchmarks.filter((b) => {
+      if (benchmarkFilter !== "all" && b.benchmark_type !== benchmarkFilter) return false;
+      return b.dimension_id === dimensionId || b.dimension_id === null;
+    });
+    // Prefer dimension-specific benchmark
+    const specific = filtered.find((b) => b.dimension_id === dimensionId);
+    return specific || filtered[0];
+  };
+
+  // Calculate dimension scores with benchmarks
   const dimensionScores = useMemo(() => {
-    const scoresByDimension: Record<string, number[]> = {};
+    const scoresByDimension: Record<string, { scores: number[]; id: string }> = {};
 
     filteredResponses.forEach((r) => {
-      if (!scoresByDimension[r.dimension_name]) {
-        scoresByDimension[r.dimension_name] = [];
+      const dim = dimensions.find((d) => d.name === r.dimension_name);
+      const dimKey = r.dimension_name;
+      if (!scoresByDimension[dimKey]) {
+        scoresByDimension[dimKey] = { scores: [], id: dim?.id || "" };
       }
       if (!isNaN(r.response_value)) {
-        scoresByDimension[r.dimension_name].push(r.response_value);
+        scoresByDimension[dimKey].scores.push(r.response_value);
       }
     });
 
-    return Object.entries(scoresByDimension).map(([name, scores]) => ({
-      name,
-      score: scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0,
-      target: 4, // Default target
-      benchmark: 3.5, // Default benchmark
-      responseCount: scores.length,
-    }));
-  }, [filteredResponses]);
+    return Object.entries(scoresByDimension).map(([name, data]) => {
+      const benchmark = getBenchmarkForDimension(data.id);
+      return {
+        name,
+        score: data.scores.length > 0 ? data.scores.reduce((a, b) => a + b, 0) / data.scores.length : 0,
+        target: 4, // Default target
+        benchmark: benchmark?.score_average || 3.5,
+        benchmarkP25: benchmark?.score_percentile_25,
+        benchmarkP75: benchmark?.score_percentile_75,
+        benchmarkSource: benchmark?.source,
+        benchmarkType: benchmark?.benchmark_type,
+        responseCount: data.scores.length,
+      };
+    });
+  }, [filteredResponses, dimensions, benchmarks, benchmarkFilter]);
 
   // Calculate overall score
   const overallScore = useMemo(() => {
@@ -309,6 +359,10 @@ export function AssessmentResults({ instanceId, instanceName, onClose }: Assessm
               <BarChart3 className="h-4 w-4" />
               Details
             </TabsTrigger>
+            <TabsTrigger value="benchmarks" className="gap-2">
+              <Database className="h-4 w-4" />
+              Benchmarks
+            </TabsTrigger>
             <TabsTrigger value="trends" className="gap-2">
               <TrendingUp className="h-4 w-4" />
               Trends
@@ -359,6 +413,42 @@ export function AssessmentResults({ instanceId, instanceName, onClose }: Assessm
           {/* Details Tab */}
           <TabsContent value="details">
             <AssessmentHeatMap dimensions={heatMapData} />
+          </TabsContent>
+
+          {/* Benchmarks Tab */}
+          <TabsContent value="benchmarks" className="space-y-6">
+            <div className="flex items-center gap-4 mb-4">
+              <span className="text-sm text-muted-foreground">Compare against:</span>
+              <Select value={benchmarkFilter} onValueChange={setBenchmarkFilter}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {benchmarkTypes.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type === "all" ? "All Benchmarks" : type.charAt(0).toUpperCase() + type.slice(1).replace("_", " ")}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {benchmarks.length === 0 ? (
+              <Card className="border-dashed">
+                <CardContent className="py-12 text-center">
+                  <Database className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+                  <p className="text-lg font-medium text-muted-foreground">No benchmark data available</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Add benchmarks to compare your results against industry standards
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <BenchmarkComparison 
+                data={dimensionScores} 
+                benchmarkLabel={benchmarkFilter === "all" ? "Combined Benchmark" : benchmarkFilter}
+              />
+            )}
           </TabsContent>
 
           {/* Trends Tab */}

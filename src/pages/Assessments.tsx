@@ -37,11 +37,13 @@ import {
   Send,
   Eye,
   Settings2,
+  Database,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AssessmentBuilder } from "@/components/assessments/AssessmentBuilder";
 import { AssessmentLaunch } from "@/components/assessments/AssessmentLaunch";
 import { AssessmentResults } from "@/components/assessments/AssessmentResults";
+import { BenchmarkManager } from "@/components/assessments/BenchmarkManager";
 
 interface AssessmentTemplate {
   id: string;
@@ -98,6 +100,7 @@ export default function Assessments() {
   const [launchDialogOpen, setLaunchDialogOpen] = useState(false);
   const [builderDialogOpen, setBuilderDialogOpen] = useState(false);
   const [resultsDialogOpen, setResultsDialogOpen] = useState(false);
+  const [benchmarkDialogOpen, setBenchmarkDialogOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<AssessmentTemplate | null>(null);
   const [selectedInstance, setSelectedInstance] = useState<AssessmentInstance | null>(null);
 
@@ -245,6 +248,10 @@ export default function Assessments() {
           <TabsTrigger value="results" className="gap-2">
             <BarChart3 className="h-4 w-4" />
             Results
+          </TabsTrigger>
+          <TabsTrigger value="benchmarks" className="gap-2">
+            <Database className="h-4 w-4" />
+            Benchmarks
           </TabsTrigger>
         </TabsList>
 
@@ -485,6 +492,69 @@ export default function Assessments() {
             </Card>
           )}
         </TabsContent>
+
+        {/* Benchmarks Tab */}
+        <TabsContent value="benchmarks" className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {templates.map((template) => (
+              <Card key={template.id} className="border-border hover:border-primary/50 transition-colors">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <Badge
+                      variant="outline"
+                      className={cn("capitalize", categoryColors[template.category] || categoryColors.general)}
+                    >
+                      {template.category}
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => {
+                        setSelectedTemplate(template);
+                        setBenchmarkDialogOpen(true);
+                      }}
+                    >
+                      <Database className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <CardTitle className="text-lg mt-2">{template.name}</CardTitle>
+                  {template.description && (
+                    <CardDescription className="line-clamp-2">
+                      {template.description}
+                    </CardDescription>
+                  )}
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2 w-full"
+                    onClick={() => {
+                      setSelectedTemplate(template);
+                      setBenchmarkDialogOpen(true);
+                    }}
+                  >
+                    <Database className="h-3.5 w-3.5" />
+                    Manage Benchmarks
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+
+            {templates.length === 0 && (
+              <Card className="col-span-full border-dashed">
+                <CardContent className="py-12 text-center">
+                  <Database className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+                  <p className="text-lg font-medium text-muted-foreground">No templates available</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Create assessment templates first to add benchmark data
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </TabsContent>
       </Tabs>
 
       {/* Create Template Dialog */}
@@ -657,6 +727,22 @@ export default function Assessments() {
               instanceId={selectedInstance.id}
               instanceName={selectedInstance.name}
               onClose={() => setResultsDialogOpen(false)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Benchmark Manager Dialog */}
+      <Dialog open={benchmarkDialogOpen} onOpenChange={setBenchmarkDialogOpen}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          {selectedTemplate && (
+            <BenchmarkManager
+              templateId={selectedTemplate.id}
+              templateName={selectedTemplate.name}
+              onClose={() => {
+                setBenchmarkDialogOpen(false);
+                fetchData();
+              }}
             />
           )}
         </DialogContent>
