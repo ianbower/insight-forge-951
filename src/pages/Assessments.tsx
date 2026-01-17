@@ -298,9 +298,22 @@ export default function Assessments() {
                         className="h-7 w-7"
                         onClick={(e) => {
                           e.stopPropagation();
+                          window.open(`/assessments/preview/${template.id}`, '_blank');
+                        }}
+                        title="Preview"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setSelectedTemplate(template);
                           setBuilderDialogOpen(true);
                         }}
+                        title="Edit"
                       >
                         <Settings2 className="h-4 w-4" />
                       </Button>

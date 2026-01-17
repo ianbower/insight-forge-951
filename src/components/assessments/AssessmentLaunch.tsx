@@ -44,6 +44,7 @@ import {
   CheckCircle2,
   Clock,
   AlertCircle,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -68,6 +69,7 @@ interface AssessmentLaunchProps {
 export function AssessmentLaunch({ templateId, templateName, onClose, onViewResults }: AssessmentLaunchProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [sendingEmails, setSendingEmails] = useState(false);
   const [instance, setInstance] = useState<any>(null);
   const [recipients, setRecipients] = useState<Recipient[]>([]);
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
@@ -224,8 +226,34 @@ export function AssessmentLaunch({ templateId, templateName, onClose, onViewResu
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
-      setInstance({ ...instance, status: "active" });
+    setInstance({ ...instance, status: "active" });
       toast({ title: "Assessment activated", description: "Recipients can now complete the assessment" });
+    }
+  };
+
+  const handleSendEmails = async (recipientIds?: string[]) => {
+    if (!instance) return;
+
+    setSendingEmails(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-assessment-emails", {
+        body: {
+          instanceId: instance.id,
+          recipientIds,
+          baseUrl: window.location.origin,
+        },
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Emails sent",
+        description: `Successfully sent ${data.sent} email(s)${data.failed > 0 ? `, ${data.failed} failed` : ""}`,
+      });
+    } catch (error: any) {
+      toast({ title: "Error sending emails", description: error.message, variant: "destructive" });
+    } finally {
+      setSendingEmails(false);
     }
   };
 
@@ -373,6 +401,16 @@ export function AssessmentLaunch({ templateId, templateName, onClose, onViewResu
             <CardDescription>Add people to receive and complete this assessment</CardDescription>
           </div>
           <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => handleSendEmails()} 
+              disabled={sendingEmails || recipients.filter(r => r.status === "pending").length === 0}
+              className="gap-2"
+            >
+              {sendingEmails ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              Send All Invites
+            </Button>
             <Button variant="outline" size="sm" onClick={() => setBulkImportOpen(true)} className="gap-2">
               <Mail className="h-4 w-4" />
               Bulk Import

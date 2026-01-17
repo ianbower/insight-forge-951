@@ -19,6 +19,7 @@ import Team from "@/pages/Team";
 import Admin from "@/pages/Admin";
 import Assessments from "@/pages/Assessments";
 import AssessmentRespond from "@/pages/AssessmentRespond";
+import AssessmentPreview from "@/pages/AssessmentPreview";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,8 +31,9 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          {/* Public route for assessment responses - no layout */}
+          {/* Public routes - no layout */}
           <Route path="/assess/:token" element={<AssessmentRespond />} />
+          <Route path="/assessments/preview/:templateId" element={<AssessmentPreview />} />
           
           {/* App routes with layout */}
           <Route path="/" element={<AppLayout><Dashboard /></AppLayout>} />
