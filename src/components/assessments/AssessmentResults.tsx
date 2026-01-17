@@ -12,12 +12,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   AssessmentRadarChart,
   AssessmentHeatMap,
   AssessmentGapAnalysis,
   AssessmentTrendChart,
   AssessmentScoreCard,
 } from "./AssessmentVisualizations";
+import { AssessmentInsights } from "./AssessmentInsights";
 import { Users, BarChart3, Target, TrendingUp, Sparkles, Download, Filter } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -43,6 +50,7 @@ export function AssessmentResults({ instanceId, instanceName, onClose }: Assessm
   const [recipients, setRecipients] = useState<any[]>([]);
   const [filterIndustry, setFilterIndustry] = useState<string>("all");
   const [filterOrg, setFilterOrg] = useState<string>("all");
+  const [showInsights, setShowInsights] = useState(false);
 
   useEffect(() => {
     fetchResults();
@@ -224,7 +232,11 @@ export function AssessmentResults({ instanceId, instanceName, onClose }: Assessm
             <Download className="h-4 w-4" />
             Export
           </Button>
-          <Button variant="outline" className="gap-2">
+          <Button 
+            variant="outline" 
+            className="gap-2"
+            onClick={() => setShowInsights(true)}
+          >
             <Sparkles className="h-4 w-4" />
             AI Insights
           </Button>
@@ -233,6 +245,16 @@ export function AssessmentResults({ instanceId, instanceName, onClose }: Assessm
           </Button>
         </div>
       </div>
+
+      {/* AI Insights Dialog */}
+      <Dialog open={showInsights} onOpenChange={setShowInsights}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>AI-Powered Insights</DialogTitle>
+          </DialogHeader>
+          <AssessmentInsights instanceId={instanceId} instanceName={instanceName} />
+        </DialogContent>
+      </Dialog>
 
       {/* Filters */}
       <div className="flex items-center gap-4">
