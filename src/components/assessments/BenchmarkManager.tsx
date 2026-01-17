@@ -40,9 +40,11 @@ import {
   Trash2,
   Edit,
   Check,
-  X
+  X,
+  Sparkles
 } from "lucide-react";
 import { toast } from "sonner";
+import { BenchmarkDiscovery } from "./BenchmarkDiscovery";
 
 interface BenchmarkManagerProps {
   templateId: string;
@@ -390,7 +392,7 @@ export function BenchmarkManager({ templateId, templateName, onClose }: Benchmar
   }
 
   return (
-    <div className="space-y-6">
+    <Tabs defaultValue="manage" className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -399,7 +401,26 @@ export function BenchmarkManager({ templateId, templateName, onClose }: Benchmar
             Manage benchmark data for {templateName}
           </p>
         </div>
-        <div className="flex gap-2">
+        <TabsList>
+          <TabsTrigger value="manage">Manage</TabsTrigger>
+          <TabsTrigger value="discover" className="gap-2">
+            <Sparkles className="h-4 w-4" />
+            AI Discovery
+          </TabsTrigger>
+        </TabsList>
+      </div>
+
+      <TabsContent value="discover" className="mt-6">
+        <BenchmarkDiscovery
+          templateId={templateId}
+          templateName={templateName}
+          dimensions={dimensions}
+          onBenchmarkAdded={fetchData}
+        />
+      </TabsContent>
+
+      <TabsContent value="manage" className="space-y-6 mt-6">
+        <div className="flex gap-2 justify-end">
           <Button variant="outline" onClick={importFromAssessments} className="gap-2">
             <RefreshCw className="h-4 w-4" />
             Import from Responses
@@ -585,8 +606,6 @@ export function BenchmarkManager({ templateId, templateName, onClose }: Benchmar
             </DialogContent>
           </Dialog>
         </div>
-      </div>
-
       {/* Benchmarks Table */}
       {benchmarks.length === 0 ? (
         <Card className="border-dashed">
@@ -659,6 +678,7 @@ export function BenchmarkManager({ templateId, templateName, onClose }: Benchmar
           </Button>
         </div>
       )}
-    </div>
+      </TabsContent>
+    </Tabs>
   );
 }

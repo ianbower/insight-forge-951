@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.send-assessment-emails]
 verify_jwt = false
+
+[functions.benchmark-discovery]
+verify_jwt = false
