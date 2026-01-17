@@ -444,3 +444,152 @@ export function AssessmentScoreCard({ score, maxScore = 5, label, sublabel, tren
     </Card>
   );
 }
+
+// Benchmark Comparison Component
+interface BenchmarkComparisonProps {
+  data: {
+    name: string;
+    score: number;
+    benchmark: number;
+    benchmarkP25?: number | null;
+    benchmarkP75?: number | null;
+    benchmarkSource?: string | null;
+    benchmarkType?: string | null;
+  }[];
+  benchmarkLabel?: string;
+}
+
+export function BenchmarkComparison({ data, benchmarkLabel = "Benchmark" }: BenchmarkComparisonProps) {
+  const chartData = data.map((d) => ({
+    name: d.name.length > 20 ? d.name.substring(0, 20) + "..." : d.name,
+    fullName: d.name,
+    yourScore: d.score,
+    benchmark: d.benchmark,
+    p25: d.benchmarkP25,
+    p75: d.benchmarkP75,
+    gap: d.score - d.benchmark,
+    source: d.benchmarkSource,
+  }));
+
+  const avgScore = data.length > 0 ? data.reduce((sum, d) => sum + d.score, 0) / data.length : 0;
+  const avgBenchmark = data.length > 0 ? data.reduce((sum, d) => sum + d.benchmark, 0) / data.length : 0;
+  const overallGap = avgScore - avgBenchmark;
+
+  return (
+    <div className="space-y-6">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="border-border">
+          <CardContent className="pt-6 text-center">
+            <p className="text-3xl font-bold text-primary">{avgScore.toFixed(2)}</p>
+            <p className="text-sm text-muted-foreground">Your Average Score</p>
+          </CardContent>
+        </Card>
+        <Card className="border-border">
+          <CardContent className="pt-6 text-center">
+            <p className="text-3xl font-bold text-muted-foreground">{avgBenchmark.toFixed(2)}</p>
+            <p className="text-sm text-muted-foreground">{benchmarkLabel} Average</p>
+          </CardContent>
+        </Card>
+        <Card className="border-border">
+          <CardContent className="pt-6 text-center">
+            <p className={cn(
+              "text-3xl font-bold",
+              overallGap > 0 ? "text-emerald-500" : overallGap < 0 ? "text-red-500" : "text-muted-foreground"
+            )}>
+              {overallGap > 0 ? "+" : ""}{overallGap.toFixed(2)}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {overallGap > 0 ? "Above" : overallGap < 0 ? "Below" : "At"} Benchmark
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Comparison Chart */}
+      <Card className="border-border">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base font-medium flex items-center gap-2">
+            <Target className="h-4 w-4" />
+            Score vs {benchmarkLabel}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[350px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={chartData}
+                layout="vertical"
+                margin={{ top: 10, right: 30, left: 120, bottom: 10 }}
+              >
+                <XAxis type="number" domain={[0, 5]} />
+                <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 11 }} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "8px",
+                  }}
+                  formatter={(value: number, name: string) => [
+                    value.toFixed(2),
+                    name === "yourScore" ? "Your Score" : benchmarkLabel,
+                  ]}
+                />
+                <Legend />
+                <Bar name="Your Score" dataKey="yourScore" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                <Bar name={benchmarkLabel} dataKey="benchmark" fill="hsl(var(--muted-foreground))" radius={[0, 4, 4, 0]} opacity={0.6} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Detailed Comparison Table */}
+      <Card className="border-border">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base font-medium">Detailed Comparison</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {chartData.map((item, idx) => (
+              <div key={idx} className="flex items-center gap-4 p-3 rounded-lg bg-muted/30">
+                <div className="flex-1">
+                  <p className="font-medium text-sm">{item.fullName}</p>
+                  {item.source && (
+                    <p className="text-xs text-muted-foreground">Source: {item.source}</p>
+                  )}
+                </div>
+                <div className="text-right">
+                  <p className="font-bold">{item.yourScore.toFixed(2)}</p>
+                  <p className="text-xs text-muted-foreground">Your Score</p>
+                </div>
+                <div className="text-right">
+                  <p className="font-medium text-muted-foreground">{item.benchmark.toFixed(2)}</p>
+                  {item.p25 && item.p75 && (
+                    <p className="text-xs text-muted-foreground">
+                      P25-P75: {item.p25.toFixed(1)}-{item.p75.toFixed(1)}
+                    </p>
+                  )}
+                </div>
+                <div className="w-20 text-right">
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      item.gap > 0.5
+                        ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                        : item.gap < -0.5
+                        ? "bg-red-500/10 text-red-500 border-red-500/20"
+                        : "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                    )}
+                  >
+                    {item.gap > 0 ? "+" : ""}{item.gap.toFixed(2)}
+                  </Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
