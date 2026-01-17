@@ -221,17 +221,17 @@ export function AssessmentBuilder({ templateId, templateName, onClose }: Assessm
     const dimension = dimensions[selectedDimensionIndex];
     const dimensionId = dimension.id;
 
-    const { error } = await supabase.from("assessment_questions").insert({
+    const { error } = await supabase.from("assessment_questions").insert([{
       assessment_template_id: templateId,
       dimension_id: dimensionId || null,
       question_text: newQuestion.question_text,
       question_type: newQuestion.question_type,
       weight: newQuestion.weight,
       order_index: dimension.questions.length,
-      scale_config: newQuestion.question_type === "likert" ? newQuestion.scale_config as unknown as Record<string, unknown> : null,
-      options: newQuestion.question_type === "multiple_choice" ? newQuestion.options as unknown as Record<string, unknown> : null,
+      scale_config: newQuestion.question_type === "likert" ? JSON.parse(JSON.stringify(newQuestion.scale_config)) : null,
+      options: newQuestion.question_type === "multiple_choice" ? JSON.parse(JSON.stringify(newQuestion.options)) : null,
       required: newQuestion.required,
-    });
+    }]);
 
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
