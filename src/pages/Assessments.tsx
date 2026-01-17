@@ -36,8 +36,12 @@ import {
   Target,
   Send,
   Eye,
+  Settings2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { AssessmentBuilder } from "@/components/assessments/AssessmentBuilder";
+import { AssessmentLaunch } from "@/components/assessments/AssessmentLaunch";
+import { AssessmentResults } from "@/components/assessments/AssessmentResults";
 
 interface AssessmentTemplate {
   id: string;
@@ -92,7 +96,10 @@ export default function Assessments() {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [launchDialogOpen, setLaunchDialogOpen] = useState(false);
+  const [builderDialogOpen, setBuilderDialogOpen] = useState(false);
+  const [resultsDialogOpen, setResultsDialogOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<AssessmentTemplate | null>(null);
+  const [selectedInstance, setSelectedInstance] = useState<AssessmentInstance | null>(null);
 
   // Form state for new template
   const [newTemplate, setNewTemplate] = useState({
@@ -345,7 +352,15 @@ export default function Assessments() {
                       {instance.status}
                     </Badge>
                     <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8"
+                        onClick={() => {
+                          setSelectedInstance(instance);
+                          setResultsDialogOpen(true);
+                        }}
+                      >
                         <Eye className="h-4 w-4" />
                       </Button>
                       <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -391,15 +406,38 @@ export default function Assessments() {
 
         {/* Results Tab */}
         <TabsContent value="results" className="space-y-4">
-          <Card className="border-dashed">
-            <CardContent className="py-12 text-center">
-              <BarChart3 className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-              <p className="text-lg font-medium text-muted-foreground">Assessment Results</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                View and analyze completed assessment results here
-              </p>
-            </CardContent>
-          </Card>
+          {instances.filter((i) => i.status === "closed" || i.status === "active").length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {instances.filter((i) => i.status !== "draft").map((instance) => (
+                <Card 
+                  key={instance.id} 
+                  className="border-border cursor-pointer hover:border-primary/50 transition-colors"
+                  onClick={() => {
+                    setSelectedInstance(instance);
+                    setResultsDialogOpen(true);
+                  }}
+                >
+                  <CardContent className="py-4">
+                    <p className="font-medium">{instance.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {instance.assessment_template?.name}
+                    </p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+          ) : (
+            <Card className="border-dashed">
+              <CardContent className="py-12 text-center">
+                <BarChart3 className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+                <p className="text-lg font-medium text-muted-foreground">No results yet</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Complete assessments will appear here
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
 
