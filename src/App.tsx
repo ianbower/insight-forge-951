@@ -20,6 +20,7 @@ import Admin from "@/pages/Admin";
 import Assessments from "@/pages/Assessments";
 import AssessmentRespond from "@/pages/AssessmentRespond";
 import AssessmentPreview from "@/pages/AssessmentPreview";
+import AssessmentTake from "@/pages/AssessmentTake";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +35,9 @@ const App = () => (
           {/* Public routes - no layout */}
           <Route path="/assess/:token" element={<AssessmentRespond />} />
           <Route path="/assessments/preview/:templateId" element={<AssessmentPreview />} />
+          
+          {/* In-app assessment taking (with layout) */}
+          <Route path="/assessments/take/:token" element={<AppLayout><AssessmentTake /></AppLayout>} />
           
           {/* App routes with layout */}
           <Route path="/" element={<AppLayout><Dashboard /></AppLayout>} />

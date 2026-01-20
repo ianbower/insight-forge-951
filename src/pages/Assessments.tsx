@@ -38,12 +38,14 @@ import {
   Eye,
   Settings2,
   Database,
+  User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AssessmentBuilder } from "@/components/assessments/AssessmentBuilder";
 import { AssessmentLaunch } from "@/components/assessments/AssessmentLaunch";
 import { AssessmentResults } from "@/components/assessments/AssessmentResults";
 import { BenchmarkManager } from "@/components/assessments/BenchmarkManager";
+import { MyAssessments } from "@/components/assessments/MyAssessments";
 
 interface AssessmentTemplate {
   id: string;
@@ -235,8 +237,12 @@ export default function Assessments() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="templates" className="space-y-6">
+      <Tabs defaultValue="my-assessments" className="space-y-6">
         <TabsList>
+          <TabsTrigger value="my-assessments" className="gap-2">
+            <User className="h-4 w-4" />
+            My Assessments
+          </TabsTrigger>
           <TabsTrigger value="templates" className="gap-2">
             <Layers className="h-4 w-4" />
             Templates
@@ -254,6 +260,11 @@ export default function Assessments() {
             Benchmarks
           </TabsTrigger>
         </TabsList>
+
+        {/* My Assessments Tab */}
+        <TabsContent value="my-assessments" className="space-y-4">
+          <MyAssessments />
+        </TabsContent>
 
         {/* Templates Tab */}
         <TabsContent value="templates" className="space-y-4">
