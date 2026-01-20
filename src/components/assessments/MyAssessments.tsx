@@ -81,18 +81,18 @@ interface MyAssessmentsProps {
 export function MyAssessments({ userEmail, onTakeAssessment }: MyAssessmentsProps) {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [assessments, setAssessments] = useState<AssignedAssessment[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [emailFilter, setEmailFilter] = useState(userEmail || "");
+  const [emailInput, setEmailInput] = useState(userEmail || "");
+  const [activeEmail, setActiveEmail] = useState(userEmail || "");
+  const [hasSearched, setHasSearched] = useState(!!userEmail);
 
   useEffect(() => {
-    if (emailFilter) {
+    if (activeEmail && hasSearched) {
       fetchAssessments();
-    } else {
-      setLoading(false);
     }
-  }, [emailFilter]);
+  }, [activeEmail]);
 
   const fetchAssessments = async () => {
     setLoading(true);
@@ -114,7 +114,7 @@ export function MyAssessments({ userEmail, onTakeAssessment }: MyAssessmentsProp
           )
         )
       `)
-      .eq("email", emailFilter.toLowerCase())
+      .eq("email", activeEmail.toLowerCase())
       .order("invited_at", { ascending: false });
 
     if (error) {
@@ -158,8 +158,9 @@ export function MyAssessments({ userEmail, onTakeAssessment }: MyAssessmentsProp
   };
 
   const handleLookup = () => {
-    if (emailFilter.includes("@")) {
-      fetchAssessments();
+    if (emailInput.includes("@")) {
+      setActiveEmail(emailInput);
+      setHasSearched(true);
     } else {
       toast({ title: "Please enter a valid email", variant: "destructive" });
     }
@@ -189,7 +190,7 @@ export function MyAssessments({ userEmail, onTakeAssessment }: MyAssessmentsProp
   const pendingAssessments = filteredAssessments.filter((a) => a.status === "pending" || a.status === "started");
   const completedAssessments = filteredAssessments.filter((a) => a.status === "completed");
 
-  if (!emailFilter) {
+  if (!hasSearched) {
     return (
       <Card className="border-dashed">
         <CardContent className="py-12 text-center">
@@ -202,8 +203,8 @@ export function MyAssessments({ userEmail, onTakeAssessment }: MyAssessmentsProp
             <Input
               type="email"
               placeholder="your.email@company.com"
-              value={emailFilter}
-              onChange={(e) => setEmailFilter(e.target.value)}
+              value={emailInput}
+              onChange={(e) => setEmailInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleLookup()}
             />
             <Button onClick={handleLookup}>Look Up</Button>
@@ -227,12 +228,16 @@ export function MyAssessments({ userEmail, onTakeAssessment }: MyAssessmentsProp
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted text-sm">
           <Mail className="h-4 w-4 text-muted-foreground" />
-          <span>{emailFilter}</span>
+          <span>{activeEmail}</span>
           <Button
             variant="ghost"
             size="sm"
             className="h-6 px-2 text-xs"
-            onClick={() => setEmailFilter("")}
+            onClick={() => {
+              setHasSearched(false);
+              setActiveEmail("");
+              setAssessments([]);
+            }}
           >
             Change
           </Button>
