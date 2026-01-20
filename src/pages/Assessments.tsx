@@ -103,6 +103,7 @@ export default function Assessments() {
   const [builderDialogOpen, setBuilderDialogOpen] = useState(false);
   const [resultsDialogOpen, setResultsDialogOpen] = useState(false);
   const [benchmarkDialogOpen, setBenchmarkDialogOpen] = useState(false);
+  const [manageDialogOpen, setManageDialogOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<AssessmentTemplate | null>(null);
   const [selectedInstance, setSelectedInstance] = useState<AssessmentInstance | null>(null);
 
@@ -428,7 +429,16 @@ export default function Assessments() {
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8"
+                        onClick={() => {
+                          setSelectedInstance(instance);
+                          setManageDialogOpen(true);
+                        }}
+                        title="Manage recipients"
+                      >
                         <Send className="h-4 w-4" />
                       </Button>
                     </div>
@@ -753,6 +763,28 @@ export default function Assessments() {
               onClose={() => {
                 setBenchmarkDialogOpen(false);
                 fetchData();
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Manage Assessment Dialog (Recipients) */}
+      <Dialog open={manageDialogOpen} onOpenChange={setManageDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          {selectedInstance && selectedInstance.assessment_template && (
+            <AssessmentLaunch
+              templateId={selectedInstance.assessment_template_id}
+              templateName={selectedInstance.assessment_template.name}
+              instanceId={selectedInstance.id}
+              onClose={() => {
+                setManageDialogOpen(false);
+                fetchData();
+              }}
+              onViewResults={(id, name) => {
+                setManageDialogOpen(false);
+                setSelectedInstance({ ...selectedInstance, id, name });
+                setResultsDialogOpen(true);
               }}
             />
           )}
