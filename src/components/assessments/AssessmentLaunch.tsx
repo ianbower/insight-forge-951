@@ -62,11 +62,12 @@ interface Recipient {
 interface AssessmentLaunchProps {
   templateId: string;
   templateName: string;
+  instanceId?: string; // Optional: load existing instance
   onClose: () => void;
   onViewResults?: (instanceId: string, instanceName: string) => void;
 }
 
-export function AssessmentLaunch({ templateId, templateName, onClose, onViewResults }: AssessmentLaunchProps) {
+export function AssessmentLaunch({ templateId, templateName, instanceId, onClose, onViewResults }: AssessmentLaunchProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [sendingEmails, setSendingEmails] = useState(false);
@@ -99,7 +100,53 @@ export function AssessmentLaunch({ templateId, templateName, onClose, onViewResu
 
   useEffect(() => {
     fetchProjects();
-  }, []);
+    if (instanceId) {
+      loadExistingInstance();
+    }
+  }, [instanceId]);
+
+  const loadExistingInstance = async () => {
+    if (!instanceId) return;
+    
+    setLoading(true);
+    
+    // Fetch the instance
+    const { data: instanceData, error: instanceError } = await supabase
+      .from("assessment_instances")
+      .select("*")
+      .eq("id", instanceId)
+      .single();
+    
+    if (instanceError) {
+      toast({ title: "Error loading assessment", description: instanceError.message, variant: "destructive" });
+      setLoading(false);
+      return;
+    }
+    
+    setInstance(instanceData);
+    
+    // Fetch recipients for this instance
+    const { data: recipientsData } = await supabase
+      .from("assessment_recipients")
+      .select("*")
+      .eq("assessment_instance_id", instanceId)
+      .order("invited_at", { ascending: false });
+    
+    if (recipientsData) {
+      setRecipients(recipientsData.map(r => ({
+        id: r.id,
+        email: r.email,
+        name: r.name || "",
+        organization: r.organization || "",
+        industry: r.industry || "",
+        role: r.role || "",
+        status: r.status,
+        token: r.token,
+      })));
+    }
+    
+    setLoading(false);
+  };
 
   const fetchProjects = async () => {
     const { data } = await supabase.from("projects").select("id, name").order("name");
