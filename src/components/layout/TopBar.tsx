@@ -9,17 +9,34 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { NewEngagementForm } from "@/components/forms/NewEngagementForm";
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 export function TopBar() {
   const [newEngagementOpen, setNewEngagementOpen] = useState(false);
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+
+  // Fetch profile data
+  const { data: profile } = useQuery({
+    queryKey: ["profile", user?.id],
+    queryFn: async () => {
+      if (!user) return null;
+      const { data } = await supabase
+        .from("profiles")
+        .select("display_name, avatar_url")
+        .eq("user_id", user.id)
+        .single();
+      return data;
+    },
+    enabled: !!user,
+  });
 
   const handleSignOut = async () => {
     await signOut();
@@ -27,7 +44,7 @@ export function TopBar() {
   };
 
   const userEmail = user?.email || "user@example.com";
-  const userName = user?.user_metadata?.full_name || userEmail.split("@")[0];
+  const userName = profile?.display_name || user?.user_metadata?.full_name || userEmail.split("@")[0];
   const initials = userName
     .split(" ")
     .map((n: string) => n[0])
@@ -77,6 +94,7 @@ export function TopBar() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-9 w-9 rounded-full">
               <Avatar className="h-9 w-9 border-2 border-primary/20">
+                <AvatarImage src={profile?.avatar_url || undefined} />
                 <AvatarFallback className="bg-primary text-primary-foreground text-sm font-medium">
                   {initials}
                 </AvatarFallback>
@@ -93,7 +111,7 @@ export function TopBar() {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate("/profile")}>
               <User className="mr-2 h-4 w-4" />
               Profile Settings
             </DropdownMenuItem>
