@@ -8,11 +8,11 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  Sparkles,
   Search,
   Users,
   ClipboardList,
 } from "lucide-react";
+import axetLogo from "@/assets/axet-consult-logo.png";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -42,19 +42,13 @@ export function AppSidebar() {
     >
       {/* Logo */}
       <div className="flex h-16 items-center border-b border-sidebar-border px-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sidebar-primary">
-            <Sparkles className="h-5 w-5 text-sidebar-primary-foreground" />
+        {collapsed ? (
+          <div className="flex h-9 w-9 items-center justify-center">
+            <span className="text-lg font-bold text-sidebar-accent-foreground">aX</span>
           </div>
-          {!collapsed && (
-            <div className="flex flex-col">
-              <span className="text-sm font-semibold text-sidebar-accent-foreground">
-                Consulting
-              </span>
-              <span className="text-xs text-sidebar-foreground">Workbench</span>
-            </div>
-          )}
-        </div>
+        ) : (
+          <img src={axetLogo} alt="aXet consult" className="h-8" />
+        )}
       </div>
 
       {/* Navigation */}
