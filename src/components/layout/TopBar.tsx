@@ -1,4 +1,4 @@
-import { Search, Bell, Plus, User } from "lucide-react";
+import { Search, Bell, Plus, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -13,9 +13,27 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { NewEngagementForm } from "@/components/forms/NewEngagementForm";
 import { useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 
 export function TopBar() {
   const [newEngagementOpen, setNewEngagementOpen] = useState(false);
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/auth");
+  };
+
+  const userEmail = user?.email || "user@example.com";
+  const userName = user?.user_metadata?.full_name || userEmail.split("@")[0];
+  const initials = userName
+    .split(" ")
+    .map((n: string) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-card/80 backdrop-blur-lg px-6">
@@ -60,7 +78,7 @@ export function TopBar() {
             <Button variant="ghost" className="relative h-9 w-9 rounded-full">
               <Avatar className="h-9 w-9 border-2 border-primary/20">
                 <AvatarFallback className="bg-primary text-primary-foreground text-sm font-medium">
-                  JD
+                  {initials}
                 </AvatarFallback>
               </Avatar>
             </Button>
@@ -68,9 +86,9 @@ export function TopBar() {
           <DropdownMenuContent className="w-56" align="end" forceMount>
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">John Doe</p>
+                <p className="text-sm font-medium leading-none">{userName}</p>
                 <p className="text-xs leading-none text-muted-foreground">
-                  john.doe@consulting.com
+                  {userEmail}
                 </p>
               </div>
             </DropdownMenuLabel>
@@ -81,7 +99,10 @@ export function TopBar() {
             </DropdownMenuItem>
             <DropdownMenuItem>Team Management</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive">Log out</DropdownMenuItem>
+            <DropdownMenuItem className="text-destructive" onClick={handleSignOut}>
+              <LogOut className="mr-2 h-4 w-4" />
+              Log out
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
