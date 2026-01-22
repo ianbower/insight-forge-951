@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Bot, User, Sparkles } from "lucide-react";
+import { Send, Bot, User, Sparkles, History, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -12,13 +12,8 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-
-interface Message {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  timestamp: Date;
-}
+import { useChatSessions, ChatMessage } from "@/hooks/useChatSessions";
+import { useAuth } from "@/hooks/useAuth";
 
 const personas = [
   {
@@ -42,18 +37,27 @@ const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/expert-ai-ch
 
 export default function ExpertAI() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const {
+    sessions,
+    activeSession,
+    loading: sessionsLoading,
+    createSession,
+    addMessage,
+    updateMessageContent,
+    deleteSession,
+    selectSession,
+    setActiveSession,
+  } = useChatSessions({ sessionType: "expert_ai" });
+
   const [selectedPersona, setSelectedPersona] = useState(personas[0]);
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "1",
-      role: "assistant",
-      content: `Hello! I'm your AI ${personas[0].name} assistant. I can help you with strategic analysis, framework recommendations, and consulting best practices. What would you like to explore today?`,
-      timestamp: new Date(),
-    },
-  ]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Get messages from active session or use welcome message
+  const messages: ChatMessage[] = activeSession?.messages || [];
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -61,39 +65,53 @@ export default function ExpertAI() {
     }
   }, [messages]);
 
-  const handlePersonaChange = (personaId: string) => {
+  const handlePersonaChange = async (personaId: string) => {
     const persona = personas.find((p) => p.id === personaId);
     if (persona) {
       setSelectedPersona(persona);
-      setMessages([
-        {
-          id: Date.now().toString(),
-          role: "assistant",
-          content: `I've switched to ${persona.name} mode. ${persona.description}. How can I assist you?`,
-          timestamp: new Date(),
-        },
-      ]);
+      // Create a new session with the new persona
+      await createSession(persona.id, `${persona.name} Chat`);
     }
   };
 
+  const handleNewChat = async () => {
+    await createSession(selectedPersona.id, "New Conversation");
+  };
+
   const handleSendMessage = async () => {
-    if (!inputValue.trim() || isLoading) return;
+    if (!inputValue.trim() || isLoading || !user) return;
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: "user",
-      content: inputValue,
-      timestamp: new Date(),
-    };
+    let currentSession = activeSession;
 
-    const newMessages = [...messages, userMessage];
-    setMessages(newMessages);
+    // Create a new session if none exists
+    if (!currentSession) {
+      currentSession = await createSession(selectedPersona.id);
+      if (!currentSession) {
+        toast({
+          title: "Error",
+          description: "Failed to create chat session",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    const userMessageContent = inputValue;
     setInputValue("");
     setIsLoading(true);
+
+    // Add user message to database
+    const userMessage = await addMessage(currentSession.id, "user", userMessageContent);
+    if (!userMessage) {
+      setIsLoading(false);
+      return;
+    }
 
     let assistantContent = "";
 
     try {
+      const allMessages = [...(currentSession.messages || []), userMessage];
+
       const resp = await fetch(CHAT_URL, {
         method: "POST",
         headers: {
@@ -101,7 +119,7 @@ export default function ExpertAI() {
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
         body: JSON.stringify({
-          messages: newMessages.map((m) => ({ role: m.role, content: m.content })),
+          messages: allMessages.map((m) => ({ role: m.role, content: m.content })),
           persona: selectedPersona.id,
         }),
       });
@@ -117,12 +135,9 @@ export default function ExpertAI() {
       const decoder = new TextDecoder();
       let buffer = "";
 
-      // Create initial assistant message
-      const assistantId = (Date.now() + 1).toString();
-      setMessages((prev) => [
-        ...prev,
-        { id: assistantId, role: "assistant", content: "", timestamp: new Date() },
-      ]);
+      // Create initial assistant message in database
+      const assistantMessage = await addMessage(currentSession.id, "assistant", "");
+      if (!assistantMessage) throw new Error("Failed to create assistant message");
 
       while (true) {
         const { done, value } = await reader.read();
@@ -147,14 +162,9 @@ export default function ExpertAI() {
             const content = parsed.choices?.[0]?.delta?.content;
             if (content) {
               assistantContent += content;
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === assistantId ? { ...m, content: assistantContent } : m
-                )
-              );
+              await updateMessageContent(currentSession.id, assistantMessage.id, assistantContent);
             }
           } catch {
-            // Incomplete JSON, wait for more data
             buffer = line + "\n" + buffer;
             break;
           }
@@ -167,10 +177,6 @@ export default function ExpertAI() {
         description: error instanceof Error ? error.message : "Failed to get response",
         variant: "destructive",
       });
-      // Remove the empty assistant message if there was an error
-      if (!assistantContent) {
-        setMessages((prev) => prev.slice(0, -1));
-      }
     } finally {
       setIsLoading(false);
     }
@@ -183,13 +189,86 @@ export default function ExpertAI() {
     }
   };
 
+  const getWelcomeMessage = (): ChatMessage => ({
+    id: "welcome",
+    role: "assistant",
+    content: `Hello! I'm your AI ${selectedPersona.name} assistant. I can help you with strategic analysis, framework recommendations, and consulting best practices. What would you like to explore today?`,
+    timestamp: new Date(),
+  });
+
+  const displayMessages = messages.length > 0 ? messages : [getWelcomeMessage()];
+
   return (
     <div className="flex h-[calc(100vh-8rem)] gap-6 animate-fade-in">
+      {/* Chat History Sidebar */}
+      <div
+        className={cn(
+          "w-64 flex-shrink-0 rounded-xl border border-border bg-card transition-all",
+          showHistory ? "block" : "hidden lg:block"
+        )}
+      >
+        <div className="p-4 border-b border-border">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold font-display flex items-center gap-2">
+              <History className="h-4 w-4" />
+              Chat History
+            </h3>
+            <Button size="icon" variant="ghost" onClick={handleNewChat}>
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+        <ScrollArea className="h-[calc(100%-80px)]">
+          <div className="p-2 space-y-1">
+            {sessionsLoading ? (
+              <p className="text-sm text-muted-foreground p-2">Loading...</p>
+            ) : sessions.length === 0 ? (
+              <p className="text-sm text-muted-foreground p-2">No conversations yet</p>
+            ) : (
+              sessions.map((session) => (
+                <div
+                  key={session.id}
+                  className={cn(
+                    "group flex items-center gap-2 rounded-lg px-3 py-2 text-sm cursor-pointer transition-colors",
+                    activeSession?.id === session.id
+                      ? "bg-primary/10 text-primary"
+                      : "hover:bg-muted"
+                  )}
+                  onClick={() => selectSession(session.id)}
+                >
+                  <Bot className="h-4 w-4 flex-shrink-0" />
+                  <span className="flex-1 truncate">{session.title}</span>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6 opacity-0 group-hover:opacity-100"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteSession(session.id);
+                    }}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))
+            )}
+          </div>
+        </ScrollArea>
+      </div>
+
       {/* Main Chat Area */}
       <div className="flex flex-1 flex-col rounded-xl border border-border bg-card overflow-hidden">
         {/* Chat Header */}
         <div className="flex items-center justify-between border-b border-border bg-muted/30 px-6 py-4">
           <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="lg:hidden"
+              onClick={() => setShowHistory(!showHistory)}
+            >
+              <History className="h-5 w-5" />
+            </Button>
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
               <Bot className="h-5 w-5 text-primary-foreground" />
             </div>
@@ -223,7 +302,7 @@ export default function ExpertAI() {
         {/* Messages */}
         <ScrollArea className="flex-1 p-6" ref={scrollRef}>
           <div className="space-y-6">
-            {messages.map((message) => (
+            {displayMessages.map((message) => (
               <div
                 key={message.id}
                 className={cn(
@@ -296,7 +375,7 @@ export default function ExpertAI() {
       </div>
 
       {/* Quick Prompts Sidebar */}
-      <div className="hidden w-72 flex-shrink-0 rounded-xl border border-border bg-card p-4 lg:block">
+      <div className="hidden w-72 flex-shrink-0 rounded-xl border border-border bg-card p-4 xl:block">
         <h3 className="font-semibold font-display mb-4">Quick Prompts</h3>
         <div className="space-y-2">
           {[

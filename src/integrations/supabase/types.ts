@@ -426,29 +426,100 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_messages: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          role: string
+          session_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          role: string
+          session_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          role?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "chat_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_sessions: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_private: boolean | null
+          persona: string | null
+          session_type: string
+          title: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_private?: boolean | null
+          persona?: string | null
+          session_type?: string
+          title?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_private?: boolean | null
+          persona?: string | null
+          session_type?: string
+          title?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       clients: {
         Row: {
           created_at: string
+          created_by: string | null
           id: string
           industry: string | null
           logo_url: string | null
           name: string
+          owner_id: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
+          created_by?: string | null
           id?: string
           industry?: string | null
           logo_url?: string | null
           name: string
+          owner_id?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
+          created_by?: string | null
           id?: string
           industry?: string | null
           logo_url?: string | null
           name?: string
+          owner_id?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -487,7 +558,9 @@ export type Database = {
           id: string
           is_public: boolean
           name: string
+          owner_id: string | null
           updated_at: string
+          visibility: string | null
         }
         Insert: {
           canvas_image_url?: string | null
@@ -498,7 +571,9 @@ export type Database = {
           id?: string
           is_public?: boolean
           name: string
+          owner_id?: string | null
           updated_at?: string
+          visibility?: string | null
         }
         Update: {
           canvas_image_url?: string | null
@@ -509,7 +584,9 @@ export type Database = {
           id?: string
           is_public?: boolean
           name?: string
+          owner_id?: string | null
           updated_at?: string
+          visibility?: string | null
         }
         Relationships: []
       }
@@ -675,6 +752,41 @@ export type Database = {
           },
           {
             foreignKeyName: "project_issues_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_members: {
+        Row: {
+          can_manage: boolean | null
+          id: string
+          joined_at: string | null
+          project_id: string
+          role_in_project: string
+          user_id: string
+        }
+        Insert: {
+          can_manage?: boolean | null
+          id?: string
+          joined_at?: string | null
+          project_id: string
+          role_in_project?: string
+          user_id: string
+        }
+        Update: {
+          can_manage?: boolean | null
+          id?: string
+          joined_at?: string | null
+          project_id?: string
+          role_in_project?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_members_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
@@ -897,9 +1009,11 @@ export type Database = {
         Row: {
           client_id: string | null
           created_at: string
+          created_by: string | null
           end_date: string | null
           id: string
           name: string
+          owner_id: string | null
           progress_percentage: number | null
           runbook_id: string | null
           start_date: string | null
@@ -909,9 +1023,11 @@ export type Database = {
         Insert: {
           client_id?: string | null
           created_at?: string
+          created_by?: string | null
           end_date?: string | null
           id?: string
           name: string
+          owner_id?: string | null
           progress_percentage?: number | null
           runbook_id?: string | null
           start_date?: string | null
@@ -921,9 +1037,11 @@ export type Database = {
         Update: {
           client_id?: string | null
           created_at?: string
+          created_by?: string | null
           end_date?: string | null
           id?: string
           name?: string
+          owner_id?: string | null
           progress_percentage?: number | null
           runbook_id?: string | null
           start_date?: string | null
@@ -1098,15 +1216,43 @@ export type Database = {
           },
         ]
       }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_elevated_role: { Args: { _user_id: string }; Returns: boolean }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "practice_leader" | "engagement_lead" | "member"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1233,6 +1379,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "practice_leader", "engagement_lead", "member"],
+    },
   },
 } as const

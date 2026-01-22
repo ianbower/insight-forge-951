@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Client {
   id: string;
@@ -32,6 +33,7 @@ interface Project {
 
 export default function Projects() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
@@ -39,14 +41,13 @@ export default function Projects() {
 
   useEffect(() => {
     const fetchData = async () => {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
       try {
-        const { data: clientsData, error: clientsError } = await supabase
-          .from("clients")
-          .select("*")
-          .order("name");
-
-        if (clientsError) throw clientsError;
-
+        // Fetch projects the user has access to (RLS handles filtering)
         const { data: projectsData, error: projectsError } = await supabase
           .from("projects")
           .select("*")
@@ -54,10 +55,37 @@ export default function Projects() {
 
         if (projectsError) throw projectsError;
 
+        // Get unique client IDs from accessible projects
+        const clientIds = [...new Set((projectsData || []).map(p => p.client_id).filter(Boolean))];
+
+        // Fetch only clients that have accessible projects
+        let clientsData: any[] = [];
+        if (clientIds.length > 0) {
+          const { data, error } = await supabase
+            .from("clients")
+            .select("id, name, industry, created_at, updated_at")
+            .in("id", clientIds)
+            .order("name");
+
+          if (error) throw error;
+          clientsData = data || [];
+        }
+
         // Group projects by client
-        const clientsWithProjects = (clientsData || []).map((client) => ({
-          ...client,
-          projects: (projectsData || []).filter((p) => p.client_id === client.id),
+        const clientsWithProjects: Client[] = clientsData.map((client) => ({
+          id: client.id,
+          name: client.name,
+          industry: client.industry,
+          projects: (projectsData || [])
+            .filter((p) => p.client_id === client.id)
+            .map((p) => ({
+              id: p.id,
+              name: p.name,
+              status: p.status,
+              progress_percentage: p.progress_percentage,
+              start_date: p.start_date,
+              end_date: p.end_date,
+            })),
         }));
 
         // Add "Uncategorized" group for projects without a client
@@ -67,10 +95,14 @@ export default function Projects() {
             id: "uncategorized",
             name: "Uncategorized",
             industry: "No client assigned",
-            logo_url: null,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            projects: uncategorizedProjects,
+            projects: uncategorizedProjects.map((p) => ({
+              id: p.id,
+              name: p.name,
+              status: p.status,
+              progress_percentage: p.progress_percentage,
+              start_date: p.start_date,
+              end_date: p.end_date,
+            })),
           });
         }
 
@@ -88,7 +120,7 @@ export default function Projects() {
     };
 
     fetchData();
-  }, []);
+  }, [user]);
 
   const toggleClient = (clientId: string) => {
     setExpandedClients((prev) => {
