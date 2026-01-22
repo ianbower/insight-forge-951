@@ -1,13 +1,14 @@
 import { useState, useRef } from "react";
-import { ArrowLeft, Upload, Image, Save, Globe, Lock, FileText, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, Upload, Image, Save, Globe, Lock, FileText, ChevronLeft, ChevronRight, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import * as pdfjsLib from "pdfjs-dist";
 
 // Set up PDF.js worker for v3.x
@@ -36,10 +37,13 @@ interface CustomToolBuilderProps {
 const categories = ["Strategy", "Operations", "Planning", "Organization", "Custom"];
 
 export function CustomToolBuilder({ onClose, onSave, existingTool }: CustomToolBuilderProps) {
+  const { user } = useAuth();
   const [name, setName] = useState(existingTool?.name || "");
   const [description, setDescription] = useState(existingTool?.description || "");
   const [category, setCategory] = useState(existingTool?.category || "Custom");
-  const [isPublic, setIsPublic] = useState(existingTool?.is_public ?? false);
+  const [visibility, setVisibility] = useState<"private" | "team" | "public">(
+    existingTool?.is_public ? "public" : "private"
+  );
   const [imageUrl, setImageUrl] = useState<string | null>(existingTool?.canvas_image_url || null);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -183,6 +187,11 @@ export function CustomToolBuilder({ onClose, onSave, existingTool }: CustomToolB
       return;
     }
 
+    if (!user) {
+      toast.error("You must be logged in to save tools");
+      return;
+    }
+
     setSaving(true);
     try {
       const toolData = {
@@ -190,15 +199,19 @@ export function CustomToolBuilder({ onClose, onSave, existingTool }: CustomToolB
         description: description.trim() || null,
         category,
         canvas_image_url: imageUrl,
-        is_public: isPublic,
+        visibility,
+        is_public: visibility === "public",
+        owner_id: user.id,
       };
 
       let savedTool;
       
       if (existingTool?.id) {
+        // Don't update owner_id on edit
+        const { owner_id, ...updateData } = toolData;
         const { data, error } = await supabase
           .from("custom_tools")
-          .update(toolData)
+          .update(updateData)
           .eq("id", existingTool.id)
           .select()
           .single();
@@ -282,25 +295,40 @@ export function CustomToolBuilder({ onClose, onSave, existingTool }: CustomToolB
             </Select>
           </div>
 
-          <div className="flex items-center justify-between rounded-lg border border-border p-4">
-            <div className="flex items-center gap-3">
-              {isPublic ? (
-                <Globe className="h-5 w-5 text-primary" />
-              ) : (
-                <Lock className="h-5 w-5 text-muted-foreground" />
-              )}
-              <div>
-                <p className="font-medium">
-                  {isPublic ? "Public Tool" : "Private Tool"}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {isPublic
-                    ? "Anyone on the platform can use this tool"
-                    : "Only visible to you"}
-                </p>
+          <div className="space-y-2">
+            <Label>Visibility</Label>
+            <RadioGroup value={visibility} onValueChange={(v) => setVisibility(v as typeof visibility)}>
+              <div className="flex items-center space-x-2 rounded-lg border border-border p-3">
+                <RadioGroupItem value="private" id="private" />
+                <Label htmlFor="private" className="flex-1 cursor-pointer">
+                  <div className="flex items-center gap-2">
+                    <Lock className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium">Private</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">Only visible to you</p>
+                </Label>
               </div>
-            </div>
-            <Switch checked={isPublic} onCheckedChange={setIsPublic} />
+              <div className="flex items-center space-x-2 rounded-lg border border-border p-3">
+                <RadioGroupItem value="team" id="team" />
+                <Label htmlFor="team" className="flex-1 cursor-pointer">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium">Team</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">Visible to all authenticated users</p>
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2 rounded-lg border border-border p-3">
+                <RadioGroupItem value="public" id="public" />
+                <Label htmlFor="public" className="flex-1 cursor-pointer">
+                  <div className="flex items-center gap-2">
+                    <Globe className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium">Public</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">Anyone on the platform can use this tool</p>
+                </Label>
+              </div>
+            </RadioGroup>
           </div>
 
           <Button onClick={handleSave} disabled={saving} className="w-full">

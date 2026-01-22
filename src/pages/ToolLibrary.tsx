@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Search, Grid3X3, LayoutGrid, Target, GitBranch, Hexagon, Layers, Plus, Palette, Pencil, Globe, Lock } from "lucide-react";
+import { ArrowLeft, Search, Grid3X3, LayoutGrid, Target, GitBranch, Hexagon, Layers, Plus, Palette, Pencil, Globe, Lock, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BusinessModelCanvas } from "@/components/canvas/BusinessModelCanvas";
 import { SWOTCanvas } from "@/components/canvas/SWOTCanvas";
 import { SevenSCanvas } from "@/components/canvas/SevenSCanvas";
@@ -13,7 +14,7 @@ import { CustomToolCanvas } from "@/components/canvas/CustomToolCanvas";
 import { CustomToolBuilder } from "@/components/tools/CustomToolBuilder";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
 
 interface CustomTool {
   id: string;
@@ -22,6 +23,8 @@ interface CustomTool {
   category: string;
   canvas_image_url: string | null;
   is_public: boolean;
+  visibility: string | null;
+  owner_id: string | null;
   created_at: string;
 }
 
@@ -92,16 +95,18 @@ const categories = ["All", "Strategy", "Operations", "Planning", "Organization",
 
 export default function ToolLibrary() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { toolId } = useParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [customTools, setCustomTools] = useState<CustomTool[]>([]);
   const [showBuilder, setShowBuilder] = useState(false);
   const [editingTool, setEditingTool] = useState<CustomTool | null>(null);
+  const [visibilityFilter, setVisibilityFilter] = useState<"all" | "my" | "team" | "public">("all");
 
   useEffect(() => {
     fetchCustomTools();
-  }, []);
+  }, [user]);
 
   const fetchCustomTools = async () => {
     try {
@@ -117,6 +122,15 @@ export default function ToolLibrary() {
     }
   };
 
+  // Filter tools by visibility
+  const filterByVisibility = (tools: CustomTool[]) => {
+    if (visibilityFilter === "all") return tools;
+    if (visibilityFilter === "my") return tools.filter((t) => t.owner_id === user?.id);
+    if (visibilityFilter === "team") return tools.filter((t) => t.visibility === "team");
+    if (visibilityFilter === "public") return tools.filter((t) => t.visibility === "public" || t.is_public);
+    return tools;
+  };
+
   // Check if selected tool is a custom tool
   const selectedCustomTool = toolId?.startsWith("custom-")
     ? customTools.find((t) => `custom-${t.id}` === toolId)
@@ -129,7 +143,7 @@ export default function ToolLibrary() {
   // Combine built-in and custom tools for filtering
   const allTools = [
     ...builtInTools,
-    ...customTools.map((ct) => ({
+    ...filterByVisibility(customTools).map((ct) => ({
       id: `custom-${ct.id}`,
       name: ct.name,
       category: ct.category,
@@ -157,6 +171,8 @@ export default function ToolLibrary() {
     fetchCustomTools();
     navigate(`/tools/custom-${tool.id}`);
   };
+
+  const isOwnTool = (tool: CustomTool) => tool.owner_id === user?.id;
 
   // Show builder
   if (showBuilder || editingTool) {
@@ -188,8 +204,10 @@ export default function ToolLibrary() {
               <div>
                 <div className="flex items-center gap-2">
                   <h1 className="text-xl font-display font-semibold">{selectedCustomTool.name}</h1>
-                  {selectedCustomTool.is_public ? (
+                  {selectedCustomTool.visibility === "public" || selectedCustomTool.is_public ? (
                     <Globe className="h-4 w-4 text-muted-foreground" />
+                  ) : selectedCustomTool.visibility === "team" ? (
+                    <User className="h-4 w-4 text-muted-foreground" />
                   ) : (
                     <Lock className="h-4 w-4 text-muted-foreground" />
                   )}
@@ -200,14 +218,16 @@ export default function ToolLibrary() {
               </div>
             </div>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setEditingTool(selectedCustomTool)}
-          >
-            <Pencil className="h-4 w-4 mr-2" />
-            Edit Tool
-          </Button>
+          {isOwnTool(selectedCustomTool) && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setEditingTool(selectedCustomTool)}
+            >
+              <Pencil className="h-4 w-4 mr-2" />
+              Edit Tool
+            </Button>
+          )}
         </div>
 
         <CustomToolCanvas
@@ -269,6 +289,16 @@ export default function ToolLibrary() {
         </Button>
       </div>
 
+      {/* Visibility Tabs */}
+      <Tabs value={visibilityFilter} onValueChange={(v) => setVisibilityFilter(v as typeof visibilityFilter)}>
+        <TabsList>
+          <TabsTrigger value="all">All Tools</TabsTrigger>
+          <TabsTrigger value="my">My Tools</TabsTrigger>
+          <TabsTrigger value="team">Team Tools</TabsTrigger>
+          <TabsTrigger value="public">Public Tools</TabsTrigger>
+        </TabsList>
+      </Tabs>
+
       {/* Filters */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative max-w-md flex-1">
@@ -300,6 +330,7 @@ export default function ToolLibrary() {
         {filteredTools.map((tool, index) => {
           const isCustom = !tool.isBuiltIn;
           const customTool = isCustom ? (tool as any).customTool as CustomTool : null;
+          const canEdit = customTool && isOwnTool(customTool);
 
           return (
             <div
@@ -319,8 +350,10 @@ export default function ToolLibrary() {
                 </div>
                 <div className="flex items-center gap-2">
                   {customTool && (
-                    customTool.is_public ? (
+                    customTool.visibility === "public" || customTool.is_public ? (
                       <Globe className="h-4 w-4 text-muted-foreground" />
+                    ) : customTool.visibility === "team" ? (
+                      <User className="h-4 w-4 text-muted-foreground" />
                     ) : (
                       <Lock className="h-4 w-4 text-muted-foreground" />
                     )
@@ -342,7 +375,7 @@ export default function ToolLibrary() {
                 <Button size="sm" className="flex-1">
                   Open Canvas
                 </Button>
-                {isCustom && (
+                {canEdit && (
                   <Button
                     size="sm"
                     variant="outline"

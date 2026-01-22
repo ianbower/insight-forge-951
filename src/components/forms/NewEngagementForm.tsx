@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 interface NewEngagementFormProps {
   onSuccess: () => void;
@@ -18,8 +19,8 @@ interface NewEngagementFormProps {
 
 export function NewEngagementForm({ onSuccess }: NewEngagementFormProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [clientType, setClientType] = useState<"existing" | "new">("new");
   const [formData, setFormData] = useState({
     clientName: "",
     industry: "",
@@ -29,29 +30,55 @@ export function NewEngagementForm({ onSuccess }: NewEngagementFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to create an engagement.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
-      // Create or select client
+      // Create client with ownership
       const { data: clientData, error: clientError } = await supabase
         .from("clients")
         .insert({
           name: formData.clientName,
           industry: formData.industry,
+          owner_id: user.id,
+          created_by: user.id,
         })
         .select()
         .single();
 
       if (clientError) throw clientError;
 
-      // Create project
-      const { error: projectError } = await supabase.from("projects").insert({
-        client_id: clientData.id,
-        name: formData.projectName,
-        status: formData.status,
-      });
+      // Create project with ownership
+      const { data: projectData, error: projectError } = await supabase
+        .from("projects")
+        .insert({
+          client_id: clientData.id,
+          name: formData.projectName,
+          status: formData.status,
+          owner_id: user.id,
+          created_by: user.id,
+        })
+        .select()
+        .single();
 
       if (projectError) throw projectError;
+
+      // Add the creator as a project member with lead role
+      await supabase.from("project_members").insert({
+        project_id: projectData.id,
+        user_id: user.id,
+        role_in_project: "lead",
+        can_manage: true,
+      });
 
       toast({
         title: "Engagement created",
@@ -60,6 +87,7 @@ export function NewEngagementForm({ onSuccess }: NewEngagementFormProps) {
 
       onSuccess();
     } catch (error) {
+      console.error("Error creating engagement:", error);
       toast({
         title: "Error",
         description: "Failed to create engagement. Please try again.",
