@@ -7,6 +7,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { cn } from "@/lib/utils";
 
 const data = [
   { month: "Jan", projects: 4, revenue: 120 },
@@ -23,9 +24,13 @@ const data = [
   { month: "Dec", projects: 15, revenue: 450 },
 ];
 
-export function ProjectsChart() {
+interface ProjectsChartProps {
+  className?: string;
+}
+
+export function ProjectsChart({ className }: ProjectsChartProps) {
   return (
-    <div className="rounded-xl border border-border bg-card">
+    <div className={cn("rounded-xl border border-border bg-card h-full flex flex-col", className)}>
       <div className="border-b border-border p-4">
         <h3 className="font-semibold font-display">Engagement Trend</h3>
         <p className="text-sm text-muted-foreground">Monthly project activity</p>

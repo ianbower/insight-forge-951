@@ -24,8 +24,10 @@ const DEFAULT_LAYOUT: WidgetLayout[] = [
   { id: "utilization", x: 3, y: 0, w: 1, h: 1 },
   { id: "projects-chart", x: 0, y: 1, w: 2, h: 2 },
   { id: "activity-feed", x: 2, y: 1, w: 2, h: 2 },
-  { id: "calendar", x: 0, y: 3, w: 2, h: 2 },
-  { id: "quick-actions", x: 2, y: 3, w: 2, h: 2 },
+  { id: "project-progress", x: 0, y: 3, w: 2, h: 2 },
+  { id: "risks-issues", x: 2, y: 3, w: 2, h: 2 },
+  { id: "calendar", x: 0, y: 5, w: 1, h: 2 },
+  { id: "quick-actions", x: 1, y: 5, w: 3, h: 2 },
 ];
 
 export function useDashboardPreferences() {

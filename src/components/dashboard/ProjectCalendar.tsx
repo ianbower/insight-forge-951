@@ -1,6 +1,7 @@
 import { Calendar } from "@/components/ui/calendar";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 interface Milestone {
   date: Date;
@@ -11,9 +12,10 @@ interface Milestone {
 
 interface ProjectCalendarProps {
   milestones?: Milestone[];
+  className?: string;
 }
 
-export function ProjectCalendar({ milestones = [] }: ProjectCalendarProps) {
+export function ProjectCalendar({ milestones = [], className }: ProjectCalendarProps) {
   const [date, setDate] = useState<Date | undefined>(new Date());
 
   // Mock milestones for display
@@ -41,7 +43,7 @@ export function ProjectCalendar({ milestones = [] }: ProjectCalendarProps) {
   const displayMilestones = milestones.length > 0 ? milestones : mockMilestones;
 
   return (
-    <div className="rounded-xl border border-border bg-card">
+    <div className={cn("rounded-xl border border-border bg-card h-full flex flex-col overflow-hidden", className)}>
       <div className="border-b border-border p-4">
         <h3 className="font-semibold font-display">Project Calendar</h3>
       </div>

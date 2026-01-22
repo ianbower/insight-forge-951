@@ -1,6 +1,7 @@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatDistanceToNow } from "date-fns";
+import { cn } from "@/lib/utils";
 
 interface Activity {
   id: string;
@@ -12,6 +13,7 @@ interface Activity {
 
 interface ActivityFeedProps {
   activities: Activity[];
+  className?: string;
 }
 
 const getInitials = (name: string) => {
@@ -35,9 +37,9 @@ const getAvatarColor = (name: string) => {
   return colors[index];
 };
 
-export function ActivityFeed({ activities }: ActivityFeedProps) {
+export function ActivityFeed({ activities, className }: ActivityFeedProps) {
   return (
-    <div className="rounded-xl border border-border bg-card">
+    <div className={cn("rounded-xl border border-border bg-card h-full flex flex-col", className)}>
       <div className="border-b border-border p-4">
         <h3 className="font-semibold font-display">Recent Activity</h3>
       </div>
