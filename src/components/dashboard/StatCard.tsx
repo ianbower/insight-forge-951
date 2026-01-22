@@ -1,4 +1,3 @@
-import { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { LucideIcon } from "lucide-react";
 
@@ -12,6 +11,7 @@ interface StatCardProps {
     positive: boolean;
   };
   variant?: "default" | "primary" | "accent";
+  className?: string;
 }
 
 export function StatCard({
@@ -21,14 +21,16 @@ export function StatCard({
   icon: Icon,
   trend,
   variant = "default",
+  className,
 }: StatCardProps) {
   return (
     <div
       className={cn(
-        "group relative overflow-hidden rounded-xl border p-6 transition-all duration-300 hover:shadow-card-lg",
+        "group relative overflow-hidden rounded-xl border p-6 transition-all duration-300 hover:shadow-card-lg h-full",
         variant === "default" && "bg-card border-border",
         variant === "primary" && "bg-primary text-primary-foreground border-primary",
-        variant === "accent" && "bg-accent text-accent-foreground border-accent"
+        variant === "accent" && "bg-accent text-accent-foreground border-accent",
+        className
       )}
     >
       <div className="flex items-start justify-between">
