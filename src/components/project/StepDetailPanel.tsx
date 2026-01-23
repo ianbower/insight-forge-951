@@ -13,7 +13,8 @@ import {
   ExternalLink,
   Plus,
   Trash2,
-  ListChecks
+  ListChecks,
+  ClipboardList
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { StepAIChat } from "./StepAIChat";
+import { EmbeddedAssessment } from "./EmbeddedAssessment";
 
 interface Deliverable {
   id: string;
@@ -283,6 +285,10 @@ export function StepDetailPanel({
             <StickyNote className="h-4 w-4" />
             Notes
           </TabsTrigger>
+          <TabsTrigger value="assessments" className="gap-2">
+            <ClipboardList className="h-4 w-4" />
+            Assessments
+          </TabsTrigger>
         </TabsList>
 
         <div className="flex-1 overflow-hidden">
@@ -492,6 +498,15 @@ export function StepDetailPanel({
                 </Button>
               </div>
             </div>
+          </TabsContent>
+
+          {/* Assessments Tab */}
+          <TabsContent value="assessments" className="h-full m-0 p-6 overflow-auto">
+            <EmbeddedAssessment 
+              projectId={projectId} 
+              stepId={step.id}
+              compact 
+            />
           </TabsContent>
         </div>
       </Tabs>
