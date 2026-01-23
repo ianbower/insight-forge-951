@@ -256,10 +256,20 @@ export function ProjectSetupWizard({ open, onOpenChange, onSuccess }: ProjectSet
   };
 
   const handleSubmit = async () => {
-    if (!user) {
-      toast({ title: "Error", description: "You must be logged in.", variant: "destructive" });
+    // Force refresh session to ensure we have valid tokens
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError || !session || !user) {
+      console.error("Session error:", sessionError, "Session:", session);
+      toast({ 
+        title: "Session Error", 
+        description: "Your session has expired. Please refresh the page and log in again.", 
+        variant: "destructive" 
+      });
       return;
     }
+    
+    console.log("Session valid, user:", user.id, "Access token present:", !!session.access_token);
 
     setLoading(true);
 
