@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -645,97 +645,92 @@ export function TeamMemberDetailSheet({
                 )}
 
                 <Separator />
+              </CardContent>
+            </Card>
 
-                {/* Schedule Future Assignment */}
-                <div className="space-y-3">
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <CalendarPlus className="h-3 w-3" />
-                    Schedule future assignment:
-                  </p>
-                  {unassignedProjects.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No projects available</p>
-                  ) : (
-                    <>
-                      <Select value={selectedFutureProject} onValueChange={setSelectedFutureProject}>
-                        <SelectTrigger className="bg-background">
-                          <SelectValue placeholder="Select a project" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {unassignedProjects.map((project) => (
-                            <SelectItem key={project.id} value={project.id}>
-                              {project.name} ({project.status})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+            {/* Schedule Future Assignment - Separate Card */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <CalendarPlus className="h-4 w-4" />
+                  Schedule Future Assignment
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {unassignedProjects.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No projects available</p>
+                ) : (
+                  <>
+                    <Select value={selectedFutureProject} onValueChange={setSelectedFutureProject}>
+                      <SelectTrigger className="bg-background">
+                        <SelectValue placeholder="Select a project" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-popover z-50">
+                        {unassignedProjects.map((project) => (
+                          <SelectItem key={project.id} value={project.id}>
+                            {project.name} ({project.status})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
 
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="space-y-1">
-                          <Label className="text-xs">Start Date</Label>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant="outline"
-                                className={cn(
-                                  "w-full justify-start text-left font-normal",
-                                  !futureStartDate && "text-muted-foreground"
-                                )}
-                              >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {futureStartDate ? format(futureStartDate, "MMM d, yyyy") : "Pick date"}
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0 z-[100]" align="start" side="bottom" sideOffset={4}>
-                              <Calendar
-                                mode="single"
-                                selected={futureStartDate}
-                                onSelect={setFutureStartDate}
-                                disabled={(date) => date < new Date()}
-                                initialFocus
-                                className="pointer-events-auto"
-                              />
-                            </PopoverContent>
-                          </Popover>
-                        </div>
-
-                        <div className="space-y-1">
-                          <Label className="text-xs">Allocation (%)</Label>
-                          <Input
-                            type="number"
-                            min={0}
-                            max={100}
-                            value={futureAllocation}
-                            onChange={(e) => setFutureAllocation(parseInt(e.target.value) || 0)}
-                            className="bg-background"
-                          />
-                        </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Start Date</Label>
+                      <div className="border rounded-md p-2 bg-background">
+                        <Calendar
+                          mode="single"
+                          selected={futureStartDate}
+                          onSelect={setFutureStartDate}
+                          disabled={(date) => date < new Date()}
+                          className="pointer-events-auto mx-auto"
+                        />
                       </div>
-                      
-                      <Select value={selectedFutureRole} onValueChange={setSelectedFutureRole}>
-                        <SelectTrigger className="bg-background">
-                          <SelectValue placeholder="Select role" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {projectRoles.map((role) => (
-                            <SelectItem key={role} value={role}>
-                              {role}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      
-                      <Button
-                        className="w-full gap-2"
-                        variant="outline"
-                        onClick={handleAddFutureAssignment}
-                        disabled={!selectedFutureProject || !futureStartDate || addingAssignment}
-                      >
-                        <CalendarPlus className="h-4 w-4" />
-                        Schedule Assignment
-                      </Button>
-                    </>
-                  )}
-                </div>
+                      {futureStartDate && (
+                        <p className="text-xs text-muted-foreground text-center">
+                          Selected: {format(futureStartDate, "MMMM d, yyyy")}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Allocation (%)</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={futureAllocation}
+                          onChange={(e) => setFutureAllocation(parseInt(e.target.value) || 0)}
+                          className="bg-background"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Role</Label>
+                        <Select value={selectedFutureRole} onValueChange={setSelectedFutureRole}>
+                          <SelectTrigger className="bg-background">
+                            <SelectValue placeholder="Select role" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-popover z-50">
+                            {projectRoles.map((role) => (
+                              <SelectItem key={role} value={role}>
+                                {role}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    
+                    <Button
+                      className="w-full gap-2"
+                      onClick={handleAddFutureAssignment}
+                      disabled={!selectedFutureProject || !futureStartDate || addingAssignment}
+                    >
+                      <CalendarPlus className="h-4 w-4" />
+                      Schedule Assignment
+                    </Button>
+                  </>
+                )}
               </CardContent>
             </Card>
 
