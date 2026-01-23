@@ -12,7 +12,8 @@ export type BlockType =
   | 'poll'
   | 'ai-chat'
   | 'deliverables'
-  | 'notes';
+  | 'notes'
+  | 'assessments';
 
 export interface GridPosition {
   x: number;  // Grid column (0-11 for 12-column grid)
@@ -114,6 +115,10 @@ export interface NotesBlock extends BaseBlock {
   type: 'notes';
 }
 
+export interface AssessmentsBlock extends BaseBlock {
+  type: 'assessments';
+}
+
 export type StepBlock = 
   | HeadingBlock
   | TextBlock
@@ -126,7 +131,8 @@ export type StepBlock =
   | PollBlock
   | AIChatBlock
   | DeliverablesBlock
-  | NotesBlock;
+  | NotesBlock
+  | AssessmentsBlock;
 
 export interface StepLayout {
   blocks: StepBlock[];
