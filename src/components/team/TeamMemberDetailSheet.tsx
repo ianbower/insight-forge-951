@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { format } from "date-fns";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -16,12 +19,13 @@ import type { TeamMember } from "./TeamMemberCard";
 import {
   User,
   Briefcase,
-  Calendar,
+  Calendar as CalendarIcon,
   Plus,
   Trash2,
   Clock,
   TrendingUp,
   CheckCircle2,
+  CalendarPlus,
 } from "lucide-react";
 
 interface ProjectAssignment {
@@ -80,6 +84,12 @@ export function TeamMemberDetailSheet({
   const [selectedRole, setSelectedRole] = useState("Team Member");
   const [allocation, setAllocation] = useState(100);
   const [addingAssignment, setAddingAssignment] = useState(false);
+  
+  // For future assignments
+  const [futureStartDate, setFutureStartDate] = useState<Date | undefined>(undefined);
+  const [futureAllocation, setFutureAllocation] = useState(100);
+  const [selectedFutureProject, setSelectedFutureProject] = useState("");
+  const [selectedFutureRole, setSelectedFutureRole] = useState("Team Member");
 
   useEffect(() => {
     if (member && open) {
@@ -171,6 +181,33 @@ export function TeamMemberDetailSheet({
     setAddingAssignment(false);
   };
 
+  const handleAddFutureAssignment = async () => {
+    if (!member || !selectedFutureProject || !futureStartDate) return;
+    setAddingAssignment(true);
+
+    const assignmentData = {
+      team_member_id: member.id,
+      project_id: selectedFutureProject,
+      role_in_project: selectedFutureRole,
+      allocation_percentage: futureAllocation,
+      start_date: format(futureStartDate, 'yyyy-MM-dd'),
+    };
+
+    const { error } = await supabase.from("project_team_assignments").insert(assignmentData);
+
+    if (error) {
+      toast({ title: "Error adding future assignment", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Future assignment scheduled" });
+      fetchAssignments();
+      setSelectedFutureProject("");
+      setFutureStartDate(undefined);
+      setFutureAllocation(100);
+      onUpdate();
+    }
+    setAddingAssignment(false);
+  };
+
   const handleRemoveAssignment = async (assignmentId: string) => {
     const { error } = await supabase.from("project_team_assignments").delete().eq("id", assignmentId);
 
@@ -193,11 +230,17 @@ export function TeamMemberDetailSheet({
       .toUpperCase()
       .slice(0, 2);
 
-  // Separate active assignments from pipeline (0% allocation = pipeline)
-  const activeAssignments = assignments.filter((a) => a.allocation_percentage > 0);
+  // Separate active assignments from pipeline and future
+  const today = new Date().toISOString().split('T')[0];
+  const currentAssignments = assignments.filter((a) => 
+    a.allocation_percentage > 0 && (!a.start_date || a.start_date <= today)
+  );
+  const futureAssignments = assignments.filter((a) => 
+    a.allocation_percentage > 0 && a.start_date && a.start_date > today
+  );
   const pipelineAssignments = assignments.filter((a) => a.allocation_percentage === 0);
   
-  const totalAllocated = activeAssignments.reduce((sum, a) => sum + a.allocation_percentage, 0);
+  const totalAllocated = currentAssignments.reduce((sum, a) => sum + a.allocation_percentage, 0);
   const remainingCapacity = Math.max(0, member.availability_percentage - totalAllocated);
 
   // Filter out already assigned projects (both active and pipeline)
@@ -210,10 +253,7 @@ export function TeamMemberDetailSheet({
     ["Active", "Planning", "On Hold"].includes(p.status)
   );
   
-  // Projects for pipeline (Proposed, Planning)
-  const pipelineProjects = unassignedProjects.filter((p) => 
-    ["Proposed", "Planning"].includes(p.status)
-  );
+  // All projects available for future assignment
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -315,10 +355,10 @@ export function TeamMemberDetailSheet({
               <h3 className="font-medium text-sm text-muted-foreground">Current Assignments</h3>
               {loadingAssignments ? (
                 <p className="text-sm text-muted-foreground">Loading...</p>
-              ) : activeAssignments.length === 0 ? (
+              ) : currentAssignments.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No active project assignments</p>
               ) : (
-                activeAssignments.map((assignment) => (
+                currentAssignments.map((assignment) => (
                   <Card key={assignment.id}>
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between">
@@ -528,18 +568,53 @@ export function TeamMemberDetailSheet({
               </CardContent>
             </Card>
 
-            {/* Pipeline Queue */}
+            {/* Upcoming/Future Assignments */}
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4" />
-                  Project Pipeline
+                  <CalendarPlus className="h-4 w-4" />
+                  Upcoming Assignments
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {pipelineAssignments.length > 0 && (
-                  <div className="space-y-2 mb-4">
-                    <p className="text-xs text-muted-foreground">Queued for future:</p>
+                {futureAssignments.length === 0 && pipelineAssignments.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No upcoming assignments scheduled</p>
+                ) : (
+                  <div className="space-y-2">
+                    {/* Future dated assignments */}
+                    {futureAssignments.map((assignment) => (
+                      <div
+                        key={assignment.id}
+                        className="flex items-center justify-between p-2 rounded-lg bg-primary/10 border border-primary/20"
+                      >
+                        <div>
+                          <p className="font-medium text-sm">{assignment.project_name}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Badge variant="outline" className="text-xs">
+                              {assignment.role_in_project}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {assignment.allocation_percentage}%
+                            </span>
+                          </div>
+                          {assignment.start_date && (
+                            <p className="text-xs text-primary mt-1">
+                              Starts {format(new Date(assignment.start_date), "MMM d, yyyy")}
+                            </p>
+                          )}
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-muted-foreground hover:text-destructive"
+                          onClick={() => handleRemoveAssignment(assignment.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                    
+                    {/* Pipeline (0% allocation) assignments */}
                     {pipelineAssignments.map((assignment) => (
                       <div
                         key={assignment.id}
@@ -547,9 +622,14 @@ export function TeamMemberDetailSheet({
                       >
                         <div>
                           <p className="font-medium text-sm">{assignment.project_name}</p>
-                          <Badge variant="outline" className="text-xs mt-1">
-                            {assignment.role_in_project}
-                          </Badge>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Badge variant="outline" className="text-xs">
+                              {assignment.role_in_project}
+                            </Badge>
+                            <Badge variant="secondary" className="text-xs bg-blue-500/20 text-blue-400">
+                              Pipeline
+                            </Badge>
+                          </div>
                         </div>
                         <Button
                           size="sm"
@@ -566,26 +646,71 @@ export function TeamMemberDetailSheet({
 
                 <Separator />
 
-                <div className="space-y-2">
-                  <p className="text-xs text-muted-foreground">Add to pipeline:</p>
-                  {pipelineProjects.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No proposed projects available</p>
+                {/* Schedule Future Assignment */}
+                <div className="space-y-3">
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <CalendarPlus className="h-3 w-3" />
+                    Schedule future assignment:
+                  </p>
+                  {unassignedProjects.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No projects available</p>
                   ) : (
                     <>
-                      <Select value={selectedProject} onValueChange={setSelectedProject}>
+                      <Select value={selectedFutureProject} onValueChange={setSelectedFutureProject}>
                         <SelectTrigger className="bg-background">
                           <SelectValue placeholder="Select a project" />
                         </SelectTrigger>
                         <SelectContent>
-                          {pipelineProjects.map((project) => (
+                          {unassignedProjects.map((project) => (
                             <SelectItem key={project.id} value={project.id}>
                               {project.name} ({project.status})
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Start Date</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className={cn(
+                                  "w-full justify-start text-left font-normal",
+                                  !futureStartDate && "text-muted-foreground"
+                                )}
+                              >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {futureStartDate ? format(futureStartDate, "MMM d, yyyy") : "Pick date"}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={futureStartDate}
+                                onSelect={setFutureStartDate}
+                                disabled={(date) => date < new Date()}
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+
+                        <div className="space-y-1">
+                          <Label className="text-xs">Allocation (%)</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={futureAllocation}
+                            onChange={(e) => setFutureAllocation(parseInt(e.target.value) || 0)}
+                            className="bg-background"
+                          />
+                        </div>
+                      </div>
                       
-                      <Select value={selectedRole} onValueChange={setSelectedRole}>
+                      <Select value={selectedFutureRole} onValueChange={setSelectedFutureRole}>
                         <SelectTrigger className="bg-background">
                           <SelectValue placeholder="Select role" />
                         </SelectTrigger>
@@ -601,11 +726,11 @@ export function TeamMemberDetailSheet({
                       <Button
                         className="w-full gap-2"
                         variant="outline"
-                        onClick={() => handleAddAssignment(true)}
-                        disabled={!selectedProject || addingAssignment}
+                        onClick={handleAddFutureAssignment}
+                        disabled={!selectedFutureProject || !futureStartDate || addingAssignment}
                       >
-                        <Plus className="h-4 w-4" />
-                        Add to Pipeline
+                        <CalendarPlus className="h-4 w-4" />
+                        Schedule Assignment
                       </Button>
                     </>
                   )}
@@ -626,7 +751,7 @@ export function TeamMemberDetailSheet({
                   <p className="text-sm text-emerald-500 font-medium">Available now ({remainingCapacity}% capacity)</p>
                 ) : remainingCapacity >= 20 ? (
                   <p className="text-sm text-amber-500 font-medium">Partially available ({remainingCapacity}% capacity)</p>
-                ) : activeAssignments.length === 0 ? (
+                ) : currentAssignments.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No active assignments</p>
                 ) : (
                   <div className="space-y-2">
