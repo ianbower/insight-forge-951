@@ -676,20 +676,13 @@ export function TeamMemberDetailSheet({
 
                     <div className="space-y-1">
                       <Label className="text-xs">Start Date</Label>
-                      <div className="border rounded-md p-2 bg-background">
-                        <Calendar
-                          mode="single"
-                          selected={futureStartDate}
-                          onSelect={setFutureStartDate}
-                          disabled={(date) => date < new Date()}
-                          className="pointer-events-auto mx-auto"
-                        />
-                      </div>
-                      {futureStartDate && (
-                        <p className="text-xs text-muted-foreground text-center">
-                          Selected: {format(futureStartDate, "MMMM d, yyyy")}
-                        </p>
-                      )}
+                      <Input
+                        type="date"
+                        value={futureStartDate ? format(futureStartDate, "yyyy-MM-dd") : ""}
+                        onChange={(e) => setFutureStartDate(e.target.value ? new Date(e.target.value) : undefined)}
+                        min={format(new Date(), "yyyy-MM-dd")}
+                        className="bg-background"
+                      />
                     </div>
 
                     <div className="grid grid-cols-2 gap-2">
