@@ -5,6 +5,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Axet LLM endpoint - NTT Data's custom LLM
+const AXET_URL = "https://axet.nttdata.com/flows/cloud/hackthon-be/v1/chat/completions";
+
 const systemPrompt = `You are an expert consulting engagement designer helping create step page layouts for consulting runbooks.
 
 Your role is to help design engaging, interactive step pages that make consulting work more immersive and effective.
@@ -47,11 +50,6 @@ serve(async (req) => {
 
   try {
     const { messages, stepContext } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
-    }
 
     // Build context-aware system prompt
     let contextualPrompt = systemPrompt;
@@ -63,44 +61,58 @@ serve(async (req) => {
 - Assigned Tools: ${stepContext.tools?.join(', ') || 'None'}`;
     }
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    console.log("Calling Axet LLM for layout wizard...");
+
+    const response = await fetch(AXET_URL, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: contextualPrompt },
           ...messages,
         ],
-        stream: true,
+        stream: false,
       }),
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Axet error:", response.status, errorText);
+      
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Rate limits exceeded, please try again later." }), {
           status: 429,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Payment required, please add funds to your Lovable AI workspace." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-      return new Response(JSON.stringify({ error: "AI gateway error" }), {
+      
+      return new Response(JSON.stringify({ error: "AI service error" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    return new Response(response.body, {
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || "";
+
+    console.log("Axet layout wizard response received successfully");
+
+    // Convert to SSE format for streaming compatibility with frontend
+    const sseData = `data: ${JSON.stringify({
+      id: data.id || "axet-response",
+      object: "chat.completion.chunk",
+      created: data.created || Date.now(),
+      model: data.model || "axet",
+      choices: [{
+        index: 0,
+        delta: { role: "assistant", content },
+        finish_reason: "stop"
+      }]
+    })}\n\ndata: [DONE]\n\n`;
+
+    return new Response(sseData, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
   } catch (error) {

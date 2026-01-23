@@ -5,6 +5,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Axet LLM endpoint - NTT Data's custom LLM
+const AXET_URL = "https://axet.nttdata.com/flows/cloud/hackthon-be/v1/chat/completions";
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -12,11 +15,6 @@ serve(async (req) => {
 
   try {
     const { messages, systemPrompt, personaName } = await req.json();
-
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
-    }
 
     const enhancedSystemPrompt = `${systemPrompt}
 
@@ -29,41 +27,40 @@ Additional guidelines:
 
 You are helping a consultant at a professional services firm with their research.`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    console.log("Calling Axet LLM for research...");
+
+    const response = await fetch(AXET_URL, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: enhancedSystemPrompt },
           ...messages,
         ],
+        stream: false,
       }),
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Axet error:", response.status, errorText);
+      
       if (response.status === 429) {
         return new Response(
           JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "AI credits exhausted. Please add funds to continue." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-      throw new Error(`AI gateway error: ${response.status}`);
+      
+      throw new Error(`Axet error: ${response.status}`);
     }
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || "I apologize, I couldn't generate a response.";
+
+    console.log("Axet research response received successfully");
 
     return new Response(
       JSON.stringify({ content, personaName }),
