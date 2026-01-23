@@ -34,6 +34,7 @@ import { IssueForm } from "@/components/project/IssueForm";
 import { TeamAssignmentForm } from "@/components/project/TeamAssignmentForm";
 import { TeamMemberCard, type TeamMember } from "@/components/team/TeamMemberCard";
 import { ProjectBudget } from "@/components/project/ProjectBudget";
+import { ProjectMemberManager } from "@/components/project/ProjectMemberManager";
 import {
   AreaChart,
   Area,
@@ -56,6 +57,7 @@ interface Project {
   end_date: string | null;
   client_id: string | null;
   runbook_id: string | null;
+  owner_id: string | null;
 }
 
 interface Task {
@@ -665,11 +667,20 @@ export default function ProjectDetail() {
         </TabsContent>
 
         {/* Team Tab */}
-        <TabsContent value="team">
+        <TabsContent value="team" className="space-y-6">
+          {/* Project Access / Member Management */}
+          <ProjectMemberManager projectId={projectId!} ownerId={project.owner_id} />
+
+          {/* Team Assignments (from Team Library) */}
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-medium">Project Team</CardTitle>
+                <div>
+                  <CardTitle className="text-base font-medium">Team Assignments</CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Assign consultants from your Team Library to track allocation
+                  </p>
+                </div>
                 <div className="flex items-center gap-2">
                   {allTeamMembers.length > 0 && (
                     <Button 
@@ -678,7 +689,7 @@ export default function ProjectDetail() {
                       className="gap-2"
                     >
                       <UserPlus className="h-4 w-4" />
-                      Assign Member
+                      Assign
                     </Button>
                   )}
                   <Button size="sm" variant="outline" onClick={() => navigate('/team')} className="gap-2">
@@ -708,23 +719,17 @@ export default function ProjectDetail() {
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-12 text-muted-foreground">
-                  <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No team members assigned yet</p>
-                  <p className="text-sm mt-2">
-                    {allTeamMembers.length > 0 
-                      ? `${allTeamMembers.length} team members available in the library`
-                      : "Add team members in the Team Library first"
-                    }
-                  </p>
+                <div className="text-center py-8 text-muted-foreground">
+                  <Users className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                  <p>No team members assigned</p>
                   {allTeamMembers.length > 0 && (
                     <Button 
                       variant="link" 
                       size="sm" 
                       onClick={() => { setEditingAssignment(null); setAssignmentFormOpen(true); }}
-                      className="mt-2"
+                      className="mt-1"
                     >
-                      Assign your first team member
+                      Assign from Team Library
                     </Button>
                   )}
                 </div>
