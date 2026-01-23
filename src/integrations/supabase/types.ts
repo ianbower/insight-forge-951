@@ -960,6 +960,7 @@ export type Database = {
       project_team_assignments: {
         Row: {
           allocation_percentage: number
+          assignment_status: string
           created_at: string
           end_date: string | null
           id: string
@@ -970,6 +971,7 @@ export type Database = {
         }
         Insert: {
           allocation_percentage?: number
+          assignment_status?: string
           created_at?: string
           end_date?: string | null
           id?: string
@@ -980,6 +982,7 @@ export type Database = {
         }
         Update: {
           allocation_percentage?: number
+          assignment_status?: string
           created_at?: string
           end_date?: string | null
           id?: string
