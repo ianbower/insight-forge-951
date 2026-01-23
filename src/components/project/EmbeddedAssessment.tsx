@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ClipboardList, Plus, BarChart3, Users, Send, Eye, Settings2, Link2 } from "lucide-react";
+import { ClipboardList, Plus, BarChart3, Users, Send, Eye, Settings2, Link2, Maximize2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { AssessmentResults } from "@/components/assessments/AssessmentResults";
@@ -240,6 +240,23 @@ export function EmbeddedAssessment({ projectId, stepId, compact = false, display
                 +{assessments.length - 1} more
               </Badge>
             )}
+            {(primaryAssessment.responseCount || 0) > 0 && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => {
+                  setSelectedInstance({
+                    id: primaryAssessment.assessment_instance.id,
+                    name: primaryAssessment.assessment_instance.name,
+                  });
+                  setResultsDialogOpen(true);
+                }}
+                title="View full results"
+              >
+                <Maximize2 className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </div>
 
@@ -294,8 +311,22 @@ export function EmbeddedAssessment({ projectId, stepId, compact = false, display
                 }}
                 onViewResults={(id, name) => {
                   setLaunchDialogOpen(false);
-                  fetchData(); // Refresh to show results inline
+                  setSelectedInstance({ id, name });
+                  setResultsDialogOpen(true);
                 }}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Full Results Dialog */}
+        <Dialog open={resultsDialogOpen} onOpenChange={setResultsDialogOpen}>
+          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+            {selectedInstance && (
+              <AssessmentResults
+                instanceId={selectedInstance.id}
+                instanceName={selectedInstance.name}
+                onClose={() => setResultsDialogOpen(false)}
               />
             )}
           </DialogContent>
