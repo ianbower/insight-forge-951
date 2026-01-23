@@ -5,6 +5,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Axet LLM endpoint - NTT Data's custom LLM
+const AXET_URL = "https://axet.nttdata.com/flows/cloud/hackthon-be/v1/chat/completions";
+
 interface TaskData {
   title: string;
   description: string | null;
@@ -42,11 +45,6 @@ serve(async (req) => {
   }
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
-    }
-
     const body: RequestBody = await req.json();
     const { projectName, clientName, tasks, toolData, branding } = body;
 
@@ -116,10 +114,16 @@ CRITICAL FORMATTING RULES:
 
 The report should be structured with clear sections that flow logically. Use sophisticated consulting language while remaining accessible.
 
-The output must be a JSON object with a "sections" array, where each section has:
-- "title": Section heading (plain text, no markdown)
-- "type": One of "executive-summary", "methodology", "step-content", "tool-output", "recommendations", "appendix"
-- "content": The full text content for that section (plain prose, no markdown formatting)
+IMPORTANT: You must respond with a JSON object in this exact format:
+{
+  "sections": [
+    {
+      "title": "Section heading (plain text)",
+      "type": "executive-summary|methodology|step-content|tool-output|recommendations|appendix",
+      "content": "Full text content for the section"
+    }
+  ]
+}
 
 Create the following sections:
 1. Executive Summary - High-level overview of the engagement, key findings, and critical recommendations
@@ -141,59 +145,28 @@ ${tasksContext || "No workflow steps defined yet."}
 STRATEGIC ANALYSIS (from consulting tools):
 ${toolsContext || "No tool analysis data available."}
 
-Generate a professional consulting report with all required sections. Make it actionable and insightful.`;
+Generate a professional consulting report with all required sections. Make it actionable and insightful.
+Respond ONLY with the JSON object, no additional text.`;
 
-    console.log("Calling Lovable AI...");
+    console.log("Calling Axet LLM for report generation...");
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch(AXET_URL, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "create_report",
-              description: "Create a structured consulting report with multiple sections",
-              parameters: {
-                type: "object",
-                properties: {
-                  sections: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        title: { type: "string", description: "Section heading" },
-                        type: {
-                          type: "string",
-                          enum: ["executive-summary", "methodology", "step-content", "tool-output", "recommendations", "appendix"],
-                        },
-                        content: { type: "string", description: "Full text content for the section" },
-                      },
-                      required: ["title", "type", "content"],
-                    },
-                  },
-                },
-                required: ["sections"],
-              },
-            },
-          },
-        ],
-        tool_choice: { type: "function", function: { name: "create_report" } },
+        stream: false,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
+      console.error("Axet error:", response.status, errorText);
       
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again later." }), {
@@ -201,27 +174,30 @@ Generate a professional consulting report with all required sections. Make it ac
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Payment required. Please add credits to continue." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
       
-      throw new Error(`AI gateway error: ${response.status}`);
+      throw new Error(`Axet error: ${response.status}`);
     }
 
     const data = await response.json();
-    console.log("AI response received");
+    const content = data.choices?.[0]?.message?.content || "";
 
-    // Extract tool call result
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall) {
-      console.error("No tool call in response:", JSON.stringify(data));
+    console.log("Axet report response received");
+
+    // Try to parse the JSON from the response
+    let reportData;
+    try {
+      // Try to extract JSON from the content
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        reportData = JSON.parse(jsonMatch[0]);
+      } else {
+        reportData = JSON.parse(content);
+      }
+    } catch {
+      console.error("Failed to parse report JSON:", content);
       throw new Error("Invalid AI response format");
     }
 
-    const reportData = JSON.parse(toolCall.function.arguments);
     console.log("Report sections generated:", reportData.sections?.length);
 
     return new Response(JSON.stringify(reportData), {
