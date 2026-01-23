@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { 
+import {
   ArrowLeft, 
   Calendar, 
   CheckCircle2, 
@@ -14,7 +14,8 @@ import {
   AlertTriangle,
   UserPlus,
   DollarSign,
-  Package
+  Package,
+  ClipboardCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -38,6 +39,7 @@ import { ProjectBudget } from "@/components/project/ProjectBudget";
 import { ProjectMemberManager } from "@/components/project/ProjectMemberManager";
 import { DeliverablesList } from "@/components/project/DeliverablesList";
 import { DeliverableForm, type Deliverable } from "@/components/project/DeliverableForm";
+import { EmbeddedAssessment } from "@/components/project/EmbeddedAssessment";
 import {
   AreaChart,
   Area,
@@ -679,6 +681,10 @@ export default function ProjectDetail() {
             <DollarSign className="h-4 w-4" />
             Budget
           </TabsTrigger>
+          <TabsTrigger value="assessments" className="gap-2">
+            <ClipboardCheck className="h-4 w-4" />
+            Assessments
+          </TabsTrigger>
           <TabsTrigger value="dashboard" className="gap-2">
             <LayoutDashboard className="h-4 w-4" />
             Dashboard
@@ -816,6 +822,11 @@ export default function ProjectDetail() {
             projectStartDate={project.start_date}
             projectEndDate={project.end_date}
           />
+        </TabsContent>
+
+        {/* Assessments Tab */}
+        <TabsContent value="assessments">
+          <EmbeddedAssessment projectId={projectId!} />
         </TabsContent>
 
         {/* Dashboard Tab */}
