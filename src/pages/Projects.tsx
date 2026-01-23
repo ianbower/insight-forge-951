@@ -14,6 +14,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { ProjectSetupWizard } from "@/components/project/ProjectSetupWizard";
 
 interface Client {
   id: string;
@@ -38,87 +39,88 @@ export default function Projects() {
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
+  const [wizardOpen, setWizardOpen] = useState(false);
+
+  const fetchData = async () => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      // Fetch projects the user has access to (RLS handles filtering)
+      const { data: projectsData, error: projectsError } = await supabase
+        .from("projects")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (projectsError) throw projectsError;
+
+      // Get unique client IDs from accessible projects
+      const clientIds = [...new Set((projectsData || []).map(p => p.client_id).filter(Boolean))];
+
+      // Fetch only clients that have accessible projects
+      let clientsData: any[] = [];
+      if (clientIds.length > 0) {
+        const { data, error } = await supabase
+          .from("clients")
+          .select("id, name, industry, created_at, updated_at")
+          .in("id", clientIds)
+          .order("name");
+
+        if (error) throw error;
+        clientsData = data || [];
+      }
+
+      // Group projects by client
+      const clientsWithProjects: Client[] = clientsData.map((client) => ({
+        id: client.id,
+        name: client.name,
+        industry: client.industry,
+        projects: (projectsData || [])
+          .filter((p) => p.client_id === client.id)
+          .map((p) => ({
+            id: p.id,
+            name: p.name,
+            status: p.status,
+            progress_percentage: p.progress_percentage,
+            start_date: p.start_date,
+            end_date: p.end_date,
+          })),
+      }));
+
+      // Add "Uncategorized" group for projects without a client
+      const uncategorizedProjects = (projectsData || []).filter((p) => !p.client_id);
+      if (uncategorizedProjects.length > 0) {
+        clientsWithProjects.unshift({
+          id: "uncategorized",
+          name: "Uncategorized",
+          industry: "No client assigned",
+          projects: uncategorizedProjects.map((p) => ({
+            id: p.id,
+            name: p.name,
+            status: p.status,
+            progress_percentage: p.progress_percentage,
+            start_date: p.start_date,
+            end_date: p.end_date,
+          })),
+        });
+      }
+
+      setClients(clientsWithProjects);
+      
+      // Expand first client by default if exists
+      if (clientsWithProjects.length > 0) {
+        setExpandedClients(new Set([clientsWithProjects[0].id]));
+      }
+    } catch (error) {
+      console.error("Error fetching projects:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        // Fetch projects the user has access to (RLS handles filtering)
-        const { data: projectsData, error: projectsError } = await supabase
-          .from("projects")
-          .select("*")
-          .order("created_at", { ascending: false });
-
-        if (projectsError) throw projectsError;
-
-        // Get unique client IDs from accessible projects
-        const clientIds = [...new Set((projectsData || []).map(p => p.client_id).filter(Boolean))];
-
-        // Fetch only clients that have accessible projects
-        let clientsData: any[] = [];
-        if (clientIds.length > 0) {
-          const { data, error } = await supabase
-            .from("clients")
-            .select("id, name, industry, created_at, updated_at")
-            .in("id", clientIds)
-            .order("name");
-
-          if (error) throw error;
-          clientsData = data || [];
-        }
-
-        // Group projects by client
-        const clientsWithProjects: Client[] = clientsData.map((client) => ({
-          id: client.id,
-          name: client.name,
-          industry: client.industry,
-          projects: (projectsData || [])
-            .filter((p) => p.client_id === client.id)
-            .map((p) => ({
-              id: p.id,
-              name: p.name,
-              status: p.status,
-              progress_percentage: p.progress_percentage,
-              start_date: p.start_date,
-              end_date: p.end_date,
-            })),
-        }));
-
-        // Add "Uncategorized" group for projects without a client
-        const uncategorizedProjects = (projectsData || []).filter((p) => !p.client_id);
-        if (uncategorizedProjects.length > 0) {
-          clientsWithProjects.unshift({
-            id: "uncategorized",
-            name: "Uncategorized",
-            industry: "No client assigned",
-            projects: uncategorizedProjects.map((p) => ({
-              id: p.id,
-              name: p.name,
-              status: p.status,
-              progress_percentage: p.progress_percentage,
-              start_date: p.start_date,
-              end_date: p.end_date,
-            })),
-          });
-        }
-
-        setClients(clientsWithProjects);
-        
-        // Expand first client by default if exists
-        if (clientsWithProjects.length > 0) {
-          setExpandedClients(new Set([clientsWithProjects[0].id]));
-        }
-      } catch (error) {
-        console.error("Error fetching projects:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchData();
   }, [user]);
 
@@ -227,11 +229,18 @@ export default function Projects() {
             Manage client engagements and project portfolios
           </p>
         </div>
-        <Button className="gap-2">
+        <Button className="gap-2" onClick={() => setWizardOpen(true)}>
           <Plus className="h-4 w-4" />
           New Project
         </Button>
       </div>
+
+      {/* Project Setup Wizard */}
+      <ProjectSetupWizard
+        open={wizardOpen}
+        onOpenChange={setWizardOpen}
+        onSuccess={fetchData}
+      />
 
       {/* Search */}
       <div className="relative max-w-md">
