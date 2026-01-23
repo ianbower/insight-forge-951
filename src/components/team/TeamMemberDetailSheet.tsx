@@ -24,8 +24,6 @@ import {
   Plus,
   Trash2,
   Clock,
-  TrendingUp,
-  CheckCircle2,
   CalendarPlus,
 } from "lucide-react";
 
@@ -38,7 +36,7 @@ interface ProjectAssignment {
   allocation_percentage: number;
   start_date: string | null;
   end_date: string | null;
-  is_pipeline?: boolean;
+  assignment_status: 'potential' | 'confirmed';
 }
 
 interface AvailableProject {
@@ -91,6 +89,7 @@ export function TeamMemberDetailSheet({
   const [futureAllocation, setFutureAllocation] = useState(100);
   const [selectedFutureProject, setSelectedFutureProject] = useState("");
   const [selectedFutureRole, setSelectedFutureRole] = useState("Team Member");
+  const [futureAssignmentStatus, setFutureAssignmentStatus] = useState<'potential' | 'confirmed'>('confirmed');
 
   useEffect(() => {
     if (member && open) {
@@ -112,6 +111,7 @@ export function TeamMemberDetailSheet({
         allocation_percentage,
         start_date,
         end_date,
+        assignment_status,
         projects:project_id (name, status)
       `)
       .eq("team_member_id", member.id);
@@ -128,6 +128,7 @@ export function TeamMemberDetailSheet({
         allocation_percentage: a.allocation_percentage,
         start_date: a.start_date,
         end_date: a.end_date,
+        assignment_status: a.assignment_status || 'confirmed',
       }));
       setAssignments(formatted);
     }
@@ -192,6 +193,7 @@ export function TeamMemberDetailSheet({
       role_in_project: selectedFutureRole,
       allocation_percentage: futureAllocation,
       start_date: format(futureStartDate, 'yyyy-MM-dd'),
+      assignment_status: futureAssignmentStatus,
     };
 
     const { error } = await supabase.from("project_team_assignments").insert(assignmentData);
@@ -199,11 +201,12 @@ export function TeamMemberDetailSheet({
     if (error) {
       toast({ title: "Error adding future assignment", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Future assignment scheduled" });
+      toast({ title: `Future assignment ${futureAssignmentStatus === 'potential' ? '(potential)' : ''} scheduled` });
       fetchAssignments();
       setSelectedFutureProject("");
       setFutureStartDate(undefined);
       setFutureAllocation(100);
+      setFutureAssignmentStatus('confirmed');
       onUpdate();
     }
     setAddingAssignment(false);
@@ -237,9 +240,8 @@ export function TeamMemberDetailSheet({
     a.allocation_percentage > 0 && (!a.start_date || a.start_date <= today)
   );
   const futureAssignments = assignments.filter((a) => 
-    a.allocation_percentage > 0 && a.start_date && a.start_date > today
+    a.start_date && a.start_date > today
   );
-  const pipelineAssignments = assignments.filter((a) => a.allocation_percentage === 0);
   
   const totalAllocated = currentAssignments.reduce((sum, a) => sum + a.allocation_percentage, 0);
   const remainingCapacity = Math.max(0, member.availability_percentage - totalAllocated);
@@ -398,46 +400,6 @@ export function TeamMemberDetailSheet({
               )}
             </div>
 
-            {/* Pipeline Assignments */}
-            {pipelineAssignments.length > 0 && (
-              <>
-                <Separator />
-                <div className="space-y-3">
-                  <h3 className="font-medium text-sm text-muted-foreground flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    Pipeline (Future Projects)
-                  </h3>
-                  {pipelineAssignments.map((assignment) => (
-                    <Card key={assignment.id} className="border-dashed">
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <p className="font-medium">{assignment.project_name}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <Badge variant="outline" className="text-xs">
-                                {assignment.role_in_project}
-                              </Badge>
-                              <Badge variant="secondary" className="text-xs bg-blue-500/20 text-blue-400">
-                                Pipeline
-                              </Badge>
-                            </div>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="text-muted-foreground hover:text-destructive"
-                            onClick={() => handleRemoveAssignment(assignment.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </>
-            )}
-
             <Separator />
 
             {/* Add New Assignment */}
@@ -584,18 +546,35 @@ export function TeamMemberDetailSheet({
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {futureAssignments.length === 0 && pipelineAssignments.length === 0 ? (
+                {futureAssignments.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No upcoming assignments scheduled</p>
                 ) : (
                   <div className="space-y-2">
-                    {/* Future dated assignments */}
                     {futureAssignments.map((assignment) => (
                       <div
                         key={assignment.id}
-                        className="flex items-center justify-between p-2 rounded-lg bg-primary/10 border border-primary/20"
+                        className={cn(
+                          "flex items-center justify-between p-2 rounded-lg border",
+                          assignment.assignment_status === 'potential'
+                            ? "bg-amber-500/10 border-amber-500/20"
+                            : "bg-emerald-500/10 border-emerald-500/20"
+                        )}
                       >
                         <div>
-                          <p className="font-medium text-sm">{assignment.project_name}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-sm">{assignment.project_name}</p>
+                            <Badge 
+                              variant="secondary" 
+                              className={cn(
+                                "text-xs",
+                                assignment.assignment_status === 'potential'
+                                  ? "bg-amber-500/20 text-amber-400"
+                                  : "bg-emerald-500/20 text-emerald-400"
+                              )}
+                            >
+                              {assignment.assignment_status === 'potential' ? 'Potential' : 'Confirmed'}
+                            </Badge>
+                          </div>
                           <div className="flex items-center gap-2 mt-1">
                             <Badge variant="outline" className="text-xs">
                               {assignment.role_in_project}
@@ -605,7 +584,7 @@ export function TeamMemberDetailSheet({
                             </span>
                           </div>
                           {assignment.start_date && (
-                            <p className="text-xs text-primary mt-1">
+                            <p className="text-xs text-muted-foreground mt-1">
                               Starts {format(new Date(assignment.start_date), "MMM d, yyyy")}
                             </p>
                           )}
@@ -620,38 +599,8 @@ export function TeamMemberDetailSheet({
                         </Button>
                       </div>
                     ))}
-                    
-                    {/* Pipeline (0% allocation) assignments */}
-                    {pipelineAssignments.map((assignment) => (
-                      <div
-                        key={assignment.id}
-                        className="flex items-center justify-between p-2 rounded-lg bg-blue-500/10 border border-blue-500/20"
-                      >
-                        <div>
-                          <p className="font-medium text-sm">{assignment.project_name}</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <Badge variant="outline" className="text-xs">
-                              {assignment.role_in_project}
-                            </Badge>
-                            <Badge variant="secondary" className="text-xs bg-blue-500/20 text-blue-400">
-                              Pipeline
-                            </Badge>
-                          </div>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-muted-foreground hover:text-destructive"
-                          onClick={() => handleRemoveAssignment(assignment.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
                   </div>
                 )}
-
-                <Separator />
               </CardContent>
             </Card>
 
@@ -720,6 +669,32 @@ export function TeamMemberDetailSheet({
                         </Select>
                       </div>
                     </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-xs">Status</Label>
+                      <Select 
+                        value={futureAssignmentStatus} 
+                        onValueChange={(v) => setFutureAssignmentStatus(v as 'potential' | 'confirmed')}
+                      >
+                        <SelectTrigger className="bg-background">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-popover z-50">
+                          <SelectItem value="confirmed">
+                            <span className="flex items-center gap-2">
+                              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                              Confirmed
+                            </span>
+                          </SelectItem>
+                          <SelectItem value="potential">
+                            <span className="flex items-center gap-2">
+                              <span className="h-2 w-2 rounded-full bg-amber-500" />
+                              Potential
+                            </span>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                     
                     <Button
                       className="w-full gap-2"
@@ -734,31 +709,6 @@ export function TeamMemberDetailSheet({
               </CardContent>
             </Card>
 
-            {/* When Next Available */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4" />
-                  When Next Available
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {remainingCapacity >= 50 ? (
-                  <p className="text-sm text-emerald-500 font-medium">Available now ({remainingCapacity}% capacity)</p>
-                ) : remainingCapacity >= 20 ? (
-                  <p className="text-sm text-amber-500 font-medium">Partially available ({remainingCapacity}% capacity)</p>
-                ) : currentAssignments.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No active assignments</p>
-                ) : (
-                  <div className="space-y-2">
-                    <p className="text-sm text-red-400 font-medium">Fully allocated ({remainingCapacity}% remaining)</p>
-                    <p className="text-xs text-muted-foreground">
-                      Capacity will free up when current projects complete.
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
           </TabsContent>
         </Tabs>
       </SheetContent>
