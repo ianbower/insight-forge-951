@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { TeamMemberCard, type TeamMember } from "@/components/team/TeamMemberCard";
 import { TeamMemberForm } from "@/components/team/TeamMemberForm";
+import { TeamMemberDetailSheet } from "@/components/team/TeamMemberDetailSheet";
 import { TeamUtilization } from "@/components/team/TeamUtilization";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +21,8 @@ export default function Team() {
   const [searchQuery, setSearchQuery] = useState("");
   const [levelFilter, setLevelFilter] = useState("All Levels");
   const [formOpen, setFormOpen] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
   const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
   const { toast } = useToast();
 
@@ -105,8 +108,14 @@ export default function Team() {
     }
   };
 
+  const handleViewDetail = (member: TeamMember) => {
+    setSelectedMember(member);
+    setDetailOpen(true);
+  };
+
   const handleEdit = (member: TeamMember) => {
     setEditingMember(member);
+    setDetailOpen(false);
     setFormOpen(true);
   };
 
@@ -246,7 +255,7 @@ export default function Team() {
                           <TeamMemberCard
                             key={member.id}
                             member={member}
-                            onEdit={handleEdit}
+                            onEdit={handleViewDetail}
                             onDelete={handleDelete}
                           />
                         ))}
@@ -269,6 +278,15 @@ export default function Team() {
           onOpenChange={setFormOpen}
           member={editingMember}
           onSave={handleSave}
+        />
+
+        {/* Detail Sheet */}
+        <TeamMemberDetailSheet
+          member={selectedMember}
+          open={detailOpen}
+          onOpenChange={setDetailOpen}
+          onEdit={handleEdit}
+          onUpdate={fetchMembers}
         />
       </div>
     </>
