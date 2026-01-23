@@ -44,7 +44,8 @@ import {
   PollBlock,
   AIChatBlock,
   DeliverablesBlock,
-  NotesBlock
+  NotesBlock,
+  AssessmentsBlock
 } from "@/components/project/blocks/BlockTypes";
 import { StepAIChat } from "@/components/project/StepAIChat";
 import { StepPreviewPanel } from "@/components/project/StepPreviewPanel";
@@ -403,6 +404,8 @@ export default function StepPage() {
         return { ...base, type: 'deliverables' } as DeliverablesBlock;
       case 'notes':
         return { ...base, type: 'notes' } as NotesBlock;
+      case 'assessments':
+        return { ...base, type: 'assessments' } as AssessmentsBlock;
       default:
         return { ...base, type: 'text', content: '' } as TextBlock;
     }

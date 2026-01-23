@@ -16,7 +16,8 @@ import {
   StickyNote,
   Check,
   X,
-  ChevronDown
+  ChevronDown,
+  ClipboardList
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,9 +51,11 @@ import {
   ChecklistItem,
   PollBlock,
   ToolBlock,
-  FormBlock
+  FormBlock,
+  AssessmentsBlock
 } from "./BlockTypes";
 import { EmbeddedTool } from "@/components/project/EmbeddedTool";
+import { EmbeddedAssessment } from "@/components/project/EmbeddedAssessment";
 
 interface BlockRendererProps {
   block: StepBlock;
@@ -128,6 +131,8 @@ export function BlockRenderer({
         return <ImageBlockPlaceholder />;
       case 'video':
         return <VideoBlockPlaceholder />;
+      case 'assessments':
+        return <AssessmentsBlockRenderer projectId={projectId} stepId={stepId} />;
       default:
         return <div className="text-muted-foreground">Unknown block type</div>;
     }
@@ -143,6 +148,7 @@ export function BlockRenderer({
     { type: 'poll', label: 'Poll', icon: BarChart3 },
     { type: 'ai-chat', label: 'AI Assistant', icon: Bot },
     { type: 'notes', label: 'Notes', icon: StickyNote },
+    { type: 'assessments', label: 'Assessments', icon: ClipboardList },
     { type: 'image', label: 'Image', icon: ImageIcon },
     { type: 'video', label: 'Video', icon: Video },
   ] as const;
@@ -741,6 +747,37 @@ function VideoBlockPlaceholder() {
       <CardContent className="pt-6 flex flex-col items-center justify-center py-12">
         <Video className="h-8 w-8 text-muted-foreground mb-2" />
         <p className="text-sm text-muted-foreground">Video placeholder</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AssessmentsBlockRenderer({ 
+  projectId, 
+  stepId 
+}: { 
+  projectId?: string; 
+  stepId?: string;
+}) {
+  if (!projectId || !stepId) {
+    return (
+      <Card className="border-dashed">
+        <CardContent className="pt-6 flex flex-col items-center justify-center py-8">
+          <ClipboardList className="h-8 w-8 text-muted-foreground mb-2" />
+          <p className="text-sm text-muted-foreground">Assessments require a project context</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardContent className="pt-6">
+        <EmbeddedAssessment 
+          projectId={projectId} 
+          stepId={stepId}
+          compact 
+        />
       </CardContent>
     </Card>
   );
