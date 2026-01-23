@@ -18,10 +18,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ClipboardList, Plus, BarChart3, Users, Send, Eye } from "lucide-react";
+import { ClipboardList, Plus, BarChart3, Users, Send, Eye, Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AssessmentResults } from "@/components/assessments/AssessmentResults";
 import { AssessmentLaunch } from "@/components/assessments/AssessmentLaunch";
+import { AssessmentBuilder } from "@/components/assessments/AssessmentBuilder";
 
 interface EmbeddedAssessmentProps {
   projectId: string;
@@ -35,7 +36,9 @@ interface ProjectAssessment {
     name: string;
     status: string;
     created_at: string;
+    assessment_template_id: string;
     assessment_template: {
+      id: string;
       name: string;
       category: string;
     };
@@ -53,7 +56,9 @@ export function EmbeddedAssessment({ projectId, stepId }: EmbeddedAssessmentProp
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   const [launchDialogOpen, setLaunchDialogOpen] = useState(false);
   const [resultsDialogOpen, setResultsDialogOpen] = useState(false);
+  const [builderDialogOpen, setBuilderDialogOpen] = useState(false);
   const [selectedInstance, setSelectedInstance] = useState<{ id: string; name: string } | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -72,7 +77,8 @@ export function EmbeddedAssessment({ projectId, stepId }: EmbeddedAssessmentProp
           name,
           status,
           created_at,
-          assessment_template:assessment_templates(name, category)
+          assessment_template_id,
+          assessment_template:assessment_templates(id, name, category)
         )
       `)
       .eq("project_id", projectId)
@@ -241,6 +247,21 @@ export function EmbeddedAssessment({ projectId, stepId }: EmbeddedAssessmentProp
                       variant="outline"
                       size="sm"
                       onClick={() => {
+                        setSelectedTemplate({
+                          id: pa.assessment_instance.assessment_template?.id || pa.assessment_instance.assessment_template_id,
+                          name: pa.assessment_instance.assessment_template?.name || "Assessment",
+                        });
+                        setBuilderDialogOpen(true);
+                      }}
+                      className="gap-2"
+                    >
+                      <Settings2 className="h-4 w-4" />
+                      Edit Questions
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
                         setSelectedInstance({
                           id: pa.assessment_instance.id,
                           name: pa.assessment_instance.name,
@@ -338,6 +359,22 @@ export function EmbeddedAssessment({ projectId, stepId }: EmbeddedAssessmentProp
               instanceId={selectedInstance.id}
               instanceName={selectedInstance.name}
               onClose={() => setResultsDialogOpen(false)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Assessment Builder Dialog */}
+      <Dialog open={builderDialogOpen} onOpenChange={setBuilderDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          {selectedTemplate && (
+            <AssessmentBuilder
+              templateId={selectedTemplate.id}
+              templateName={selectedTemplate.name}
+              onClose={() => {
+                setBuilderDialogOpen(false);
+                setSelectedTemplate(null);
+              }}
             />
           )}
         </DialogContent>
