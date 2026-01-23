@@ -636,6 +636,7 @@ export function ProjectSetupWizard({ open, onOpenChange, onSuccess }: ProjectSet
                     <SelectItem value="Proposed">Proposed</SelectItem>
                     <SelectItem value="Planning">Planning</SelectItem>
                     <SelectItem value="Active">Active</SelectItem>
+                    <SelectItem value="On Hold">On Hold</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
