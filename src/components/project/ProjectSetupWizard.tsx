@@ -836,14 +836,14 @@ export function ProjectSetupWizard({ open, onOpenChange, onSuccess }: ProjectSet
               <p className="text-sm text-muted-foreground mb-4">Select a runbook to pre-populate project workflow</p>
               
               <Select
-                value={formData.selectedRunbookId}
-                onValueChange={(v) => setFormData({ ...formData, selectedRunbookId: v })}
+                value={formData.selectedRunbookId || "none"}
+                onValueChange={(v) => setFormData({ ...formData, selectedRunbookId: v === "none" ? "" : v })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Choose a runbook template (optional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="none">None</SelectItem>
                   {runbooks.map((runbook) => (
                     <SelectItem key={runbook.id} value={runbook.id}>
                       {runbook.name}
