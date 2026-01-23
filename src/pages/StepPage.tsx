@@ -12,7 +12,8 @@ import {
   Eye,
   PanelLeftClose,
   PanelLeft,
-  Plus
+  Plus,
+  ClipboardList
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -744,6 +745,9 @@ export default function StepPage() {
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleAddNewBlock('notes')}>
                   <StickyNote className="h-4 w-4 mr-2" /> Notes
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleAddNewBlock('assessments')}>
+                  <ClipboardList className="h-4 w-4 mr-2" /> Assessments
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
