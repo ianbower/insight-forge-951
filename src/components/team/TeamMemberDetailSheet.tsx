@@ -33,6 +33,7 @@ interface ProjectAssignment {
   allocation_percentage: number;
   start_date: string | null;
   end_date: string | null;
+  is_pipeline?: boolean;
 }
 
 interface AvailableProject {
@@ -123,32 +124,39 @@ export function TeamMemberDetailSheet({
   };
 
   const fetchAvailableProjects = async () => {
+    // Fetch all projects including Proposed for pipeline planning
     const { data, error } = await supabase
       .from("projects")
       .select("id, name, status, start_date, end_date")
-      .in("status", ["Active", "Planning", "On Hold"])
+      .in("status", ["Active", "Planning", "On Hold", "Proposed"])
       .order("name");
 
-    if (!error && data) {
-      setAvailableProjects(data);
+    if (error) {
+      console.error("Error fetching projects:", error);
+    } else {
+      setAvailableProjects(data || []);
     }
   };
 
-  const handleAddAssignment = async () => {
+  const handleAddAssignment = async (isPipeline: boolean = false) => {
     if (!member || !selectedProject) return;
     setAddingAssignment(true);
 
-    const { error } = await supabase.from("project_team_assignments").insert({
+    // For pipeline, set allocation to 0 and use a future start date
+    const assignmentData = {
       team_member_id: member.id,
       project_id: selectedProject,
       role_in_project: selectedRole,
-      allocation_percentage: allocation,
-    });
+      allocation_percentage: isPipeline ? 0 : allocation,
+      start_date: isPipeline ? null : new Date().toISOString().split('T')[0],
+    };
+
+    const { error } = await supabase.from("project_team_assignments").insert(assignmentData);
 
     if (error) {
       toast({ title: "Error adding assignment", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Assignment added" });
+      toast({ title: isPipeline ? "Added to pipeline" : "Assignment added" });
       fetchAssignments();
       setSelectedProject("");
       setAllocation(100);
@@ -179,12 +187,26 @@ export function TeamMemberDetailSheet({
       .toUpperCase()
       .slice(0, 2);
 
-  const totalAllocated = assignments.reduce((sum, a) => sum + a.allocation_percentage, 0);
+  // Separate active assignments from pipeline (0% allocation = pipeline)
+  const activeAssignments = assignments.filter((a) => a.allocation_percentage > 0);
+  const pipelineAssignments = assignments.filter((a) => a.allocation_percentage === 0);
+  
+  const totalAllocated = activeAssignments.reduce((sum, a) => sum + a.allocation_percentage, 0);
   const remainingCapacity = Math.max(0, member.availability_percentage - totalAllocated);
 
-  // Filter out already assigned projects
+  // Filter out already assigned projects (both active and pipeline)
   const unassignedProjects = availableProjects.filter(
     (p) => !assignments.find((a) => a.project_id === p.id)
+  );
+  
+  // Projects that can be started now (Active, Planning)
+  const activeProjects = unassignedProjects.filter((p) => 
+    ["Active", "Planning", "On Hold"].includes(p.status)
+  );
+  
+  // Projects for pipeline (Proposed, Planning)
+  const pipelineProjects = unassignedProjects.filter((p) => 
+    ["Proposed", "Planning"].includes(p.status)
   );
 
   return (
@@ -287,10 +309,10 @@ export function TeamMemberDetailSheet({
               <h3 className="font-medium text-sm text-muted-foreground">Current Assignments</h3>
               {loadingAssignments ? (
                 <p className="text-sm text-muted-foreground">Loading...</p>
-              ) : assignments.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No project assignments</p>
+              ) : activeAssignments.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No active project assignments</p>
               ) : (
-                assignments.map((assignment) => (
+                activeAssignments.map((assignment) => (
                   <Card key={assignment.id}>
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between">
@@ -328,6 +350,46 @@ export function TeamMemberDetailSheet({
                 ))
               )}
             </div>
+
+            {/* Pipeline Assignments */}
+            {pipelineAssignments.length > 0 && (
+              <>
+                <Separator />
+                <div className="space-y-3">
+                  <h3 className="font-medium text-sm text-muted-foreground flex items-center gap-2">
+                    <Clock className="h-4 w-4" />
+                    Pipeline (Future Projects)
+                  </h3>
+                  {pipelineAssignments.map((assignment) => (
+                    <Card key={assignment.id} className="border-dashed">
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <p className="font-medium">{assignment.project_name}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <Badge variant="outline" className="text-xs">
+                                {assignment.role_in_project}
+                              </Badge>
+                              <Badge variant="secondary" className="text-xs bg-blue-500/20 text-blue-400">
+                                Pipeline
+                              </Badge>
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-muted-foreground hover:text-destructive"
+                            onClick={() => handleRemoveAssignment(assignment.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </>
+            )}
 
             <Separator />
 
@@ -387,7 +449,7 @@ export function TeamMemberDetailSheet({
 
                   <Button
                     className="w-full gap-2"
-                    onClick={handleAddAssignment}
+                    onClick={() => handleAddAssignment(false)}
                     disabled={!selectedProject || addingAssignment}
                   >
                     <Plus className="h-4 w-4" />
@@ -460,48 +522,88 @@ export function TeamMemberDetailSheet({
               </CardContent>
             </Card>
 
-            {/* Suggested Next Projects */}
+            {/* Pipeline Queue */}
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                   <TrendingUp className="h-4 w-4" />
-                  Suggested Next Projects
+                  Project Pipeline
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                {remainingCapacity < 20 ? (
-                  <p className="text-sm text-muted-foreground">
-                    Low availability. Complete current assignments first.
-                  </p>
-                ) : unassignedProjects.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No upcoming projects available</p>
-                ) : (
-                  <div className="space-y-2">
-                    {unassignedProjects.slice(0, 3).map((project) => (
+              <CardContent className="space-y-3">
+                {pipelineAssignments.length > 0 && (
+                  <div className="space-y-2 mb-4">
+                    <p className="text-xs text-muted-foreground">Queued for future:</p>
+                    {pipelineAssignments.map((assignment) => (
                       <div
-                        key={project.id}
-                        className="flex items-center justify-between p-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+                        key={assignment.id}
+                        className="flex items-center justify-between p-2 rounded-lg bg-blue-500/10 border border-blue-500/20"
                       >
                         <div>
-                          <p className="font-medium text-sm">{project.name}</p>
+                          <p className="font-medium text-sm">{assignment.project_name}</p>
                           <Badge variant="outline" className="text-xs mt-1">
-                            {project.status}
+                            {assignment.role_in_project}
                           </Badge>
                         </div>
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => {
-                            setSelectedProject(project.id);
-                            setActiveTab("projects");
-                          }}
+                          className="text-muted-foreground hover:text-destructive"
+                          onClick={() => handleRemoveAssignment(assignment.id)}
                         >
-                          <Plus className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     ))}
                   </div>
                 )}
+
+                <Separator />
+
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">Add to pipeline:</p>
+                  {pipelineProjects.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No proposed projects available</p>
+                  ) : (
+                    <>
+                      <Select value={selectedProject} onValueChange={setSelectedProject}>
+                        <SelectTrigger className="bg-background">
+                          <SelectValue placeholder="Select a project" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {pipelineProjects.map((project) => (
+                            <SelectItem key={project.id} value={project.id}>
+                              {project.name} ({project.status})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      
+                      <Select value={selectedRole} onValueChange={setSelectedRole}>
+                        <SelectTrigger className="bg-background">
+                          <SelectValue placeholder="Select role" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {projectRoles.map((role) => (
+                            <SelectItem key={role} value={role}>
+                              {role}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      
+                      <Button
+                        className="w-full gap-2"
+                        variant="outline"
+                        onClick={() => handleAddAssignment(true)}
+                        disabled={!selectedProject || addingAssignment}
+                      >
+                        <Plus className="h-4 w-4" />
+                        Add to Pipeline
+                      </Button>
+                    </>
+                  )}
+                </div>
               </CardContent>
             </Card>
 
@@ -515,13 +617,18 @@ export function TeamMemberDetailSheet({
               </CardHeader>
               <CardContent>
                 {remainingCapacity >= 50 ? (
-                  <p className="text-sm text-emerald-500 font-medium">Available now</p>
-                ) : assignments.length === 0 ? (
+                  <p className="text-sm text-emerald-500 font-medium">Available now ({remainingCapacity}% capacity)</p>
+                ) : remainingCapacity >= 20 ? (
+                  <p className="text-sm text-amber-500 font-medium">Partially available ({remainingCapacity}% capacity)</p>
+                ) : activeAssignments.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No active assignments</p>
                 ) : (
-                  <p className="text-sm text-muted-foreground">
-                    Based on current assignments, capacity may increase when projects complete.
-                  </p>
+                  <div className="space-y-2">
+                    <p className="text-sm text-red-400 font-medium">Fully allocated ({remainingCapacity}% remaining)</p>
+                    <p className="text-xs text-muted-foreground">
+                      Capacity will free up when current projects complete.
+                    </p>
+                  </div>
                 )}
               </CardContent>
             </Card>
