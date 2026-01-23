@@ -1,28 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import {
-  ArrowLeft,
-  Download,
-  FileText,
-  Globe,
-  Loader2,
-  Upload,
-  Palette,
-  Type,
-  Sparkles,
-  RefreshCw,
-  Check,
-  Image as ImageIcon,
-  Camera,
-  X,
-  Plus,
-  GripVertical,
-  Eye,
-  Trash2,
-  LayoutGrid,
-  Edit3,
-  Save,
-} from "lucide-react";
+import { ArrowLeft, Download, FileText, Globe, Loader2, Upload, Palette, Type, Sparkles, RefreshCw, Check, Image as ImageIcon, Camera, X, Plus, GripVertical, Eye, Trash2, LayoutGrid, Edit3, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -36,18 +14,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ToolPreviewCapture } from "@/components/outputs/ToolPreviewCapture";
 import { GridBlockEditor } from "@/components/outputs/GridBlockEditor";
 import { GridBlockData } from "@/components/outputs/GridBlock";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import html2canvas from "html2canvas";
-
 interface BrandingConfig {
   primaryLogo: string | null;
   secondaryLogo: string | null;
@@ -58,7 +29,6 @@ interface BrandingConfig {
   bodyFont: string;
   styleGuideNotes: string;
 }
-
 interface ReportImage {
   id: string;
   src: string;
@@ -66,7 +36,6 @@ interface ReportImage {
   type: "tool" | "custom";
   toolName?: string;
 }
-
 interface ReportSection {
   id: string;
   title: string;
@@ -74,7 +43,6 @@ interface ReportSection {
   content: string;
   images: string[]; // image IDs
 }
-
 interface Project {
   id: string;
   name: string;
@@ -82,7 +50,6 @@ interface Project {
   client_id: string | null;
   runbook_id: string | null;
 }
-
 interface Task {
   id: string;
   title: string;
@@ -91,7 +58,6 @@ interface Task {
   deliverables: any;
   notes_json: any;
 }
-
 const defaultBranding: BrandingConfig = {
   primaryLogo: null,
   secondaryLogo: null,
@@ -100,34 +66,53 @@ const defaultBranding: BrandingConfig = {
   accentColor: "#0ea5e9",
   headingFont: "Playfair Display",
   bodyFont: "Inter",
-  styleGuideNotes: "",
+  styleGuideNotes: ""
 };
-
-const fontOptions = [
-  { name: "Playfair Display", category: "Serif" },
-  { name: "Merriweather", category: "Serif" },
-  { name: "Georgia", category: "Serif" },
-  { name: "Lora", category: "Serif" },
-  { name: "Inter", category: "Sans-serif" },
-  { name: "Roboto", category: "Sans-serif" },
-  { name: "Open Sans", category: "Sans-serif" },
-  { name: "Montserrat", category: "Sans-serif" },
-  { name: "Source Sans Pro", category: "Sans-serif" },
-];
-
+const fontOptions = [{
+  name: "Playfair Display",
+  category: "Serif"
+}, {
+  name: "Merriweather",
+  category: "Serif"
+}, {
+  name: "Georgia",
+  category: "Serif"
+}, {
+  name: "Lora",
+  category: "Serif"
+}, {
+  name: "Inter",
+  category: "Sans-serif"
+}, {
+  name: "Roboto",
+  category: "Sans-serif"
+}, {
+  name: "Open Sans",
+  category: "Sans-serif"
+}, {
+  name: "Montserrat",
+  category: "Sans-serif"
+}, {
+  name: "Source Sans Pro",
+  category: "Sans-serif"
+}];
 export default function ProjectOutputs() {
-  const { projectId } = useParams();
+  const {
+    projectId
+  } = useParams();
   const navigate = useNavigate();
-  const { toast } = useToast();
-
+  const {
+    toast
+  } = useToast();
   const [project, setProject] = useState<Project | null>(null);
-  const [client, setClient] = useState<{ name: string } | null>(null);
+  const [client, setClient] = useState<{
+    name: string;
+  } | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [toolData, setToolData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
-
   const [branding, setBranding] = useState<BrandingConfig>(defaultBranding);
   const [sections, setSections] = useState<ReportSection[]>([]);
   const [blocks, setBlocks] = useState<GridBlockData[]>([]);
@@ -136,198 +121,183 @@ export default function ProjectOutputs() {
   const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [editorMode, setEditorMode] = useState<"sections" | "blocks">("sections");
-
   const logoInputRef = useRef<HTMLInputElement>(null);
   const secondaryLogoInputRef = useRef<HTMLInputElement>(null);
   const customImageInputRef = useRef<HTMLInputElement>(null);
-
   useEffect(() => {
     const fetchData = async () => {
       if (!projectId) return;
-
       try {
-        const { data: projectData } = await supabase
-          .from("projects")
-          .select("*")
-          .eq("id", projectId)
-          .maybeSingle();
-
+        const {
+          data: projectData
+        } = await supabase.from("projects").select("*").eq("id", projectId).maybeSingle();
         if (!projectData) {
-          toast({ title: "Project not found", variant: "destructive" });
+          toast({
+            title: "Project not found",
+            variant: "destructive"
+          });
           navigate("/projects");
           return;
         }
         setProject(projectData);
-
         if (projectData.client_id) {
-          const { data: clientData } = await supabase
-            .from("clients")
-            .select("name")
-            .eq("id", projectData.client_id)
-            .maybeSingle();
+          const {
+            data: clientData
+          } = await supabase.from("clients").select("name").eq("id", projectData.client_id).maybeSingle();
           setClient(clientData);
         }
-
-        const { data: tasksData } = await supabase
-          .from("project_tasks")
-          .select("*")
-          .eq("project_id", projectId)
-          .order("order_index");
-
+        const {
+          data: tasksData
+        } = await supabase.from("project_tasks").select("*").eq("project_id", projectId).order("order_index");
         setTasks(tasksData || []);
-
-        const { data: toolDataRecords } = await supabase
-          .from("tool_data")
-          .select("*, consulting_tools(name)")
-          .eq("project_id", projectId);
-
+        const {
+          data: toolDataRecords
+        } = await supabase.from("tool_data").select("*, consulting_tools(name)").eq("project_id", projectId);
         setToolData(toolDataRecords || []);
-
       } catch (error) {
         console.error("Error fetching data:", error);
-        toast({ title: "Error loading project", variant: "destructive" });
+        toast({
+          title: "Error loading project",
+          variant: "destructive"
+        });
       } finally {
         setLoading(false);
       }
     };
-
     fetchData();
   }, [projectId, navigate, toast]);
-
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>, type: "primary" | "secondary") => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onloadend = () => {
       const base64 = reader.result as string;
-      setBranding((prev) => ({
+      setBranding(prev => ({
         ...prev,
-        [type === "primary" ? "primaryLogo" : "secondaryLogo"]: base64,
+        [type === "primary" ? "primaryLogo" : "secondaryLogo"]: base64
       }));
     };
     reader.readAsDataURL(file);
   };
-
   const handleCustomImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
-
-    Array.from(files).forEach((file) => {
+    Array.from(files).forEach(file => {
       const reader = new FileReader();
       reader.onloadend = () => {
         const newImage: ReportImage = {
           id: `img-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           src: reader.result as string,
           caption: file.name.replace(/\.[^/.]+$/, ""),
-          type: "custom",
+          type: "custom"
         };
-        setImages((prev) => [...prev, newImage]);
+        setImages(prev => [...prev, newImage]);
       };
       reader.readAsDataURL(file);
     });
   };
-
   const captureToolScreenshot = async (toolName: string, elementId: string) => {
     const element = document.getElementById(elementId);
     if (!element) {
-      toast({ title: "Could not capture tool", description: "Element not found", variant: "destructive" });
+      toast({
+        title: "Could not capture tool",
+        description: "Element not found",
+        variant: "destructive"
+      });
       return;
     }
-
     try {
-      const canvas = await html2canvas(element, { scale: 2, backgroundColor: "#ffffff" });
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        backgroundColor: "#ffffff"
+      });
       const newImage: ReportImage = {
         id: `tool-${Date.now()}`,
         src: canvas.toDataURL("image/png"),
         caption: toolName,
         type: "tool",
-        toolName,
+        toolName
       };
-      setImages((prev) => [...prev, newImage]);
-      toast({ title: "Screenshot captured", description: `${toolName} added to images` });
+      setImages(prev => [...prev, newImage]);
+      toast({
+        title: "Screenshot captured",
+        description: `${toolName} added to images`
+      });
     } catch (error) {
-      toast({ title: "Error capturing screenshot", variant: "destructive" });
+      toast({
+        title: "Error capturing screenshot",
+        variant: "destructive"
+      });
     }
   };
-
   const handleDeleteImage = (imageId: string) => {
-    setImages((prev) => prev.filter((img) => img.id !== imageId));
-    setSections((prev) =>
-      prev.map((s) => ({ ...s, images: s.images.filter((id) => id !== imageId) }))
-    );
+    setImages(prev => prev.filter(img => img.id !== imageId));
+    setSections(prev => prev.map(s => ({
+      ...s,
+      images: s.images.filter(id => id !== imageId)
+    })));
   };
-
   const handleUpdateImageCaption = (imageId: string, caption: string) => {
-    setImages((prev) =>
-      prev.map((img) => (img.id === imageId ? { ...img, caption } : img))
-    );
+    setImages(prev => prev.map(img => img.id === imageId ? {
+      ...img,
+      caption
+    } : img));
   };
-
   const handleAddImageToSection = (sectionId: string, imageId: string) => {
-    setSections((prev) =>
-      prev.map((s) =>
-        s.id === sectionId && !s.images.includes(imageId)
-          ? { ...s, images: [...s.images, imageId] }
-          : s
-      )
-    );
+    setSections(prev => prev.map(s => s.id === sectionId && !s.images.includes(imageId) ? {
+      ...s,
+      images: [...s.images, imageId]
+    } : s));
   };
-
   const handleRemoveImageFromSection = (sectionId: string, imageId: string) => {
-    setSections((prev) =>
-      prev.map((s) =>
-        s.id === sectionId ? { ...s, images: s.images.filter((id) => id !== imageId) } : s
-      )
-    );
+    setSections(prev => prev.map(s => s.id === sectionId ? {
+      ...s,
+      images: s.images.filter(id => id !== imageId)
+    } : s));
   };
-
   const handleGenerateReport = async () => {
     if (!project) return;
-
     setGenerating(true);
     setGenerationProgress(0);
-
     try {
       const progressInterval = setInterval(() => {
-        setGenerationProgress((prev) => Math.min(prev + 10, 90));
+        setGenerationProgress(prev => Math.min(prev + 10, 90));
       }, 500);
-
-      const { data, error } = await supabase.functions.invoke("generate-report", {
+      const {
+        data,
+        error
+      } = await supabase.functions.invoke("generate-report", {
         body: {
           projectId,
           projectName: project.name,
           clientName: client?.name || "Client",
-          tasks: tasks.map((t) => ({
+          tasks: tasks.map(t => ({
             title: t.title,
             description: t.description,
             status: t.status,
             deliverables: t.deliverables,
-            notes: t.notes_json,
+            notes: t.notes_json
           })),
           toolData: toolData.map((td: any) => ({
             toolName: td.consulting_tools?.name,
-            content: td.content_json,
+            content: td.content_json
           })),
-          branding,
-        },
+          branding
+        }
       });
-
       clearInterval(progressInterval);
       setGenerationProgress(100);
-
       if (error) throw error;
-
       if (data?.sections) {
         const newSections = data.sections.map((s: any, i: number) => ({
           id: `section-${i}`,
           title: s.title,
           type: s.type,
           content: s.content,
-          images: [],
+          images: []
         }));
         setSections(newSections);
-        
+
         // Also convert sections to blocks for grid block editor
         const newBlocks: GridBlockData[] = [];
         data.sections.forEach((s: any, i: number) => {
@@ -336,7 +306,7 @@ export default function ProjectOutputs() {
             id: `block-heading-${i}-${Date.now()}`,
             type: "heading1",
             content: s.title,
-            width: 12,
+            width: 12
           });
           // Add content as paragraph(s)
           const paragraphs = s.content.split("\n\n").filter(Boolean);
@@ -345,7 +315,7 @@ export default function ProjectOutputs() {
               id: `block-para-${i}-${j}-${Date.now()}`,
               type: "paragraph",
               content: p,
-              width: 12,
+              width: 12
             });
           });
           // Add divider between sections (except last)
@@ -354,36 +324,47 @@ export default function ProjectOutputs() {
               id: `block-divider-${i}-${Date.now()}`,
               type: "divider",
               content: "",
-              width: 12,
+              width: 12
             });
           }
         });
         setBlocks(newBlocks);
-        
         setActiveTab("editor");
-        toast({ title: "Report generated", description: "Review and customize your deliverable." });
+        toast({
+          title: "Report generated",
+          description: "Review and customize your deliverable."
+        });
       }
     } catch (error) {
       console.error("Error generating report:", error);
-      toast({ title: "Error generating report", variant: "destructive" });
+      toast({
+        title: "Error generating report",
+        variant: "destructive"
+      });
     } finally {
       setGenerating(false);
       setGenerationProgress(0);
     }
   };
-
   const handleUpdateSection = (id: string, content: string) => {
-    setSections((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, content } : s))
-    );
+    setSections(prev => prev.map(s => s.id === id ? {
+      ...s,
+      content
+    } : s));
   };
-
   const handleExportPDF = async () => {
-    toast({ title: "Exporting PDF...", description: "Generating your document." });
-    
-    const { default: jsPDF } = await import("jspdf");
-    const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-
+    toast({
+      title: "Exporting PDF...",
+      description: "Generating your document."
+    });
+    const {
+      default: jsPDF
+    } = await import("jspdf");
+    const pdf = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: "a4"
+    });
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.height;
     const margin = 25;
@@ -393,37 +374,35 @@ export default function ProjectOutputs() {
     // Cover page
     pdf.setFillColor(branding.primaryColor);
     pdf.rect(0, 0, pageWidth, pageHeight, "F");
-    
+
     // Logo on cover
     if (branding.primaryLogo) {
       try {
         pdf.addImage(branding.primaryLogo, "PNG", margin, margin, 40, 20);
       } catch (e) {}
     }
-
     pdf.setTextColor("#ffffff");
     pdf.setFontSize(36);
     const titleLines = pdf.splitTextToSize(project?.name || "Strategic Report", contentWidth);
     pdf.text(titleLines, margin, pageHeight / 2 - 20);
-
     pdf.setFontSize(16);
     pdf.text(`Prepared for ${client?.name || "Client"}`, margin, pageHeight / 2 + 10);
-    
     pdf.setFontSize(12);
-    pdf.text(new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" }), margin, pageHeight / 2 + 25);
+    pdf.text(new Date().toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric"
+    }), margin, pageHeight / 2 + 25);
 
     // Export based on editor mode
     if (editorMode === "blocks" && blocks.length > 0) {
       // Block-based export
       pdf.addPage();
       yPosition = margin;
-
-      blocks.forEach((block) => {
+      blocks.forEach(block => {
         if (yPosition > pageHeight - margin - 20) {
           pdf.addPage();
           yPosition = margin;
         }
-
         switch (block.type) {
           case "heading1":
             pdf.setTextColor(branding.primaryColor);
@@ -436,14 +415,12 @@ export default function ProjectOutputs() {
             pdf.line(margin, yPosition, margin + 40, yPosition);
             yPosition += 10;
             break;
-
           case "heading2":
             pdf.setTextColor(branding.secondaryColor);
             pdf.setFontSize(16);
             pdf.text(block.content || "", margin, yPosition);
             yPosition += 10;
             break;
-
           case "paragraph":
             pdf.setTextColor("#374151");
             pdf.setFontSize(11);
@@ -458,7 +435,6 @@ export default function ProjectOutputs() {
             });
             yPosition += 4;
             break;
-
           case "bullet-list":
           case "numbered-list":
             pdf.setTextColor("#374151");
@@ -477,7 +453,6 @@ export default function ProjectOutputs() {
             });
             yPosition += 4;
             break;
-
           case "quote":
             pdf.setTextColor("#6b7280");
             pdf.setFontSize(11);
@@ -491,7 +466,6 @@ export default function ProjectOutputs() {
             });
             yPosition += 8;
             break;
-
           case "image":
             if (block.imageUrl) {
               if (yPosition > pageHeight - 80) {
@@ -506,13 +480,14 @@ export default function ProjectOutputs() {
                 if (block.imageCaption) {
                   pdf.setFontSize(9);
                   pdf.setTextColor("#6b7280");
-                  pdf.text(block.imageCaption, pageWidth / 2, yPosition, { align: "center" });
+                  pdf.text(block.imageCaption, pageWidth / 2, yPosition, {
+                    align: "center"
+                  });
                   yPosition += 10;
                 }
               } catch (e) {}
             }
             break;
-
           case "divider":
             pdf.setDrawColor("#e5e7eb");
             pdf.setLineWidth(0.3);
@@ -531,12 +506,11 @@ export default function ProjectOutputs() {
         pdf.setTextColor(branding.accentColor);
         pdf.setFontSize(12);
         pdf.text(`${String(sectionIndex + 1).padStart(2, "0")}`, margin, yPosition);
-        
         pdf.setTextColor(branding.primaryColor);
         pdf.setFontSize(22);
         yPosition += 12;
         pdf.text(section.title, margin, yPosition);
-        
+
         // Accent line
         pdf.setDrawColor(branding.accentColor);
         pdf.setLineWidth(0.5);
@@ -558,8 +532,8 @@ export default function ProjectOutputs() {
         });
 
         // Section images
-        const sectionImages = section.images.map((imgId) => images.find((img) => img.id === imgId)).filter(Boolean);
-        sectionImages.forEach((img) => {
+        const sectionImages = section.images.map(imgId => images.find(img => img.id === imgId)).filter(Boolean);
+        sectionImages.forEach(img => {
           if (!img) return;
           if (yPosition > pageHeight - 80) {
             pdf.addPage();
@@ -572,19 +546,24 @@ export default function ProjectOutputs() {
             yPosition += 55;
             pdf.setFontSize(9);
             pdf.setTextColor("#6b7280");
-            pdf.text(img.caption, pageWidth / 2, yPosition, { align: "center" });
+            pdf.text(img.caption, pageWidth / 2, yPosition, {
+              align: "center"
+            });
             yPosition += 15;
           } catch (e) {}
         });
       });
     }
-
     pdf.save(`${project?.name?.replace(/\s+/g, "_") || "report"}.pdf`);
-    toast({ title: "PDF exported successfully" });
+    toast({
+      title: "PDF exported successfully"
+    });
   };
-
   const handleExportHTML = async () => {
-    toast({ title: "Generating HTML...", description: "Creating premium interactive website." });
+    toast({
+      title: "Generating HTML...",
+      description: "Creating premium interactive website."
+    });
 
     // Generate animated block-based HTML with grid support
     const generateBlocksHTML = () => {
@@ -593,7 +572,6 @@ export default function ProjectOutputs() {
         const animDelay = delay;
         delay += 100;
         const widthClass = block.width <= 4 ? "grid-half" : block.width <= 6 ? "grid-half" : block.width <= 8 ? "grid-two-third" : "grid-full";
-        
         switch (block.type) {
           case "heading1":
             return `<h2 class="block-h1 animate-item ${widthClass}" style="animation-delay: ${animDelay}ms">${block.content || ""}</h2>`;
@@ -611,7 +589,10 @@ export default function ProjectOutputs() {
             const calloutClass = block.calloutStyle === "warning" ? "callout-warning" : block.calloutStyle === "success" ? "callout-success" : "callout-info";
             return `<div class="callout ${calloutClass} animate-item ${widthClass}" style="animation-delay: ${animDelay}ms">${block.content || ""}</div>`;
           case "two-column":
-            const cols = block.columnContent || { left: "", right: "" };
+            const cols = block.columnContent || {
+              left: "",
+              right: ""
+            };
             return `<div class="two-column animate-item grid-full" style="animation-delay: ${animDelay}ms"><div class="col">${cols.left}</div><div class="col">${cols.right}</div></div>`;
           case "image":
             return block.imageUrl ? `<figure class="animate-item image-block ${widthClass}" style="animation-delay: ${animDelay}ms"><img src="${block.imageUrl}" alt="${block.imageCaption || ""}" loading="lazy"><figcaption>${block.imageCaption || ""}</figcaption></figure>` : "";
@@ -624,26 +605,22 @@ export default function ProjectOutputs() {
         }
       }).join("\n");
     };
-
     const sectionImagesMap: Record<string, ReportImage[]> = {};
-    sections.forEach((s) => {
-      sectionImagesMap[s.id] = s.images.map((imgId) => images.find((img) => img.id === imgId)).filter(Boolean) as ReportImage[];
+    sections.forEach(s => {
+      sectionImagesMap[s.id] = s.images.map(imgId => images.find(img => img.id === imgId)).filter(Boolean) as ReportImage[];
     });
-
-    const mainContent = editorMode === "blocks" && blocks.length > 0 
-      ? `<div class="blocks-grid">${generateBlocksHTML()}</div>`
-      : sections.map((s, i) => `
+    const mainContent = editorMode === "blocks" && blocks.length > 0 ? `<div class="blocks-grid">${generateBlocksHTML()}</div>` : sections.map((s, i) => `
     <section class="section animate-section" id="${s.id}">
       <div class="section-header">
         <span class="section-number">${String(i + 1).padStart(2, "0")}</span>
         <h2>${s.title}</h2>
       </div>
       <div class="section-content">
-        ${s.content.split("\n\n").map((p) => `<p>${p}</p>`).join("")}
+        ${s.content.split("\n\n").map(p => `<p>${p}</p>`).join("")}
       </div>
       ${sectionImagesMap[s.id]?.length ? `
       <div class="section-images">
-        ${sectionImagesMap[s.id].map((img) => `
+        ${sectionImagesMap[s.id].map(img => `
         <figure class="section-image animate-image">
           <img src="${img.src}" alt="${img.caption}" loading="lazy">
           <figcaption>${img.caption}</figcaption>
@@ -653,7 +630,6 @@ export default function ProjectOutputs() {
       ` : ""}
     </section>
     `).join("");
-
     const htmlContent = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1110,7 +1086,10 @@ export default function ProjectOutputs() {
       <h1>${project?.name || "Strategic Report"}</h1>
       <div class="cover-meta">
         <span>Prepared for ${client?.name || "Client"}</span>
-        <span class="cover-date">${new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}</span>
+        <span class="cover-date">${new Date().toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric"
+    })}</span>
       </div>
     </div>
     <div class="scroll-indicator"></div>
@@ -1166,8 +1145,9 @@ export default function ProjectOutputs() {
   </script>
 </body>
 </html>`;
-
-    const blob = new Blob([htmlContent], { type: "text/html" });
+    const blob = new Blob([htmlContent], {
+      type: "text/html"
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -1176,22 +1156,18 @@ export default function ProjectOutputs() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-
-    toast({ title: "Premium HTML exported", description: "Open in any browser to view with animations." });
+    toast({
+      title: "Premium HTML exported",
+      description: "Open in any browser to view with animations."
+    });
   };
-
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
+    return <div className="flex items-center justify-center h-96">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
+      </div>;
   }
-
-  const availableTools = toolData.filter((td) => td.consulting_tools?.name);
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100/50">
+  const availableTools = toolData.filter(td => td.consulting_tools?.name);
+  return <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100/50">
       {/* Elegant Header */}
       <div className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-6 py-4">
@@ -1211,8 +1187,7 @@ export default function ProjectOutputs() {
             </div>
 
             <div className="flex items-center gap-3">
-              {sections.length > 0 && (
-                <>
+              {sections.length > 0 && <>
                   <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
                     <DialogTrigger asChild>
                       <Button variant="outline" size="sm" className="gap-2">
@@ -1225,8 +1200,7 @@ export default function ProjectOutputs() {
                         <DialogTitle>Report Preview</DialogTitle>
                       </DialogHeader>
                       <div className="prose prose-sm max-w-none">
-                        {sections.map((section, i) => (
-                          <div key={section.id} className="mb-8">
+                        {sections.map((section, i) => <div key={section.id} className="mb-8">
                             <div className="flex items-baseline gap-3 mb-2">
                               <span className="text-accent font-semibold text-sm">
                                 {String(i + 1).padStart(2, "0")}
@@ -1238,23 +1212,18 @@ export default function ProjectOutputs() {
                             <p className="text-muted-foreground whitespace-pre-wrap">
                               {section.content}
                             </p>
-                            {section.images.length > 0 && (
-                              <div className="grid gap-4 mt-4">
-                                {section.images.map((imgId) => {
-                                  const img = images.find((i) => i.id === imgId);
-                                  return img ? (
-                                    <figure key={imgId} className="m-0">
+                            {section.images.length > 0 && <div className="grid gap-4 mt-4">
+                                {section.images.map(imgId => {
+                          const img = images.find(i => i.id === imgId);
+                          return img ? <figure key={imgId} className="m-0">
                                       <img src={img.src} alt={img.caption} className="rounded-lg border" />
                                       <figcaption className="text-center text-xs text-muted-foreground mt-2">
                                         {img.caption}
                                       </figcaption>
-                                    </figure>
-                                  ) : null;
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        ))}
+                                    </figure> : null;
+                        })}
+                              </div>}
+                          </div>)}
                       </div>
                     </DialogContent>
                   </Dialog>
@@ -1266,8 +1235,7 @@ export default function ProjectOutputs() {
                     <Globe className="h-4 w-4" />
                     HTML Website
                   </Button>
-                </>
-              )}
+                </>}
             </div>
           </div>
         </div>
@@ -1307,21 +1275,14 @@ export default function ProjectOutputs() {
                   <div>
                     <Label className="text-xs text-muted-foreground">Primary Logo</Label>
                     <div className="mt-2 flex items-center gap-3">
-                      <div className={cn(
-                        "h-14 w-28 rounded-lg flex items-center justify-center overflow-hidden transition-colors",
-                        branding.primaryLogo ? "bg-white border" : "bg-muted border-2 border-dashed"
-                      )}>
-                        {branding.primaryLogo ? (
-                          <img src={branding.primaryLogo} alt="Logo" className="max-h-full max-w-full object-contain" />
-                        ) : (
-                          <span className="text-xs text-muted-foreground">No logo</span>
-                        )}
+                      <div className={cn("h-14 w-28 rounded-lg flex items-center justify-center overflow-hidden transition-colors", branding.primaryLogo ? "bg-white border" : "bg-muted border-2 border-dashed")}>
+                        {branding.primaryLogo ? <img src={branding.primaryLogo} alt="Logo" className="max-h-full max-w-full object-contain" /> : <span className="text-xs text-muted-foreground">No logo</span>}
                       </div>
                       <Button variant="outline" size="sm" onClick={() => logoInputRef.current?.click()}>
                         <Upload className="h-3 w-3 mr-1" />
                         Upload
                       </Button>
-                      <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleLogoUpload(e, "primary")} />
+                      <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={e => handleLogoUpload(e, "primary")} />
                     </div>
                   </div>
                 </CardContent>
@@ -1337,23 +1298,27 @@ export default function ProjectOutputs() {
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-3 gap-3">
-                    {[
-                      { key: "primaryColor", label: "Primary" },
-                      { key: "secondaryColor", label: "Secondary" },
-                      { key: "accentColor", label: "Accent" },
-                    ].map(({ key, label }) => (
-                      <div key={key}>
+                    {[{
+                    key: "primaryColor",
+                    label: "Primary"
+                  }, {
+                    key: "secondaryColor",
+                    label: "Secondary"
+                  }, {
+                    key: "accentColor",
+                    label: "Accent"
+                  }].map(({
+                    key,
+                    label
+                  }) => <div key={key}>
                         <Label className="text-xs text-muted-foreground">{label}</Label>
                         <div className="mt-1.5 flex items-center gap-2">
-                          <input
-                            type="color"
-                            value={(branding as any)[key]}
-                            onChange={(e) => setBranding((prev) => ({ ...prev, [key]: e.target.value }))}
-                            className="h-9 w-9 rounded-lg border cursor-pointer"
-                          />
+                          <input type="color" value={(branding as any)[key]} onChange={e => setBranding(prev => ({
+                        ...prev,
+                        [key]: e.target.value
+                      }))} className="h-9 w-9 rounded-lg border cursor-pointer" />
                         </div>
-                      </div>
-                    ))}
+                      </div>)}
                   </div>
                 </CardContent>
               </Card>
@@ -1369,26 +1334,20 @@ export default function ProjectOutputs() {
                 <CardContent className="space-y-3">
                   <div>
                     <Label className="text-xs text-muted-foreground">Heading Font</Label>
-                    <select
-                      value={branding.headingFont}
-                      onChange={(e) => setBranding((prev) => ({ ...prev, headingFont: e.target.value }))}
-                      className="mt-1 w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
-                    >
-                      {fontOptions.map((font) => (
-                        <option key={font.name} value={font.name}>{font.name}</option>
-                      ))}
+                    <select value={branding.headingFont} onChange={e => setBranding(prev => ({
+                    ...prev,
+                    headingFont: e.target.value
+                  }))} className="mt-1 w-full h-9 rounded-md border border-input bg-background px-3 text-sm">
+                      {fontOptions.map(font => <option key={font.name} value={font.name}>{font.name}</option>)}
                     </select>
                   </div>
                   <div>
                     <Label className="text-xs text-muted-foreground">Body Font</Label>
-                    <select
-                      value={branding.bodyFont}
-                      onChange={(e) => setBranding((prev) => ({ ...prev, bodyFont: e.target.value }))}
-                      className="mt-1 w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
-                    >
-                      {fontOptions.map((font) => (
-                        <option key={font.name} value={font.name}>{font.name}</option>
-                      ))}
+                    <select value={branding.bodyFont} onChange={e => setBranding(prev => ({
+                    ...prev,
+                    bodyFont: e.target.value
+                  }))} className="mt-1 w-full h-9 rounded-md border border-input bg-background px-3 text-sm">
+                      {fontOptions.map(font => <option key={font.name} value={font.name}>{font.name}</option>)}
                     </select>
                   </div>
                 </CardContent>
@@ -1402,13 +1361,10 @@ export default function ProjectOutputs() {
                 <CardDescription>Optional notes to guide AI content generation</CardDescription>
               </CardHeader>
               <CardContent>
-                <Textarea
-                  placeholder="e.g., Use formal executive tone, emphasize data-driven insights, avoid technical jargon..."
-                  value={branding.styleGuideNotes}
-                  onChange={(e) => setBranding((prev) => ({ ...prev, styleGuideNotes: e.target.value }))}
-                  rows={3}
-                  className="resize-none"
-                />
+                <Textarea placeholder="e.g., Use formal executive tone, emphasize data-driven insights, avoid technical jargon..." value={branding.styleGuideNotes} onChange={e => setBranding(prev => ({
+                ...prev,
+                styleGuideNotes: e.target.value
+              }))} rows={3} className="resize-none" />
               </CardContent>
             </Card>
 
@@ -1418,37 +1374,24 @@ export default function ProjectOutputs() {
                 <div className="flex items-center justify-between gap-6">
                   <div>
                     <h3 className="font-display font-semibold text-lg">Generate Your Report</h3>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      AI will create a comprehensive McKinsey-style report from your project workflow, deliverables, and strategic analysis.
-                    </p>
+                    <p className="text-sm text-muted-foreground mt-1">AI will create a comprehensive report from your project workflow, deliverables, and strategic analysis.</p>
                   </div>
-                  <Button
-                    size="lg"
-                    onClick={handleGenerateReport}
-                    disabled={generating}
-                    className="gap-2 shadow-lg"
-                  >
-                    {generating ? (
-                      <>
+                  <Button size="lg" onClick={handleGenerateReport} disabled={generating} className="gap-2 shadow-lg">
+                    {generating ? <>
                         <Loader2 className="h-4 w-4 animate-spin" />
                         Generating...
-                      </>
-                    ) : (
-                      <>
+                      </> : <>
                         <Sparkles className="h-4 w-4" />
                         Generate Report
-                      </>
-                    )}
+                      </>}
                   </Button>
                 </div>
-                {generating && (
-                  <div className="mt-4">
+                {generating && <div className="mt-4">
                     <Progress value={generationProgress} className="h-1.5" />
                     <p className="text-xs text-muted-foreground mt-2">
                       Analyzing project data and crafting your deliverable...
                     </p>
-                  </div>
-                )}
+                  </div>}
               </CardContent>
             </Card>
           </TabsContent>
@@ -1456,8 +1399,7 @@ export default function ProjectOutputs() {
           {/* Images Tab */}
           <TabsContent value="images" className="space-y-6">
             {/* Tool Screenshots with Live Previews */}
-            {availableTools.length > 0 && (
-              <Card className="shadow-sm">
+            {availableTools.length > 0 && <Card className="shadow-sm">
                 <CardHeader>
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
                     <LayoutGrid className="h-4 w-4 text-accent" />
@@ -1469,31 +1411,23 @@ export default function ProjectOutputs() {
                 </CardHeader>
                 <CardContent>
                   <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                    {availableTools.map((tool) => (
-                      <ToolPreviewCapture
-                        key={tool.id}
-                        toolName={tool.consulting_tools?.name || "Unknown Tool"}
-                        toolData={tool.content_json}
-                        onCapture={(imageData) => {
-                          const newImage: ReportImage = {
-                            id: `tool-${Date.now()}`,
-                            src: imageData,
-                            caption: tool.consulting_tools?.name || "Tool Analysis",
-                            type: "tool",
-                            toolName: tool.consulting_tools?.name,
-                          };
-                          setImages((prev) => [...prev, newImage]);
-                          toast({
-                            title: "Screenshot captured",
-                            description: `${tool.consulting_tools?.name} added to your image library`,
-                          });
-                        }}
-                      />
-                    ))}
+                    {availableTools.map(tool => <ToolPreviewCapture key={tool.id} toolName={tool.consulting_tools?.name || "Unknown Tool"} toolData={tool.content_json} onCapture={imageData => {
+                  const newImage: ReportImage = {
+                    id: `tool-${Date.now()}`,
+                    src: imageData,
+                    caption: tool.consulting_tools?.name || "Tool Analysis",
+                    type: "tool",
+                    toolName: tool.consulting_tools?.name
+                  };
+                  setImages(prev => [...prev, newImage]);
+                  toast({
+                    title: "Screenshot captured",
+                    description: `${tool.consulting_tools?.name} added to your image library`
+                  });
+                }} />)}
                   </div>
                 </CardContent>
-              </Card>
-            )}
+              </Card>}
 
             <div className="grid gap-6 lg:grid-cols-2">
               {/* Custom Images Upload */}
@@ -1506,61 +1440,39 @@ export default function ProjectOutputs() {
                   <CardDescription>Upload charts, diagrams, photos, or other visuals</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div
-                    onClick={() => customImageInputRef.current?.click()}
-                    className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-accent hover:bg-accent/5 transition-colors"
-                  >
+                  <div onClick={() => customImageInputRef.current?.click()} className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-accent hover:bg-accent/5 transition-colors">
                     <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
                     <p className="text-sm font-medium">Click to upload images</p>
                     <p className="text-xs text-muted-foreground mt-1">PNG, JPG, or SVG</p>
                   </div>
-                  <input
-                    ref={customImageInputRef}
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    className="hidden"
-                    onChange={handleCustomImageUpload}
-                  />
+                  <input ref={customImageInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleCustomImageUpload} />
                 </CardContent>
               </Card>
             </div>
 
             {/* Image Library */}
-            {images.length > 0 && (
-              <Card className="shadow-sm">
+            {images.length > 0 && <Card className="shadow-sm">
                 <CardHeader>
                   <CardTitle className="text-sm font-medium">Image Library ({images.length})</CardTitle>
                   <CardDescription>Click on images to edit captions. Assign them to report sections.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    {images.map((img) => (
-                      <div key={img.id} className="group relative">
+                    {images.map(img => <div key={img.id} className="group relative">
                         <div className="aspect-video rounded-lg overflow-hidden bg-muted border">
                           <img src={img.src} alt={img.caption} className="w-full h-full object-cover" />
                         </div>
-                        <button
-                          onClick={() => handleDeleteImage(img.id)}
-                          className="absolute top-2 right-2 h-6 w-6 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-                        >
+                        <button onClick={() => handleDeleteImage(img.id)} className="absolute top-2 right-2 h-6 w-6 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                           <X className="h-3 w-3" />
                         </button>
-                        <Input
-                          value={img.caption}
-                          onChange={(e) => handleUpdateImageCaption(img.id, e.target.value)}
-                          className="mt-2 text-xs h-8"
-                          placeholder="Caption..."
-                        />
+                        <Input value={img.caption} onChange={e => handleUpdateImageCaption(img.id, e.target.value)} className="mt-2 text-xs h-8" placeholder="Caption..." />
                         <Badge variant="outline" className="absolute top-2 left-2 text-[10px]">
                           {img.type}
                         </Badge>
-                      </div>
-                    ))}
+                      </div>)}
                   </div>
                 </CardContent>
-              </Card>
-            )}
+              </Card>}
           </TabsContent>
 
           {/* Editor Tab */}
@@ -1569,29 +1481,17 @@ export default function ProjectOutputs() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="flex items-center bg-muted rounded-lg p-1">
-                  <Button
-                    variant={editorMode === "sections" ? "default" : "ghost"}
-                    size="sm"
-                    onClick={() => setEditorMode("sections")}
-                    className="h-8 px-3 gap-2"
-                  >
+                  <Button variant={editorMode === "sections" ? "default" : "ghost"} size="sm" onClick={() => setEditorMode("sections")} className="h-8 px-3 gap-2">
                     <FileText className="h-3.5 w-3.5" />
                     Sections
                   </Button>
-                  <Button
-                    variant={editorMode === "blocks" ? "default" : "ghost"}
-                    size="sm"
-                    onClick={() => setEditorMode("blocks")}
-                    className="h-8 px-3 gap-2"
-                  >
+                  <Button variant={editorMode === "blocks" ? "default" : "ghost"} size="sm" onClick={() => setEditorMode("blocks")} className="h-8 px-3 gap-2">
                     <Edit3 className="h-3.5 w-3.5" />
                     Block Editor
                   </Button>
                 </div>
                 <span className="text-xs text-muted-foreground ml-2">
-                  {editorMode === "blocks" 
-                    ? "Drag to reorder, add headings, text, images & more" 
-                    : "Edit AI-generated sections"}
+                  {editorMode === "blocks" ? "Drag to reorder, add headings, text, images & more" : "Edit AI-generated sections"}
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -1603,8 +1503,7 @@ export default function ProjectOutputs() {
             </div>
 
             {/* Block Editor Mode */}
-            {editorMode === "blocks" && (
-              <Card className="shadow-sm">
+            {editorMode === "blocks" && <Card className="shadow-sm">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
                     <Edit3 className="h-4 w-4 text-accent" />
@@ -1615,20 +1514,17 @@ export default function ProjectOutputs() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <GridBlockEditor
-                    blocks={blocks}
-                    onBlocksChange={setBlocks}
-                    images={images.map((img) => ({ id: img.id, src: img.src, caption: img.caption }))}
-                  />
+                  <GridBlockEditor blocks={blocks} onBlocksChange={setBlocks} images={images.map(img => ({
+                id: img.id,
+                src: img.src,
+                caption: img.caption
+              }))} />
                 </CardContent>
-              </Card>
-            )}
+              </Card>}
 
             {/* Section Editor Mode (original) */}
-            {editorMode === "sections" && (
-              <>
-                {sections.map((section, sectionIndex) => (
-                  <Card key={section.id} className="shadow-sm overflow-hidden">
+            {editorMode === "sections" && <>
+                {sections.map((section, sectionIndex) => <Card key={section.id} className="shadow-sm overflow-hidden">
                     <CardHeader className="pb-3 bg-gradient-to-r from-muted/30 to-transparent">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -1640,91 +1536,52 @@ export default function ProjectOutputs() {
                             {section.type.replace("-", " ")}
                           </Badge>
                         </div>
-                        <Button
-                          variant={editingSectionId === section.id ? "default" : "ghost"}
-                          size="sm"
-                          onClick={() => setEditingSectionId(editingSectionId === section.id ? null : section.id)}
-                        >
-                          {editingSectionId === section.id ? (
-                            <>
+                        <Button variant={editingSectionId === section.id ? "default" : "ghost"} size="sm" onClick={() => setEditingSectionId(editingSectionId === section.id ? null : section.id)}>
+                          {editingSectionId === section.id ? <>
                               <Check className="h-3 w-3 mr-1" />
                               Done
-                            </>
-                          ) : (
-                            "Edit"
-                          )}
+                            </> : "Edit"}
                         </Button>
                       </div>
                     </CardHeader>
                     <CardContent className="pt-4">
-                      {editingSectionId === section.id ? (
-                        <Textarea
-                          value={section.content}
-                          onChange={(e) => handleUpdateSection(section.id, e.target.value)}
-                          rows={10}
-                          className="font-mono text-sm resize-none"
-                        />
-                      ) : (
-                        <div className="prose prose-sm max-w-none text-muted-foreground">
-                          {section.content.split("\n\n").map((p, i) => (
-                            <p key={i} className="mb-3 last:mb-0">{p}</p>
-                          ))}
-                        </div>
-                      )}
+                      {editingSectionId === section.id ? <Textarea value={section.content} onChange={e => handleUpdateSection(section.id, e.target.value)} rows={10} className="font-mono text-sm resize-none" /> : <div className="prose prose-sm max-w-none text-muted-foreground">
+                          {section.content.split("\n\n").map((p, i) => <p key={i} className="mb-3 last:mb-0">{p}</p>)}
+                        </div>}
 
                       {/* Section Images */}
-                      {section.images.length > 0 && (
-                        <div className="mt-4 pt-4 border-t">
+                      {section.images.length > 0 && <div className="mt-4 pt-4 border-t">
                           <Label className="text-xs text-muted-foreground mb-2 block">Attached Images</Label>
                           <div className="flex flex-wrap gap-2">
-                            {section.images.map((imgId) => {
-                              const img = images.find((i) => i.id === imgId);
-                              return img ? (
-                                <div key={imgId} className="relative group">
+                            {section.images.map(imgId => {
+                      const img = images.find(i => i.id === imgId);
+                      return img ? <div key={imgId} className="relative group">
                                   <img src={img.src} alt={img.caption} className="h-16 w-24 object-cover rounded border" />
-                                  <button
-                                    onClick={() => handleRemoveImageFromSection(section.id, imgId)}
-                                    className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-xs"
-                                  >
+                                  <button onClick={() => handleRemoveImageFromSection(section.id, imgId)} className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-xs">
                                     <X className="h-2.5 w-2.5" />
                                   </button>
-                                </div>
-                              ) : null;
-                            })}
+                                </div> : null;
+                    })}
                           </div>
-                        </div>
-                      )}
+                        </div>}
 
                       {/* Add Image to Section */}
-                      {images.length > 0 && (
-                        <div className="mt-4 pt-4 border-t">
+                      {images.length > 0 && <div className="mt-4 pt-4 border-t">
                           <Label className="text-xs text-muted-foreground mb-2 block">Add Image</Label>
                           <ScrollArea className="w-full">
                             <div className="flex gap-2 pb-2">
-                              {images
-                                .filter((img) => !section.images.includes(img.id))
-                                .map((img) => (
-                                  <button
-                                    key={img.id}
-                                    onClick={() => handleAddImageToSection(section.id, img.id)}
-                                    className="flex-shrink-0 h-12 w-20 rounded border-2 border-dashed hover:border-accent overflow-hidden transition-colors"
-                                  >
+                              {images.filter(img => !section.images.includes(img.id)).map(img => <button key={img.id} onClick={() => handleAddImageToSection(section.id, img.id)} className="flex-shrink-0 h-12 w-20 rounded border-2 border-dashed hover:border-accent overflow-hidden transition-colors">
                                     <img src={img.src} alt={img.caption} className="w-full h-full object-cover opacity-60 hover:opacity-100 transition-opacity" />
-                                  </button>
-                                ))}
+                                  </button>)}
                             </div>
                           </ScrollArea>
-                        </div>
-                      )}
+                        </div>}
                     </CardContent>
-                  </Card>
-                ))}
-              </>
-            )}
+                  </Card>)}
+              </>}
 
             {/* Empty State */}
-            {sections.length === 0 && blocks.length === 0 && (
-              <Card className="border-dashed shadow-sm">
+            {sections.length === 0 && blocks.length === 0 && <Card className="border-dashed shadow-sm">
                 <CardContent className="py-16 text-center">
                   <FileText className="h-12 w-12 mx-auto text-muted-foreground/30 mb-4" />
                   <h3 className="font-display font-semibold mb-2">No report content yet</h3>
@@ -1740,11 +1597,9 @@ export default function ProjectOutputs() {
                     </Button>
                   </div>
                 </CardContent>
-              </Card>
-            )}
+              </Card>}
           </TabsContent>
         </Tabs>
       </div>
-    </div>
-  );
+    </div>;
 }
