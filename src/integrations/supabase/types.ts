@@ -696,6 +696,50 @@ export type Database = {
           },
         ]
       }
+      project_deliverables: {
+        Row: {
+          created_at: string
+          description: string | null
+          due_date: string | null
+          id: string
+          order_index: number
+          project_id: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          order_index?: number
+          project_id: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          order_index?: number
+          project_id?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_deliverables_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_issues: {
         Row: {
           created_at: string
@@ -1010,43 +1054,61 @@ export type Database = {
       }
       projects: {
         Row: {
+          budget_amount: number | null
           client_id: string | null
           created_at: string
           created_by: string | null
+          currency: string | null
+          description: string | null
           end_date: string | null
           id: string
           name: string
           owner_id: string | null
           progress_percentage: number | null
+          project_type: string
           runbook_id: string | null
+          sow_file_name: string | null
+          sow_file_url: string | null
           start_date: string | null
           status: string
           updated_at: string
         }
         Insert: {
+          budget_amount?: number | null
           client_id?: string | null
           created_at?: string
           created_by?: string | null
+          currency?: string | null
+          description?: string | null
           end_date?: string | null
           id?: string
           name: string
           owner_id?: string | null
           progress_percentage?: number | null
+          project_type?: string
           runbook_id?: string | null
+          sow_file_name?: string | null
+          sow_file_url?: string | null
           start_date?: string | null
           status?: string
           updated_at?: string
         }
         Update: {
+          budget_amount?: number | null
           client_id?: string | null
           created_at?: string
           created_by?: string | null
+          currency?: string | null
+          description?: string | null
           end_date?: string | null
           id?: string
           name?: string
           owner_id?: string | null
           progress_percentage?: number | null
+          project_type?: string
           runbook_id?: string | null
+          sow_file_name?: string | null
+          sow_file_url?: string | null
           start_date?: string | null
           status?: string
           updated_at?: string
