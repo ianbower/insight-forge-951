@@ -139,7 +139,8 @@ export default function ExpertAI() {
       const assistantMessage = await addMessage(currentSession.id, "assistant", "");
       if (!assistantMessage) throw new Error("Failed to create assistant message");
 
-      while (true) {
+      let streamDone = false;
+      while (!streamDone) {
         const { done, value } = await reader.read();
         if (done) break;
 
@@ -155,18 +156,27 @@ export default function ExpertAI() {
           if (!line.startsWith("data: ")) continue;
 
           const jsonStr = line.slice(6).trim();
-          if (jsonStr === "[DONE]") break;
+          if (jsonStr === "[DONE]") {
+            streamDone = true;
+            break;
+          }
 
           try {
             const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content;
-            if (content) {
-              assistantContent += content;
+            // Support both streaming delta format and full message format
+            const content = parsed.choices?.[0]?.delta?.content || parsed.choices?.[0]?.message?.content;
+            if (content && content !== assistantContent) {
+              assistantContent = content.length > assistantContent.length ? content : assistantContent + content;
               await updateMessageContent(currentSession.id, assistantMessage.id, assistantContent);
             }
-          } catch {
-            buffer = line + "\n" + buffer;
-            break;
+          } catch (parseError) {
+            // Only re-buffer if it looks like incomplete JSON
+            if (jsonStr.includes("{") && !jsonStr.includes("}")) {
+              buffer = line + "\n" + buffer;
+              break;
+            }
+            // Otherwise skip malformed line
+            console.warn("Skipping malformed SSE line:", jsonStr);
           }
         }
       }
