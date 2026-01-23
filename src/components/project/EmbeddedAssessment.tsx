@@ -18,7 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ClipboardList, Plus, BarChart3, Users, Send, Eye, Settings2 } from "lucide-react";
+import { ClipboardList, Plus, BarChart3, Users, Send, Eye, Settings2, Link2 } from "lucide-react";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { AssessmentResults } from "@/components/assessments/AssessmentResults";
 import { AssessmentLaunch } from "@/components/assessments/AssessmentLaunch";
@@ -27,10 +28,18 @@ import { AssessmentBuilder } from "@/components/assessments/AssessmentBuilder";
 interface EmbeddedAssessmentProps {
   projectId: string;
   stepId?: string;
+  compact?: boolean; // For embedding in step detail view
+}
+
+interface WorkflowStep {
+  id: string;
+  title: string;
+  order_index: number | null;
 }
 
 interface ProjectAssessment {
   id: string;
+  step_id: string | null;
   assessment_instance: {
     id: string;
     name: string;
@@ -47,13 +56,15 @@ interface ProjectAssessment {
   responseCount?: number;
 }
 
-export function EmbeddedAssessment({ projectId, stepId }: EmbeddedAssessmentProps) {
+export function EmbeddedAssessment({ projectId, stepId, compact = false }: EmbeddedAssessmentProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [assessments, setAssessments] = useState<ProjectAssessment[]>([]);
   const [templates, setTemplates] = useState<any[]>([]);
+  const [workflowSteps, setWorkflowSteps] = useState<WorkflowStep[]>([]);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+  const [selectedStepId, setSelectedStepId] = useState<string>(stepId || "");
   const [launchDialogOpen, setLaunchDialogOpen] = useState(false);
   const [resultsDialogOpen, setResultsDialogOpen] = useState(false);
   const [builderDialogOpen, setBuilderDialogOpen] = useState(false);
@@ -67,11 +78,12 @@ export function EmbeddedAssessment({ projectId, stepId }: EmbeddedAssessmentProp
   const fetchData = async () => {
     setLoading(true);
 
-    // Fetch project assessments
-    const { data: projectAssessments } = await supabase
+    // Build query for project assessments
+    let query = supabase
       .from("project_assessments")
       .select(`
         id,
+        step_id,
         assessment_instance:assessment_instances(
           id,
           name,
@@ -83,6 +95,13 @@ export function EmbeddedAssessment({ projectId, stepId }: EmbeddedAssessmentProp
       `)
       .eq("project_id", projectId)
       .order("created_at", { ascending: false });
+
+    // If stepId is provided, filter to that step only
+    if (stepId) {
+      query = query.eq("step_id", stepId);
+    }
+
+    const { data: projectAssessments } = await query;
 
     // Fetch recipient/response counts
     const enrichedAssessments: ProjectAssessment[] = [];
@@ -117,6 +136,18 @@ export function EmbeddedAssessment({ projectId, stepId }: EmbeddedAssessmentProp
       .order("name");
 
     setTemplates(templatesData || []);
+
+    // Fetch workflow steps for linking (only if not in compact/step mode)
+    if (!stepId) {
+      const { data: stepsData } = await supabase
+        .from("project_tasks")
+        .select("id, title, order_index")
+        .eq("project_id", projectId)
+        .order("order_index");
+
+      setWorkflowSteps(stepsData || []);
+    }
+
     setLoading(false);
   };
 
@@ -143,11 +174,13 @@ export function EmbeddedAssessment({ projectId, stepId }: EmbeddedAssessmentProp
       return;
     }
 
-    // Create project assessment link
+    // Create project assessment link with optional step
+    const linkStepId = stepId || (selectedStepId && selectedStepId !== "none" ? selectedStepId : null);
+    
     const { error: linkError } = await supabase.from("project_assessments").insert({
       project_id: projectId,
       assessment_instance_id: instance.id,
-      step_id: stepId || null,
+      step_id: linkStepId,
     });
 
     if (linkError) {
@@ -158,6 +191,7 @@ export function EmbeddedAssessment({ projectId, stepId }: EmbeddedAssessmentProp
     toast({ title: "Assessment added to project" });
     setAddDialogOpen(false);
     setSelectedTemplateId("");
+    setSelectedStepId(stepId || "");
     fetchData();
   };
 
@@ -180,9 +214,9 @@ export function EmbeddedAssessment({ projectId, stepId }: EmbeddedAssessmentProp
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold flex items-center gap-2">
-          <ClipboardList className="h-5 w-5" />
-          Project Assessments
+        <h3 className={cn("font-semibold flex items-center gap-2", compact ? "text-base" : "text-lg")}>
+          <ClipboardList className={cn(compact ? "h-4 w-4" : "h-5 w-5")} />
+          {stepId ? "Step Assessments" : "Project Assessments"}
         </h3>
         <Button size="sm" onClick={() => setAddDialogOpen(true)} className="gap-2">
           <Plus className="h-4 w-4" />
@@ -192,9 +226,11 @@ export function EmbeddedAssessment({ projectId, stepId }: EmbeddedAssessmentProp
 
       {assessments.length === 0 ? (
         <Card className="border-dashed">
-          <CardContent className="py-8 text-center">
-            <ClipboardList className="h-10 w-10 mx-auto mb-3 text-muted-foreground/50" />
-            <p className="text-muted-foreground">No assessments linked to this project</p>
+          <CardContent className={cn("text-center", compact ? "py-6" : "py-8")}>
+            <ClipboardList className={cn("mx-auto mb-3 text-muted-foreground/50", compact ? "h-8 w-8" : "h-10 w-10")} />
+            <p className="text-muted-foreground">
+              {stepId ? "No assessments linked to this step" : "No assessments linked to this project"}
+            </p>
             <Button
               variant="outline"
               size="sm"
@@ -302,21 +338,51 @@ export function EmbeddedAssessment({ projectId, stepId }: EmbeddedAssessmentProp
       <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Assessment to Project</DialogTitle>
+            <DialogTitle>Add Assessment {stepId ? "to Step" : "to Project"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select an assessment template..." />
-              </SelectTrigger>
-              <SelectContent>
-                {templates.map((t) => (
-                  <SelectItem key={t.id} value={t.id}>
-                    {t.name} ({t.category})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="space-y-2">
+              <Label>Assessment Template</Label>
+              <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select an assessment template..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {templates.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name} ({t.category})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Step selector - only show when not already in step context */}
+            {!stepId && workflowSteps.length > 0 && (
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Link2 className="h-4 w-4" />
+                  Link to Workflow Step (Optional)
+                </Label>
+                <Select value={selectedStepId} onValueChange={setSelectedStepId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="No step - project level only" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No step - project level only</SelectItem>
+                    {workflowSteps.map((step) => (
+                      <SelectItem key={step.id} value={step.id}>
+                        {step.order_index !== null ? `${step.order_index + 1}. ` : ""}{step.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Linking to a step will show this assessment in the step's detail view
+                </p>
+              </div>
+            )}
+
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setAddDialogOpen(false)}>
                 Cancel
