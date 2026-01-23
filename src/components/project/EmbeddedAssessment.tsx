@@ -311,10 +311,11 @@ export function EmbeddedAssessment({ projectId, stepId }: EmbeddedAssessmentProp
       {/* Launch/Manage Dialog */}
       <Dialog open={launchDialogOpen} onOpenChange={setLaunchDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          {selectedInstance && (
+        {selectedInstance && (
             <AssessmentLaunch
               templateId=""
               templateName={selectedInstance.name}
+              instanceId={selectedInstance.id}
               onClose={() => {
                 setLaunchDialogOpen(false);
                 fetchData();
