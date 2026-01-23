@@ -124,15 +124,21 @@ export function TeamMemberDetailSheet({
   };
 
   const fetchAvailableProjects = async () => {
-    // Fetch all projects including Proposed for pipeline planning
-    const { data, error } = await supabase
-      .from("projects")
-      .select("id, name, status, start_date, end_date")
-      .in("status", ["Active", "Planning", "On Hold", "Proposed"])
-      .order("name");
+    // Use the security definer function to get projects based on user's role
+    const { data, error } = await supabase.rpc("get_projects_for_assignment");
 
     if (error) {
       console.error("Error fetching projects:", error);
+      // Fallback to direct query if function doesn't exist
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from("projects")
+        .select("id, name, status, start_date, end_date")
+        .in("status", ["Active", "Planning", "On Hold", "Proposed"])
+        .order("name");
+      
+      if (!fallbackError && fallbackData) {
+        setAvailableProjects(fallbackData);
+      }
     } else {
       setAvailableProjects(data || []);
     }

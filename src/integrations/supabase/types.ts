@@ -1242,6 +1242,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_manage_project: { Args: { _project_id: string }; Returns: boolean }
+      get_projects_for_assignment: {
+        Args: never
+        Returns: {
+          end_date: string
+          id: string
+          name: string
+          start_date: string
+          status: string
+        }[]
+      }
       has_elevated_role: { Args: { _user_id: string }; Returns: boolean }
       has_role: {
         Args: {
@@ -1250,6 +1261,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_project_member: { Args: { _project_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "practice_leader" | "engagement_lead" | "member"
