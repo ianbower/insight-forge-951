@@ -702,6 +702,7 @@ export type Database = {
           description: string | null
           due_date: string | null
           id: string
+          milestone_id: string | null
           order_index: number
           project_id: string
           status: string
@@ -713,6 +714,7 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          milestone_id?: string | null
           order_index?: number
           project_id: string
           status?: string
@@ -724,6 +726,7 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          milestone_id?: string | null
           order_index?: number
           project_id?: string
           status?: string
@@ -731,6 +734,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "project_deliverables_milestone_id_fkey"
+            columns: ["milestone_id"]
+            isOneToOne: false
+            referencedRelation: "project_milestones"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "project_deliverables_project_id_fkey"
             columns: ["project_id"]
