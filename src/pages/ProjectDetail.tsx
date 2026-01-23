@@ -13,7 +13,8 @@ import {
   FileOutput,
   AlertTriangle,
   UserPlus,
-  DollarSign
+  DollarSign,
+  Package
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +36,8 @@ import { TeamAssignmentForm } from "@/components/project/TeamAssignmentForm";
 import { TeamMemberCard, type TeamMember } from "@/components/team/TeamMemberCard";
 import { ProjectBudget } from "@/components/project/ProjectBudget";
 import { ProjectMemberManager } from "@/components/project/ProjectMemberManager";
+import { DeliverablesList } from "@/components/project/DeliverablesList";
+import { DeliverableForm, type Deliverable } from "@/components/project/DeliverableForm";
 import {
   AreaChart,
   Area,
@@ -123,6 +126,11 @@ export default function ProjectDetail() {
   const [allTeamMembers, setAllTeamMembers] = useState<TeamMember[]>([]);
   const [assignmentFormOpen, setAssignmentFormOpen] = useState(false);
   const [editingAssignment, setEditingAssignment] = useState<TeamAssignment | null>(null);
+  
+  // Deliverables state
+  const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
+  const [deliverableFormOpen, setDeliverableFormOpen] = useState(false);
+  const [editingDeliverable, setEditingDeliverable] = useState<Deliverable | null>(null);
 
   // Fetch milestones
   const fetchMilestones = useCallback(async () => {
@@ -313,6 +321,54 @@ export default function ProjectDetail() {
     toast({ title: "Team member removed from project" });
   };
 
+  // Fetch deliverables
+  const fetchDeliverables = useCallback(async () => {
+    if (!projectId) return;
+    const { data } = await supabase
+      .from("project_deliverables")
+      .select("*")
+      .eq("project_id", projectId)
+      .order("order_index");
+    if (data) {
+      setDeliverables(data.map(d => ({
+        ...d,
+        status: d.status as Deliverable["status"],
+      })));
+    }
+  }, [projectId]);
+
+  // Handle save deliverable
+  const handleSaveDeliverable = async (deliverable: Omit<Deliverable, "id" | "project_id" | "order_index"> & { id?: string }) => {
+    if (deliverable.id) {
+      await supabase.from("project_deliverables").update({
+        title: deliverable.title,
+        description: deliverable.description,
+        status: deliverable.status,
+        due_date: deliverable.due_date,
+        milestone_id: deliverable.milestone_id,
+      }).eq("id", deliverable.id);
+    } else {
+      await supabase.from("project_deliverables").insert({
+        project_id: projectId,
+        title: deliverable.title,
+        description: deliverable.description,
+        status: deliverable.status,
+        due_date: deliverable.due_date,
+        milestone_id: deliverable.milestone_id,
+        order_index: deliverables.length,
+      });
+    }
+    fetchDeliverables();
+    toast({ title: deliverable.id ? "Deliverable updated" : "Deliverable added" });
+  };
+
+  // Handle delete deliverable
+  const handleDeleteDeliverable = async (id: string) => {
+    await supabase.from("project_deliverables").delete().eq("id", id);
+    fetchDeliverables();
+    toast({ title: "Deliverable deleted" });
+  };
+
   useEffect(() => {
     const fetchProjectData = async () => {
       if (!projectId) return;
@@ -373,7 +429,8 @@ export default function ProjectDetail() {
     fetchIssues();
     fetchTeamMembers();
     fetchTeamAssignments();
-  }, [projectId, navigate, toast, fetchMilestones, fetchRisks, fetchIssues, fetchTeamMembers, fetchTeamAssignments]);
+    fetchDeliverables();
+  }, [projectId, navigate, toast, fetchMilestones, fetchRisks, fetchIssues, fetchTeamMembers, fetchTeamAssignments, fetchDeliverables]);
 
   const updateTaskStatus = async (taskId: string, newStatus: string) => {
     try {
@@ -602,6 +659,10 @@ export default function ProjectDetail() {
             <Presentation className="h-4 w-4" />
             Workflow
           </TabsTrigger>
+          <TabsTrigger value="deliverables" className="gap-2">
+            <Package className="h-4 w-4" />
+            Deliverables
+          </TabsTrigger>
           <TabsTrigger value="milestones" className="gap-2">
             <Target className="h-4 w-4" />
             Milestones
@@ -645,6 +706,16 @@ export default function ProjectDetail() {
               />
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Deliverables Tab */}
+        <TabsContent value="deliverables">
+          <DeliverablesList
+            deliverables={deliverables}
+            milestones={milestones}
+            onAddDeliverable={() => { setEditingDeliverable(null); setDeliverableFormOpen(true); }}
+            onEditDeliverable={(d) => { setEditingDeliverable(d); setDeliverableFormOpen(true); }}
+          />
         </TabsContent>
 
         <TabsContent value="milestones">
@@ -883,6 +954,16 @@ export default function ProjectDetail() {
         projectId={projectId!}
         issue={editingIssue}
         onSave={handleSaveIssue}
+      />
+
+      {/* Deliverable Form */}
+      <DeliverableForm
+        open={deliverableFormOpen}
+        onOpenChange={setDeliverableFormOpen}
+        deliverable={editingDeliverable}
+        milestones={milestones}
+        onSave={handleSaveDeliverable}
+        onDelete={handleDeleteDeliverable}
       />
 
       {/* Step Detail Panel (Slide-in) */}
