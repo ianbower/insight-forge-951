@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import type { TeamMember } from "./TeamMemberCard";
+import { AvailabilityCalendar } from "./AvailabilityCalendar";
 import {
   User,
   Briefcase,
@@ -567,6 +568,12 @@ export function TeamMemberDetailSheet({
                 </div>
               </CardContent>
             </Card>
+
+            {/* Availability Calendar */}
+            <AvailabilityCalendar
+              assignments={assignments}
+              totalAvailability={member.availability_percentage}
+            />
 
             {/* Upcoming/Future Assignments */}
             <Card>
