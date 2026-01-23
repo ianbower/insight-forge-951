@@ -29,6 +29,7 @@ interface EmbeddedAssessmentProps {
   projectId: string;
   stepId?: string;
   compact?: boolean; // For embedding in step detail view
+  displayMode?: 'setup' | 'results'; // 'results' shows results inline, 'setup' shows management UI
 }
 
 interface WorkflowStep {
@@ -56,7 +57,7 @@ interface ProjectAssessment {
   responseCount?: number;
 }
 
-export function EmbeddedAssessment({ projectId, stepId, compact = false }: EmbeddedAssessmentProps) {
+export function EmbeddedAssessment({ projectId, stepId, compact = false, displayMode = 'setup' }: EmbeddedAssessmentProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [assessments, setAssessments] = useState<ProjectAssessment[]>([]);
@@ -208,6 +209,98 @@ export function EmbeddedAssessment({ projectId, stepId, compact = false }: Embed
           <p className="text-muted-foreground">Loading assessments...</p>
         </CardContent>
       </Card>
+    );
+  }
+
+  // Results display mode - show results inline for the first assessment
+  if (displayMode === 'results' && assessments.length > 0) {
+    const primaryAssessment = assessments[0];
+    
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className={cn("font-semibold flex items-center gap-2", compact ? "text-base" : "text-lg")}>
+              <ClipboardList className={cn(compact ? "h-4 w-4" : "h-5 w-5")} />
+              {primaryAssessment.assessment_instance.name}
+            </h3>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {primaryAssessment.assessment_instance.assessment_template?.name}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge
+              variant="outline"
+              className={cn("capitalize text-xs", statusColors[primaryAssessment.assessment_instance.status])}
+            >
+              {primaryAssessment.assessment_instance.status}
+            </Badge>
+            {assessments.length > 1 && (
+              <Badge variant="secondary" className="text-xs">
+                +{assessments.length - 1} more
+              </Badge>
+            )}
+          </div>
+        </div>
+
+        {/* Inline Results */}
+        {(primaryAssessment.responseCount || 0) > 0 ? (
+          <AssessmentResults
+            instanceId={primaryAssessment.assessment_instance.id}
+            instanceName={primaryAssessment.assessment_instance.name}
+            embedded
+          />
+        ) : (
+          <Card className="border-dashed">
+            <CardContent className="py-6 text-center">
+              <BarChart3 className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
+              <p className="text-muted-foreground text-sm">No responses yet</p>
+              <div className="flex items-center justify-center gap-4 mt-2 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Users className="h-3 w-3" />
+                  {primaryAssessment.recipientCount} recipients
+                </span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSelectedInstance({
+                    id: primaryAssessment.assessment_instance.id,
+                    name: primaryAssessment.assessment_instance.name,
+                  });
+                  setLaunchDialogOpen(true);
+                }}
+                className="mt-3 gap-2"
+              >
+                <Send className="h-4 w-4" />
+                Send to Recipients
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Dialogs for results mode */}
+        <Dialog open={launchDialogOpen} onOpenChange={setLaunchDialogOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            {selectedInstance && (
+              <AssessmentLaunch
+                templateId=""
+                templateName={selectedInstance.name}
+                instanceId={selectedInstance.id}
+                onClose={() => {
+                  setLaunchDialogOpen(false);
+                  fetchData();
+                }}
+                onViewResults={(id, name) => {
+                  setLaunchDialogOpen(false);
+                  fetchData(); // Refresh to show results inline
+                }}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
+      </div>
     );
   }
 

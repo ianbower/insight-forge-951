@@ -32,7 +32,8 @@ import { cn } from "@/lib/utils";
 interface AssessmentResultsProps {
   instanceId: string;
   instanceName: string;
-  onClose: () => void;
+  onClose?: () => void;
+  embedded?: boolean; // When true, shows a simplified inline view
 }
 
 interface ResponseData {
@@ -56,7 +57,7 @@ interface BenchmarkData {
   sample_size: number | null;
 }
 
-export function AssessmentResults({ instanceId, instanceName, onClose }: AssessmentResultsProps) {
+export function AssessmentResults({ instanceId, instanceName, onClose, embedded = false }: AssessmentResultsProps) {
   const [loading, setLoading] = useState(true);
   const [responses, setResponses] = useState<ResponseData[]>([]);
   const [dimensions, setDimensions] = useState<any[]>([]);
@@ -267,6 +268,64 @@ export function AssessmentResults({ instanceId, instanceName, onClose }: Assessm
     );
   }
 
+  // Embedded mode - simplified inline view
+  if (embedded) {
+    if (responses.length === 0) {
+      return (
+        <div className="py-6 text-center">
+          <BarChart3 className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
+          <p className="text-sm text-muted-foreground">No responses yet</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        {/* Summary stats */}
+        <div className="grid grid-cols-3 gap-3">
+          <div className="text-center p-3 bg-muted/30 rounded-lg">
+            <p className="text-2xl font-bold text-primary">{overallScore.toFixed(1)}</p>
+            <p className="text-xs text-muted-foreground">Overall Score</p>
+          </div>
+          <div className="text-center p-3 bg-muted/30 rounded-lg">
+            <p className="text-2xl font-bold">{completedCount}</p>
+            <p className="text-xs text-muted-foreground">Responses</p>
+          </div>
+          <div className="text-center p-3 bg-muted/30 rounded-lg">
+            <p className="text-2xl font-bold">{dimensionScores.length}</p>
+            <p className="text-xs text-muted-foreground">Dimensions</p>
+          </div>
+        </div>
+
+        {/* Radar chart */}
+        <AssessmentRadarChart data={dimensionScores} />
+
+        {/* Quick dimension breakdown */}
+        <div className="space-y-2">
+          {dimensionScores.slice(0, 5).map((dim) => (
+            <div key={dim.name} className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground truncate flex-1">{dim.name}</span>
+              <div className="flex items-center gap-2">
+                <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-primary rounded-full" 
+                    style={{ width: `${(dim.score / 5) * 100}%` }}
+                  />
+                </div>
+                <span className="font-medium w-8 text-right">{dim.score.toFixed(1)}</span>
+              </div>
+            </div>
+          ))}
+          {dimensionScores.length > 5 && (
+            <p className="text-xs text-muted-foreground text-center">
+              +{dimensionScores.length - 5} more dimensions
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -290,9 +349,11 @@ export function AssessmentResults({ instanceId, instanceName, onClose }: Assessm
             <Sparkles className="h-4 w-4" />
             AI Insights
           </Button>
-          <Button variant="outline" onClick={onClose}>
-            Close
-          </Button>
+          {onClose && (
+            <Button variant="outline" onClick={onClose}>
+              Close
+            </Button>
+          )}
         </div>
       </div>
 

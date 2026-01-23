@@ -776,7 +776,8 @@ function AssessmentsBlockRenderer({
         <EmbeddedAssessment 
           projectId={projectId} 
           stepId={stepId}
-          compact 
+          compact
+          displayMode="results"
         />
       </CardContent>
     </Card>
