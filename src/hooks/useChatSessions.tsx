@@ -9,11 +9,20 @@ export interface ChatMessage {
   timestamp: Date;
 }
 
+export interface ChatFolder {
+  id: string;
+  name: string;
+  order_index: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ChatSession {
   id: string;
   title: string;
   persona: string | null;
   session_type: string;
+  folder_id: string | null;
   messages: ChatMessage[];
   created_at: string;
   updated_at: string;
@@ -23,11 +32,35 @@ interface UseChatSessionsOptions {
   sessionType: "expert_ai" | "research";
 }
 
+const TITLE_GENERATE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-chat-title`;
+
 export function useChatSessions({ sessionType }: UseChatSessionsOptions) {
   const { user } = useAuth();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [folders, setFolders] = useState<ChatFolder[]>([]);
   const [activeSession, setActiveSession] = useState<ChatSession | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Fetch all folders for the user
+  const fetchFolders = useCallback(async () => {
+    if (!user) {
+      setFolders([]);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("chat_folders")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("order_index", { ascending: true });
+
+      if (error) throw error;
+      setFolders(data || []);
+    } catch (error) {
+      console.error("Error fetching folders:", error);
+    }
+  }, [user]);
 
   // Fetch all sessions for the user
   const fetchSessions = useCallback(async () => {
@@ -58,6 +91,7 @@ export function useChatSessions({ sessionType }: UseChatSessionsOptions) {
 
           return {
             ...session,
+            folder_id: session.folder_id || null,
             messages: (messagesData || []).map((m) => ({
               id: m.id,
               role: m.role as "user" | "assistant",
@@ -77,8 +111,33 @@ export function useChatSessions({ sessionType }: UseChatSessionsOptions) {
   }, [user, sessionType]);
 
   useEffect(() => {
+    fetchFolders();
     fetchSessions();
-  }, [fetchSessions]);
+  }, [fetchFolders, fetchSessions]);
+
+  // Generate a title from the first message
+  const generateTitle = useCallback(async (message: string): Promise<string> => {
+    try {
+      const resp = await fetch(TITLE_GENERATE_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ message }),
+      });
+
+      if (!resp.ok) {
+        return message.slice(0, 40) + (message.length > 40 ? "..." : "");
+      }
+
+      const data = await resp.json();
+      return data.title || message.slice(0, 40);
+    } catch (error) {
+      console.error("Error generating title:", error);
+      return message.slice(0, 40) + (message.length > 40 ? "..." : "");
+    }
+  }, []);
 
   // Create a new session
   const createSession = useCallback(
@@ -101,6 +160,7 @@ export function useChatSessions({ sessionType }: UseChatSessionsOptions) {
 
         const newSession: ChatSession = {
           ...data,
+          folder_id: null,
           messages: [],
         };
 
@@ -113,6 +173,131 @@ export function useChatSessions({ sessionType }: UseChatSessionsOptions) {
       }
     },
     [user, sessionType]
+  );
+
+  // Update session title
+  const updateSessionTitle = useCallback(
+    async (sessionId: string, newTitle: string) => {
+      try {
+        const { error } = await supabase
+          .from("chat_sessions")
+          .update({ title: newTitle })
+          .eq("id", sessionId);
+
+        if (error) throw error;
+
+        setSessions((prev) =>
+          prev.map((s) => (s.id === sessionId ? { ...s, title: newTitle } : s))
+        );
+
+        if (activeSession?.id === sessionId) {
+          setActiveSession((prev) => (prev ? { ...prev, title: newTitle } : null));
+        }
+      } catch (error) {
+        console.error("Error updating session title:", error);
+      }
+    },
+    [activeSession]
+  );
+
+  // Move session to folder
+  const moveSessionToFolder = useCallback(
+    async (sessionId: string, folderId: string | null) => {
+      try {
+        const { error } = await supabase
+          .from("chat_sessions")
+          .update({ folder_id: folderId })
+          .eq("id", sessionId);
+
+        if (error) throw error;
+
+        setSessions((prev) =>
+          prev.map((s) => (s.id === sessionId ? { ...s, folder_id: folderId } : s))
+        );
+      } catch (error) {
+        console.error("Error moving session to folder:", error);
+      }
+    },
+    []
+  );
+
+  // Create a new folder
+  const createFolder = useCallback(
+    async (name: string): Promise<ChatFolder | null> => {
+      if (!user) return null;
+
+      try {
+        const maxOrder = folders.reduce((max, f) => Math.max(max, f.order_index), -1);
+        
+        const { data, error } = await supabase
+          .from("chat_folders")
+          .insert({
+            user_id: user.id,
+            name,
+            order_index: maxOrder + 1,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        setFolders((prev) => [...prev, data]);
+        return data;
+      } catch (error) {
+        console.error("Error creating folder:", error);
+        return null;
+      }
+    },
+    [user, folders]
+  );
+
+  // Rename a folder
+  const renameFolder = useCallback(
+    async (folderId: string, newName: string) => {
+      try {
+        const { error } = await supabase
+          .from("chat_folders")
+          .update({ name: newName })
+          .eq("id", folderId);
+
+        if (error) throw error;
+
+        setFolders((prev) =>
+          prev.map((f) => (f.id === folderId ? { ...f, name: newName } : f))
+        );
+      } catch (error) {
+        console.error("Error renaming folder:", error);
+      }
+    },
+    []
+  );
+
+  // Delete a folder
+  const deleteFolder = useCallback(
+    async (folderId: string) => {
+      try {
+        // First, unassign all sessions from this folder
+        await supabase
+          .from("chat_sessions")
+          .update({ folder_id: null })
+          .eq("folder_id", folderId);
+
+        const { error } = await supabase
+          .from("chat_folders")
+          .delete()
+          .eq("id", folderId);
+
+        if (error) throw error;
+
+        setFolders((prev) => prev.filter((f) => f.id !== folderId));
+        setSessions((prev) =>
+          prev.map((s) => (s.folder_id === folderId ? { ...s, folder_id: null } : s))
+        );
+      } catch (error) {
+        console.error("Error deleting folder:", error);
+      }
+    },
+    []
   );
 
   // Add a message to the active session
@@ -159,19 +344,13 @@ export function useChatSessions({ sessionType }: UseChatSessionsOptions) {
           );
         }
 
-        // Update session title if this is the first user message
+        // Auto-generate title if this is the first user message
         const session = sessions.find((s) => s.id === sessionId);
         if (session && session.messages.length === 0 && role === "user") {
-          await supabase
-            .from("chat_sessions")
-            .update({ title: content.slice(0, 50) })
-            .eq("id", sessionId);
-
-          setSessions((prev) =>
-            prev.map((s) =>
-              s.id === sessionId ? { ...s, title: content.slice(0, 50) } : s
-            )
-          );
+          // Generate title asynchronously
+          generateTitle(content).then((title) => {
+            updateSessionTitle(sessionId, title);
+          });
         }
 
         return newMessage;
@@ -180,7 +359,7 @@ export function useChatSessions({ sessionType }: UseChatSessionsOptions) {
         return null;
       }
     },
-    [user, sessions, activeSession]
+    [user, sessions, activeSession, generateTitle, updateSessionTitle]
   );
 
   // Update message content (for streaming)
@@ -259,11 +438,17 @@ export function useChatSessions({ sessionType }: UseChatSessionsOptions) {
 
   return {
     sessions,
+    folders,
     activeSession,
     loading,
     createSession,
     addMessage,
     updateMessageContent,
+    updateSessionTitle,
+    moveSessionToFolder,
+    createFolder,
+    renameFolder,
+    deleteFolder,
     deleteSession,
     selectSession,
     setActiveSession,
