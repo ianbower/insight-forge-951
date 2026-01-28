@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Bot, User, Sparkles, History, Plus, Trash2 } from "lucide-react";
+import { Send, Bot, User, Sparkles, History } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useChatSessions, ChatMessage } from "@/hooks/useChatSessions";
 import { useAuth } from "@/hooks/useAuth";
+import { ChatHistorySidebar } from "@/components/chat/ChatHistorySidebar";
 
 const personas = [
   {
@@ -41,11 +42,17 @@ export default function ExpertAI() {
   const { user } = useAuth();
   const {
     sessions,
+    folders,
     activeSession,
     loading: sessionsLoading,
     createSession,
     addMessage,
     updateMessageContent,
+    updateSessionTitle,
+    moveSessionToFolder,
+    createFolder,
+    renameFolder,
+    deleteFolder,
     deleteSession,
     selectSession,
     setActiveSession,
@@ -214,57 +221,29 @@ export default function ExpertAI() {
       {/* Chat History Sidebar */}
       <div
         className={cn(
-          "w-64 flex-shrink-0 rounded-xl border border-border bg-card transition-all",
+          "w-64 flex-shrink-0 rounded-xl border border-border bg-card transition-all overflow-hidden",
           showHistory ? "block" : "hidden lg:block"
         )}
       >
-        <div className="p-4 border-b border-border">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold font-display flex items-center gap-2">
-              <History className="h-4 w-4" />
-              Chat History
-            </h3>
-            <Button size="icon" variant="ghost" onClick={handleNewChat}>
-              <Plus className="h-4 w-4" />
-            </Button>
+        {sessionsLoading ? (
+          <div className="p-4">
+            <p className="text-sm text-muted-foreground">Loading...</p>
           </div>
-        </div>
-        <ScrollArea className="h-[calc(100%-80px)]">
-          <div className="p-2 space-y-1">
-            {sessionsLoading ? (
-              <p className="text-sm text-muted-foreground p-2">Loading...</p>
-            ) : sessions.length === 0 ? (
-              <p className="text-sm text-muted-foreground p-2">No conversations yet</p>
-            ) : (
-              sessions.map((session) => (
-                <div
-                  key={session.id}
-                  className={cn(
-                    "group flex items-center gap-2 rounded-lg px-3 py-2 text-sm cursor-pointer transition-colors",
-                    activeSession?.id === session.id
-                      ? "bg-primary/10 text-primary"
-                      : "hover:bg-muted"
-                  )}
-                  onClick={() => selectSession(session.id)}
-                >
-                  <Bot className="h-4 w-4 flex-shrink-0" />
-                  <span className="flex-1 truncate">{session.title}</span>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-6 w-6 opacity-0 group-hover:opacity-100"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteSession(session.id);
-                    }}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
-              ))
-            )}
-          </div>
-        </ScrollArea>
+        ) : (
+          <ChatHistorySidebar
+            sessions={sessions}
+            folders={folders}
+            activeSessionId={activeSession?.id}
+            onSelectSession={selectSession}
+            onDeleteSession={deleteSession}
+            onUpdateTitle={updateSessionTitle}
+            onMoveToFolder={moveSessionToFolder}
+            onCreateFolder={createFolder}
+            onRenameFolder={renameFolder}
+            onDeleteFolder={deleteFolder}
+            onNewChat={handleNewChat}
+          />
+        )}
       </div>
 
       {/* Main Chat Area */}

@@ -426,6 +426,33 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_folders: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          order_index: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          order_index?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          order_index?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       chat_messages: {
         Row: {
           content: string
@@ -461,6 +488,7 @@ export type Database = {
       chat_sessions: {
         Row: {
           created_at: string | null
+          folder_id: string | null
           id: string
           is_private: boolean | null
           persona: string | null
@@ -471,6 +499,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          folder_id?: string | null
           id?: string
           is_private?: boolean | null
           persona?: string | null
@@ -481,6 +510,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          folder_id?: string | null
           id?: string
           is_private?: boolean | null
           persona?: string | null
@@ -489,7 +519,15 @@ export type Database = {
           updated_at?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "chat_sessions_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "chat_folders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       clients: {
         Row: {
