@@ -156,23 +156,43 @@ export function GridBlockLayout({
     );
   };
 
+  // In view mode, use auto-height flex layout for better content fitting
+  if (!isEditing) {
+    return (
+      <div ref={containerRef} className="relative w-full space-y-4">
+        {blocks.length === 0 ? (
+          <div className="flex items-center justify-center py-16 border-2 border-dashed border-border rounded-lg">
+            <p className="text-muted-foreground">No blocks yet. Add your first block above.</p>
+          </div>
+        ) : (
+          blocks
+            .sort((a, b) => a.order - b.order)
+            .map((block) => (
+              <div key={block.id} className="w-full">
+                {renderBlockContent(block)}
+              </div>
+            ))
+        )}
+      </div>
+    );
+  }
+
+  // Edit mode: use grid layout for drag/resize
   return (
     <div ref={containerRef} className="relative w-full">
       {/* Grid background guide (only in edit mode) */}
-      {isEditing && (
-        <div className="absolute inset-0 pointer-events-none opacity-20">
-          <div 
-            className="h-full w-full"
-            style={{
-              backgroundImage: `
-                linear-gradient(to right, hsl(var(--border)) 1px, transparent 1px),
-                linear-gradient(to bottom, hsl(var(--border)) 1px, transparent 1px)
-              `,
-              backgroundSize: `${containerWidth / 12}px 40px`,
-            }}
-          />
-        </div>
-      )}
+      <div className="absolute inset-0 pointer-events-none opacity-20">
+        <div 
+          className="h-full w-full"
+          style={{
+            backgroundImage: `
+              linear-gradient(to right, hsl(var(--border)) 1px, transparent 1px),
+              linear-gradient(to bottom, hsl(var(--border)) 1px, transparent 1px)
+            `,
+            backgroundSize: `${containerWidth / 12}px 40px`,
+          }}
+        />
+      </div>
 
       <GridLayout
         className="layout"
@@ -185,11 +205,11 @@ export function GridBlockLayout({
           containerPadding: [0, 0] as const,
         }}
         dragConfig={{
-          enabled: isEditing,
+          enabled: true,
           handle: '.grid-drag-handle',
         }}
         resizeConfig={{
-          enabled: isEditing,
+          enabled: true,
           handles: ['se'] as const,
         }}
         onLayoutChange={handleLayoutChange}
@@ -199,50 +219,42 @@ export function GridBlockLayout({
             key={block.id}
             className={cn(
               "relative bg-background rounded-lg transition-all overflow-hidden",
-              isEditing && "border-2 border-dashed border-border hover:border-primary/50",
-              selectedBlockId === block.id && isEditing && "border-primary ring-2 ring-primary/20",
-              !isEditing && "border border-transparent"
+              "border-2 border-dashed border-border hover:border-primary/50",
+              selectedBlockId === block.id && "border-primary ring-2 ring-primary/20"
             )}
             onClick={() => handleBlockClick(block.id)}
           >
             {/* Edit mode overlay controls */}
-            {isEditing && (
-              <div className="absolute top-0 left-0 right-0 h-8 bg-muted/80 backdrop-blur-sm flex items-center justify-between px-2 z-10 grid-drag-handle cursor-grab active:cursor-grabbing">
-                <span className="text-xs font-medium text-muted-foreground capitalize truncate">
-                  {block.type.replace('-', ' ')}
-                </span>
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                    onClick={(e) => handleDeleteBlock(block.id, e)}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
+            <div className="absolute top-0 left-0 right-0 h-8 bg-muted/80 backdrop-blur-sm flex items-center justify-between px-2 z-10 grid-drag-handle cursor-grab active:cursor-grabbing">
+              <span className="text-xs font-medium text-muted-foreground capitalize truncate">
+                {block.type.replace('-', ' ')}
+              </span>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                  onClick={(e) => handleDeleteBlock(block.id, e)}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
               </div>
-            )}
+            </div>
 
             {/* Block content */}
-            <div className={cn(
-              "h-full overflow-auto",
-              isEditing && "pt-8 px-2 pb-2"
-            )}>
+            <div className="h-full overflow-auto pt-8 px-2 pb-2">
               {renderBlockContent(block)}
             </div>
 
             {/* Resize indicator (bottom-right corner) */}
-            {isEditing && (
-              <div className="absolute bottom-1 right-1 w-4 h-4 opacity-50 pointer-events-none">
-                <Maximize2 className="h-3 w-3 text-muted-foreground rotate-90" />
-              </div>
-            )}
+            <div className="absolute bottom-1 right-1 w-4 h-4 opacity-50 pointer-events-none">
+              <Maximize2 className="h-3 w-3 text-muted-foreground rotate-90" />
+            </div>
           </div>
         ))}
       </GridLayout>
 
-      {isEditing && blocks.length === 0 && (
+      {blocks.length === 0 && (
         <div className="flex items-center justify-center py-16 border-2 border-dashed border-border rounded-lg">
           <p className="text-muted-foreground">No blocks yet. Add your first block above.</p>
         </div>
