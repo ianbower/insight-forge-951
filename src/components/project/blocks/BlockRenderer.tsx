@@ -122,7 +122,7 @@ export function BlockRenderer({
       case 'ai-chat':
         return <AIChatBlockRenderer />;
       case 'deliverables':
-        return <DeliverablesBlockPlaceholder />;
+        return <DeliverablesBlockRenderer projectId={projectId} stepId={stepId} isEditing={isEditing} />;
       case 'notes':
         return <NotesBlockPlaceholder />;
       case 'form':
@@ -690,21 +690,223 @@ function AIChatBlockRenderer() {
   );
 }
 
-function DeliverablesBlockPlaceholder() {
+function DeliverablesBlockRenderer({ 
+  projectId, 
+  stepId,
+  isEditing
+}: { 
+  projectId?: string; 
+  stepId?: string;
+  isEditing: boolean;
+}) {
+  const [projectDeliverables, setProjectDeliverables] = useState<{
+    id: string;
+    title: string;
+    description: string | null;
+    status: string;
+    due_date: string | null;
+    step_id: string | null;
+  }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showLinkDialog, setShowLinkDialog] = useState(false);
+
+  useEffect(() => {
+    const fetchDeliverables = async () => {
+      if (!projectId) return;
+      
+      const { data, error } = await supabase
+        .from("project_deliverables")
+        .select("id, title, description, status, due_date, step_id")
+        .eq("project_id", projectId)
+        .order("order_index");
+      
+      if (error) {
+        console.error("Error fetching deliverables:", error);
+        return;
+      }
+      
+      setProjectDeliverables(data || []);
+      setLoading(false);
+    };
+
+    fetchDeliverables();
+  }, [projectId]);
+
+  const linkedDeliverables = projectDeliverables.filter(d => d.step_id === stepId);
+  const unlinkedDeliverables = projectDeliverables.filter(d => !d.step_id);
+  const completedCount = linkedDeliverables.filter(d => d.status === "completed").length;
+
+  const handleLink = async (deliverableId: string) => {
+    const { error } = await supabase
+      .from("project_deliverables")
+      .update({ step_id: stepId })
+      .eq("id", deliverableId);
+
+    if (!error) {
+      setProjectDeliverables(prev => 
+        prev.map(d => d.id === deliverableId ? { ...d, step_id: stepId! } : d)
+      );
+    }
+  };
+
+  const handleUnlink = async (deliverableId: string) => {
+    const { error } = await supabase
+      .from("project_deliverables")
+      .update({ step_id: null })
+      .eq("id", deliverableId);
+
+    if (!error) {
+      setProjectDeliverables(prev => 
+        prev.map(d => d.id === deliverableId ? { ...d, step_id: null } : d)
+      );
+    }
+  };
+
+  const handleToggleStatus = async (deliverable: typeof projectDeliverables[0]) => {
+    const newStatus = deliverable.status === "completed" ? "pending" : "completed";
+    const { error } = await supabase
+      .from("project_deliverables")
+      .update({ status: newStatus })
+      .eq("id", deliverable.id);
+
+    if (!error) {
+      setProjectDeliverables(prev =>
+        prev.map(d => d.id === deliverable.id ? { ...d, status: newStatus } : d)
+      );
+    }
+  };
+
+  if (!projectId || !stepId) {
+    return (
+      <Card className="border-dashed">
+        <CardContent className="pt-6 flex flex-col items-center justify-center py-8">
+          <ListChecks className="h-8 w-8 text-muted-foreground mb-2" />
+          <p className="text-sm text-muted-foreground">Deliverables require project context</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            Loading deliverables...
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
-      <CardContent className="pt-6">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-success/10">
-            <ListChecks className="h-5 w-5 text-success" />
-          </div>
-          <div>
-            <p className="font-medium">Deliverables</p>
-            <p className="text-sm text-muted-foreground">
-              Step deliverables will appear here
-            </p>
-          </div>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base font-medium flex items-center gap-2">
+            Deliverables
+            {linkedDeliverables.length > 0 && (
+              <Badge variant="secondary" className="text-xs">
+                {completedCount}/{linkedDeliverables.length}
+              </Badge>
+            )}
+          </CardTitle>
+          {unlinkedDeliverables.length > 0 && (
+            <DropdownMenu open={showLinkDialog} onOpenChange={setShowLinkDialog}>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1 h-7 text-xs">
+                  <Plus className="h-3 w-3" />
+                  Link Deliverable
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-72 z-[100]">
+                <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                  Unlinked Project Deliverables
+                </div>
+                <DropdownMenuSeparator />
+                {unlinkedDeliverables.map(d => (
+                  <DropdownMenuItem 
+                    key={d.id} 
+                    onClick={() => handleLink(d.id)}
+                    className="flex items-center gap-2"
+                  >
+                    <ListChecks className="h-4 w-4 text-muted-foreground" />
+                    <div className="flex-1 min-w-0">
+                      <p className="truncate font-medium">{d.title}</p>
+                      {d.due_date && (
+                        <p className="text-xs text-muted-foreground">
+                          Due: {new Date(d.due_date).toLocaleDateString()}
+                        </p>
+                      )}
+                    </div>
+                  </DropdownMenuItem>
+                ))}
+                {unlinkedDeliverables.length === 0 && (
+                  <div className="px-2 py-4 text-center text-sm text-muted-foreground">
+                    All deliverables are linked
+                  </div>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {linkedDeliverables.length === 0 ? (
+          <div className="text-center py-6 text-muted-foreground">
+            <ListChecks className="h-8 w-8 mx-auto mb-2 opacity-50" />
+            <p className="text-sm">No deliverables linked to this step</p>
+            {unlinkedDeliverables.length > 0 && (
+              <p className="text-xs mt-1">Click "Link Deliverable" to add project deliverables</p>
+            )}
+            {projectDeliverables.length === 0 && (
+              <p className="text-xs mt-1">Add deliverables in the Project Details tab</p>
+            )}
+          </div>
+        ) : (
+          linkedDeliverables.map(d => (
+            <div 
+              key={d.id}
+              className={cn(
+                "flex items-center gap-3 p-3 rounded-lg border transition-all group",
+                d.status === "completed" 
+                  ? "bg-success/5 border-success/20" 
+                  : "hover:border-primary/30"
+              )}
+            >
+              <Checkbox
+                checked={d.status === "completed"}
+                onCheckedChange={() => handleToggleStatus(d)}
+                className={d.status === "completed" ? "border-success data-[state=checked]:bg-success" : ""}
+              />
+              <div className="flex-1 min-w-0">
+                <p className={cn(
+                  "font-medium truncate",
+                  d.status === "completed" && "line-through text-muted-foreground"
+                )}>
+                  {d.title}
+                </p>
+                {d.due_date && (
+                  <p className="text-xs text-muted-foreground">
+                    Due: {new Date(d.due_date).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
+              {isEditing && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
+                  onClick={() => handleUnlink(d.id)}
+                  title="Unlink from step"
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              )}
+            </div>
+          ))
+        )}
       </CardContent>
     </Card>
   );
