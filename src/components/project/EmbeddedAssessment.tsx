@@ -62,9 +62,12 @@ export function EmbeddedAssessment({ projectId, stepId, compact = false, display
   const [loading, setLoading] = useState(true);
   const [assessments, setAssessments] = useState<ProjectAssessment[]>([]);
   const [templates, setTemplates] = useState<any[]>([]);
+  const [existingInstances, setExistingInstances] = useState<any[]>([]);
   const [workflowSteps, setWorkflowSteps] = useState<WorkflowStep[]>([]);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [addMode, setAddMode] = useState<'new' | 'existing'>('new');
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+  const [selectedExistingInstanceId, setSelectedExistingInstanceId] = useState<string>("");
   const [selectedStepId, setSelectedStepId] = useState<string>(stepId || "");
   const [launchDialogOpen, setLaunchDialogOpen] = useState(false);
   const [resultsDialogOpen, setResultsDialogOpen] = useState(false);
@@ -138,6 +141,18 @@ export function EmbeddedAssessment({ projectId, stepId, compact = false, display
 
     setTemplates(templatesData || []);
 
+    // Get already-linked instance IDs for this project
+    const linkedInstanceIds = enrichedAssessments.map(a => a.assessment_instance.id);
+
+    // Fetch existing assessment instances that are NOT yet linked to this project
+    const { data: instancesData } = await supabase
+      .from("assessment_instances")
+      .select("id, name, status, assessment_template:assessment_templates(id, name, category)")
+      .not("id", "in", linkedInstanceIds.length > 0 ? `(${linkedInstanceIds.join(",")})` : "(00000000-0000-0000-0000-000000000000)")
+      .order("created_at", { ascending: false });
+
+    setExistingInstances(instancesData || []);
+
     // Fetch workflow steps for linking (only if not in compact/step mode)
     if (!stepId) {
       const { data: stepsData } = await supabase
@@ -153,45 +168,67 @@ export function EmbeddedAssessment({ projectId, stepId, compact = false, display
   };
 
   const handleAddAssessment = async () => {
-    if (!selectedTemplateId) return;
-
-    const template = templates.find((t) => t.id === selectedTemplateId);
-    if (!template) return;
-
-    // Create instance
-    const { data: instance, error: instanceError } = await supabase
-      .from("assessment_instances")
-      .insert({
-        assessment_template_id: selectedTemplateId,
-        name: `${template.name} - ${new Date().toLocaleDateString()}`,
-        project_id: projectId,
-        status: "draft",
-      })
-      .select()
-      .single();
-
-    if (instanceError) {
-      toast({ title: "Error", description: instanceError.message, variant: "destructive" });
-      return;
-    }
-
-    // Create project assessment link with optional step
     const linkStepId = stepId || (selectedStepId && selectedStepId !== "none" ? selectedStepId : null);
-    
-    const { error: linkError } = await supabase.from("project_assessments").insert({
-      project_id: projectId,
-      assessment_instance_id: instance.id,
-      step_id: linkStepId,
-    });
 
-    if (linkError) {
-      toast({ title: "Error", description: linkError.message, variant: "destructive" });
-      return;
+    if (addMode === 'existing') {
+      // Link an existing assessment instance
+      if (!selectedExistingInstanceId) return;
+
+      const { error: linkError } = await supabase.from("project_assessments").insert({
+        project_id: projectId,
+        assessment_instance_id: selectedExistingInstanceId,
+        step_id: linkStepId,
+      });
+
+      if (linkError) {
+        toast({ title: "Error", description: linkError.message, variant: "destructive" });
+        return;
+      }
+
+      toast({ title: "Assessment linked to project" });
+    } else {
+      // Create new assessment from template
+      if (!selectedTemplateId) return;
+
+      const template = templates.find((t) => t.id === selectedTemplateId);
+      if (!template) return;
+
+      // Create instance
+      const { data: instance, error: instanceError } = await supabase
+        .from("assessment_instances")
+        .insert({
+          assessment_template_id: selectedTemplateId,
+          name: `${template.name} - ${new Date().toLocaleDateString()}`,
+          project_id: projectId,
+          status: "draft",
+        })
+        .select()
+        .single();
+
+      if (instanceError) {
+        toast({ title: "Error", description: instanceError.message, variant: "destructive" });
+        return;
+      }
+
+      // Create project assessment link with optional step
+      const { error: linkError } = await supabase.from("project_assessments").insert({
+        project_id: projectId,
+        assessment_instance_id: instance.id,
+        step_id: linkStepId,
+      });
+
+      if (linkError) {
+        toast({ title: "Error", description: linkError.message, variant: "destructive" });
+        return;
+      }
+
+      toast({ title: "Assessment added to project" });
     }
 
-    toast({ title: "Assessment added to project" });
     setAddDialogOpen(false);
     setSelectedTemplateId("");
+    setSelectedExistingInstanceId("");
+    setAddMode('new');
     setSelectedStepId(stepId || "");
     fetchData();
   };
@@ -459,27 +496,95 @@ export function EmbeddedAssessment({ projectId, stepId, compact = false, display
       )}
 
       {/* Add Assessment Dialog */}
-      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+      <Dialog open={addDialogOpen} onOpenChange={(open) => {
+        setAddDialogOpen(open);
+        if (!open) {
+          setAddMode('new');
+          setSelectedTemplateId("");
+          setSelectedExistingInstanceId("");
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add Assessment {stepId ? "to Step" : "to Project"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Assessment Template</Label>
-              <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select an assessment template..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {templates.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>
-                      {t.name} ({t.category})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            {/* Mode Toggle */}
+            <div className="flex gap-2">
+              <Button
+                variant={addMode === 'new' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setAddMode('new')}
+                className="flex-1"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Create New
+              </Button>
+              <Button
+                variant={addMode === 'existing' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setAddMode('existing')}
+                className="flex-1"
+                disabled={existingInstances.length === 0}
+              >
+                <Link2 className="h-4 w-4 mr-2" />
+                Link Existing
+              </Button>
             </div>
+
+            {addMode === 'new' ? (
+              <div className="space-y-2">
+                <Label>Assessment Template</Label>
+                <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select an assessment template..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {templates.length === 0 ? (
+                      <div className="px-2 py-4 text-center text-sm text-muted-foreground">
+                        No templates available. Create one in the Assessments library.
+                      </div>
+                    ) : (
+                      templates.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>
+                          {t.name} ({t.category})
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label>Existing Assessment</Label>
+                <Select value={selectedExistingInstanceId} onValueChange={setSelectedExistingInstanceId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select an existing assessment..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {existingInstances.length === 0 ? (
+                      <div className="px-2 py-4 text-center text-sm text-muted-foreground">
+                        No available assessments to link
+                      </div>
+                    ) : (
+                      existingInstances.map((inst) => (
+                        <SelectItem key={inst.id} value={inst.id}>
+                          <div className="flex items-center gap-2">
+                            <span>{inst.name}</span>
+                            <Badge variant="outline" className="text-xs capitalize">
+                              {inst.status}
+                            </Badge>
+                          </div>
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Link an existing assessment that was created elsewhere
+                </p>
+              </div>
+            )}
 
             {/* Step selector - only show when not already in step context */}
             {!stepId && workflowSteps.length > 0 && (
@@ -511,8 +616,11 @@ export function EmbeddedAssessment({ projectId, stepId, compact = false, display
               <Button variant="outline" onClick={() => setAddDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleAddAssessment} disabled={!selectedTemplateId}>
-                Add Assessment
+              <Button 
+                onClick={handleAddAssessment} 
+                disabled={addMode === 'new' ? !selectedTemplateId : !selectedExistingInstanceId}
+              >
+                {addMode === 'new' ? 'Add Assessment' : 'Link Assessment'}
               </Button>
             </div>
           </div>
