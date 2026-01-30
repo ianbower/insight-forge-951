@@ -20,13 +20,23 @@ interface ToolData {
   data: any;
 }
 
+interface StepData {
+  id: string;
+  title: string;
+  status: string;
+  order_index: number | null;
+  description?: string | null;
+  deliverables?: any;
+  notes_json?: any;
+}
+
 interface FloatingAIAssistantProps {
   projectId: string;
   projectName: string;
   clientName?: string;
   currentStepId?: string;
   currentStepTitle?: string;
-  allSteps?: { id: string; title: string; status: string; order_index: number | null }[];
+  allSteps?: StepData[];
 }
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/expert-ai-chat`;
@@ -128,12 +138,35 @@ export function FloatingAIAssistant({
     if (clientName) parts.push(`- **Client**: ${clientName}`);
     
     if (allSteps.length > 0) {
-      parts.push(`\n## Workflow Overview (${allSteps.length} steps)`);
+      parts.push(`\n## Workflow Steps (${allSteps.length} total)`);
       const currentIndex = allSteps.findIndex(s => s.id === currentStepId);
       allSteps.forEach((step, i) => {
         const marker = i === currentIndex ? "→ " : "  ";
         const statusEmoji = step.status === "completed" ? "✅" : step.status === "in_progress" ? "🔄" : "⏳";
-        parts.push(`${marker}${i + 1}. ${step.title} ${statusEmoji}`);
+        parts.push(`\n${marker}### Step ${i + 1}: ${step.title} ${statusEmoji}`);
+        
+        // Include step description if available
+        if (step.description) {
+          parts.push(`**Description:** ${step.description}`);
+        }
+        
+        // Include step deliverables if available
+        if (step.deliverables && Array.isArray(step.deliverables) && step.deliverables.length > 0) {
+          const completed = step.deliverables.filter((d: any) => d.completed).length;
+          parts.push(`**Deliverables (${completed}/${step.deliverables.length}):**`);
+          step.deliverables.forEach((d: any) => {
+            const check = d.completed ? "✅" : "⬜";
+            parts.push(`  ${check} ${d.text || d.name || d}`);
+          });
+        }
+        
+        // Include step notes if available
+        if (step.notes_json && Array.isArray(step.notes_json) && step.notes_json.length > 0) {
+          parts.push(`**Notes:**`);
+          step.notes_json.forEach((note: any) => {
+            parts.push(`  - ${note.text || note}`);
+          });
+        }
       });
     }
     
@@ -308,7 +341,7 @@ export function FloatingAIAssistant({
       <Button
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "fixed bottom-6 left-72 z-50 h-14 w-14 rounded-full shadow-lg transition-all duration-300",
+          "fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full shadow-lg transition-all duration-300",
           "bg-primary hover:bg-primary/90 text-primary-foreground",
           isOpen && "scale-0 opacity-0"
         )}
@@ -320,7 +353,7 @@ export function FloatingAIAssistant({
       {/* Expanded chat panel */}
       <div
         className={cn(
-          "fixed bottom-6 left-72 z-50 flex flex-col rounded-2xl border bg-background shadow-2xl transition-all duration-300 overflow-hidden",
+          "fixed bottom-6 right-6 z-50 flex flex-col rounded-2xl border bg-background shadow-2xl transition-all duration-300 overflow-hidden",
           isOpen 
             ? "w-[400px] h-[550px] opacity-100 scale-100" 
             : "w-14 h-14 opacity-0 scale-90 pointer-events-none"

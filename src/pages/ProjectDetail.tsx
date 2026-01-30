@@ -1013,7 +1013,10 @@ export default function ProjectDetail() {
             id: t.id, 
             title: t.title, 
             status: t.status, 
-            order_index: t.order_index 
+            order_index: t.order_index,
+            description: t.description,
+            deliverables: t.deliverables,
+            notes_json: t.notes_json
           }))}
         />
       )}
