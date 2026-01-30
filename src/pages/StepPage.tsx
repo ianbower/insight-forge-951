@@ -49,6 +49,7 @@ import {
   AssessmentsBlock
 } from "@/components/project/blocks/BlockTypes";
 import { StepAIChat } from "@/components/project/StepAIChat";
+import { FloatingAIAssistant } from "@/components/project/FloatingAIAssistant";
 import { StepPreviewPanel } from "@/components/project/StepPreviewPanel";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -821,6 +822,23 @@ export default function StepPage() {
       </div>
         </ResizablePanel>
       </ResizablePanelGroup>
+
+      {/* Floating AI Assistant */}
+      {project && task && (
+        <FloatingAIAssistant
+          projectId={projectId!}
+          projectName={project.name}
+          clientName={client?.name}
+          currentStepId={stepId}
+          currentStepTitle={task.title}
+          allSteps={allTasks.map(t => ({ 
+            id: t.id, 
+            title: t.title, 
+            status: t.status, 
+            order_index: t.order_index 
+          }))}
+        />
+      )}
     </div>
   );
 }

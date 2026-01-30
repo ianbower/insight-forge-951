@@ -40,6 +40,7 @@ import { ProjectMemberManager } from "@/components/project/ProjectMemberManager"
 import { DeliverablesList } from "@/components/project/DeliverablesList";
 import { DeliverableForm, type Deliverable } from "@/components/project/DeliverableForm";
 import { EmbeddedAssessment } from "@/components/project/EmbeddedAssessment";
+import { FloatingAIAssistant } from "@/components/project/FloatingAIAssistant";
 import {
   AreaChart,
   Area,
@@ -998,6 +999,23 @@ export default function ProjectDetail() {
             onOpenTool={handleOpenTool}
           />
         </>
+      )}
+
+      {/* Floating AI Assistant */}
+      {project && (
+        <FloatingAIAssistant
+          projectId={projectId!}
+          projectName={project.name}
+          clientName={client?.name}
+          currentStepId={activeStep?.id}
+          currentStepTitle={activeStep?.title}
+          allSteps={tasks.map(t => ({ 
+            id: t.id, 
+            title: t.title, 
+            status: t.status, 
+            order_index: t.order_index 
+          }))}
+        />
       )}
     </div>
   );
