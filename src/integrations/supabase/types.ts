@@ -655,6 +655,30 @@ export type Database = {
         }
         Relationships: []
       }
+      exchange_rates: {
+        Row: {
+          base_currency: string
+          created_at: string
+          fetched_at: string
+          id: string
+          rates: Json
+        }
+        Insert: {
+          base_currency?: string
+          created_at?: string
+          fetched_at?: string
+          id?: string
+          rates?: Json
+        }
+        Update: {
+          base_currency?: string
+          created_at?: string
+          fetched_at?: string
+          id?: string
+          rates?: Json
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null

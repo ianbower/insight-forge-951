@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { Edit, MoreVertical, Trash2, User } from "lucide-react";
+import { useCurrency } from "@/hooks/useCurrency";
 
 export interface TeamMember {
   id: string;
@@ -34,6 +35,8 @@ const levelColors: Record<string, string> = {
 };
 
 export function TeamMemberCard({ member, onEdit, onDelete, compact = false }: TeamMemberCardProps) {
+  const { formatCurrency } = useCurrency();
+  
   const getInitials = (name: string) => {
     return name
       .split(" ")
@@ -142,7 +145,7 @@ export function TeamMemberCard({ member, onEdit, onDelete, compact = false }: Te
           </div>
           {member.hourly_rate && (
             <span className="text-xs text-muted-foreground">
-              ${member.hourly_rate}/hr
+              {formatCurrency(member.hourly_rate, "USD")}/hr
             </span>
           )}
         </div>

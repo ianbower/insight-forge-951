@@ -16,6 +16,7 @@ import {
   Pie,
   Cell,
 } from "recharts";
+import { useCurrency } from "@/hooks/useCurrency";
 
 import type { TeamMember } from "@/components/team/TeamMemberCard";
 
@@ -42,6 +43,7 @@ const COLORS = [
 ];
 
 export function ProjectBudget({ assignments, projectStartDate, projectEndDate }: ProjectBudgetProps) {
+  const { formatCurrency, getCurrencySymbol } = useCurrency();
   const getInitials = (name: string) => {
     return name
       .split(" ")
@@ -50,6 +52,9 @@ export function ProjectBudget({ assignments, projectStartDate, projectEndDate }:
       .toUpperCase()
       .slice(0, 2);
   };
+
+  // Note: Team member hourly rates are stored in USD (base currency)
+  const BASE_CURRENCY = "USD" as const;
 
   // Calculate project duration in weeks
   const getProjectWeeks = () => {
@@ -114,13 +119,9 @@ export function ProjectBudget({ assignments, projectStartDate, projectEndDate }:
     cumulative: totalWeeklyCost * (i + 1),
   }));
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
+  // Helper for formatting currency values (converts from USD base to user currency)
+  const formatBudgetCurrency = (value: number) => {
+    return formatCurrency(value, BASE_CURRENCY);
   };
 
   if (assignments.length === 0) {
@@ -144,7 +145,7 @@ export function ProjectBudget({ assignments, projectStartDate, projectEndDate }:
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Total Project Cost</p>
-                <p className="text-2xl font-bold">{formatCurrency(totalProjectCost)}</p>
+                <p className="text-2xl font-bold">{formatBudgetCurrency(totalProjectCost)}</p>
               </div>
               <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
                 <DollarSign className="h-5 w-5 text-primary" />
@@ -161,14 +162,14 @@ export function ProjectBudget({ assignments, projectStartDate, projectEndDate }:
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Weekly Burn Rate</p>
-                <p className="text-2xl font-bold">{formatCurrency(totalWeeklyCost)}</p>
+                <p className="text-2xl font-bold">{formatBudgetCurrency(totalWeeklyCost)}</p>
               </div>
               <div className="h-10 w-10 rounded-full bg-chart-2/10 flex items-center justify-center">
                 <TrendingUp className="h-5 w-5 text-chart-2" />
               </div>
             </div>
             <p className="text-xs text-muted-foreground mt-2">
-              {formatCurrency(totalWeeklyCost / 5)}/day average
+              {formatBudgetCurrency(totalWeeklyCost / 5)}/day average
             </p>
           </CardContent>
         </Card>
@@ -195,7 +196,7 @@ export function ProjectBudget({ assignments, projectStartDate, projectEndDate }:
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Avg. Hourly Rate</p>
-                <p className="text-2xl font-bold">{formatCurrency(averageHourlyRate)}</p>
+                <p className="text-2xl font-bold">{formatBudgetCurrency(averageHourlyRate)}</p>
               </div>
               <div className="h-10 w-10 rounded-full bg-chart-4/10 flex items-center justify-center">
                 <Users className="h-5 w-5 text-chart-4" />
@@ -222,7 +223,7 @@ export function ProjectBudget({ assignments, projectStartDate, projectEndDate }:
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                   <XAxis dataKey="week" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
                   <YAxis 
-                    tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                    tickFormatter={(value) => `${getCurrencySymbol()}${(value / 1000).toFixed(0)}k`}
                     tick={{ fill: 'hsl(var(--muted-foreground))' }}
                   />
                   <Tooltip
@@ -231,7 +232,7 @@ export function ProjectBudget({ assignments, projectStartDate, projectEndDate }:
                       border: '1px solid hsl(var(--border))',
                       borderRadius: '8px',
                     }}
-                    formatter={(value: number) => [formatCurrency(value), 'Cumulative Cost']}
+                    formatter={(value: number) => [formatBudgetCurrency(value), 'Cumulative Cost']}
                   />
                   <Bar 
                     dataKey="cumulative" 
@@ -275,7 +276,7 @@ export function ProjectBudget({ assignments, projectStartDate, projectEndDate }:
                       border: '1px solid hsl(var(--border))',
                       borderRadius: '8px',
                     }}
-                    formatter={(value: number) => [formatCurrency(value), 'Cost']}
+                    formatter={(value: number) => [formatBudgetCurrency(value), 'Cost']}
                   />
                 </PieChart>
               </ResponsiveContainer>
@@ -314,9 +315,9 @@ export function ProjectBudget({ assignments, projectStartDate, projectEndDate }:
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold">{formatCurrency(tc.totalCost)}</p>
+                      <p className="font-semibold">{formatBudgetCurrency(tc.totalCost)}</p>
                       <p className="text-xs text-muted-foreground">
-                        {tc.allocation}% @ {formatCurrency(tc.hourlyRate)}/hr
+                        {tc.allocation}% @ {formatBudgetCurrency(tc.hourlyRate)}/hr
                       </p>
                     </div>
                   </div>
