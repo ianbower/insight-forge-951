@@ -25,13 +25,13 @@ const navItems = [{
   label: "Assessments",
   path: "/assessments"
 }, {
-  icon: FolderKanban,
-  label: "Projects",
-  path: "/projects"
-}, {
   icon: BookOpen,
   label: "Runbooks",
   path: "/runbooks"
+}, {
+  icon: FolderKanban,
+  label: "Projects",
+  path: "/projects"
 }, {
   icon: Users,
   label: "Team",
