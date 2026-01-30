@@ -812,20 +812,20 @@ function DeliverablesBlockRenderer({
               </Badge>
             )}
           </CardTitle>
-          {unlinkedDeliverables.length > 0 && (
-            <DropdownMenu open={showLinkDialog} onOpenChange={setShowLinkDialog}>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-1 h-7 text-xs">
-                  <Plus className="h-3 w-3" />
-                  Link Deliverable
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-72 z-[100]">
-                <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
-                  Unlinked Project Deliverables
-                </div>
-                <DropdownMenuSeparator />
-                {unlinkedDeliverables.map(d => (
+          <DropdownMenu open={showLinkDialog} onOpenChange={setShowLinkDialog}>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1 h-7 text-xs">
+                <Plus className="h-3 w-3" />
+                Link Deliverable
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-72 z-[100]">
+              <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                Unlinked Project Deliverables
+              </div>
+              <DropdownMenuSeparator />
+              {unlinkedDeliverables.length > 0 ? (
+                unlinkedDeliverables.map(d => (
                   <DropdownMenuItem 
                     key={d.id} 
                     onClick={() => handleLink(d.id)}
@@ -841,15 +841,27 @@ function DeliverablesBlockRenderer({
                       )}
                     </div>
                   </DropdownMenuItem>
-                ))}
-                {unlinkedDeliverables.length === 0 && (
-                  <div className="px-2 py-4 text-center text-sm text-muted-foreground">
-                    All deliverables are linked
-                  </div>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+                ))
+              ) : (
+                <div className="px-2 py-4 text-center text-sm text-muted-foreground">
+                  {projectDeliverables.length === 0 
+                    ? "No project deliverables yet" 
+                    : "All deliverables are linked"}
+                </div>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                onClick={() => {
+                  const projectUrl = `/projects/${projectId}?tab=deliverables`;
+                  window.open(projectUrl, '_blank');
+                }}
+                className="text-primary"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Manage Project Deliverables
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </CardHeader>
       <CardContent className="space-y-2">
@@ -857,27 +869,31 @@ function DeliverablesBlockRenderer({
           <div className="text-center py-6 text-muted-foreground">
             <ListChecks className="h-8 w-8 mx-auto mb-2 opacity-50" />
             <p className="text-sm">No deliverables linked to this step</p>
-            {unlinkedDeliverables.length > 0 && (
-              <p className="text-xs mt-1">Click "Link Deliverable" to add project deliverables</p>
-            )}
-            {projectDeliverables.length === 0 && (
-              <p className="text-xs mt-1">Add deliverables in the Project Details tab</p>
-            )}
+            <p className="text-xs mt-1">
+              {unlinkedDeliverables.length > 0 
+                ? 'Click "Link Deliverable" to add project deliverables'
+                : 'Create deliverables in Project Details first'}
+            </p>
           </div>
         ) : (
           linkedDeliverables.map(d => (
             <div 
               key={d.id}
               className={cn(
-                "flex items-center gap-3 p-3 rounded-lg border transition-all group",
+                "flex items-center gap-3 p-3 rounded-lg border transition-all group cursor-pointer",
                 d.status === "completed" 
                   ? "bg-success/5 border-success/20" 
                   : "hover:border-primary/30"
               )}
+              onClick={() => {
+                const projectUrl = `/projects/${projectId}?tab=deliverables`;
+                window.open(projectUrl, '_blank');
+              }}
             >
               <Checkbox
                 checked={d.status === "completed"}
                 onCheckedChange={() => handleToggleStatus(d)}
+                onClick={(e) => e.stopPropagation()}
                 className={d.status === "completed" ? "border-success data-[state=checked]:bg-success" : ""}
               />
               <div className="flex-1 min-w-0">
@@ -898,7 +914,10 @@ function DeliverablesBlockRenderer({
                   variant="ghost"
                   size="icon"
                   className="h-6 w-6 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
-                  onClick={() => handleUnlink(d.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleUnlink(d.id);
+                  }}
                   title="Unlink from step"
                 >
                   <X className="h-3 w-3" />
