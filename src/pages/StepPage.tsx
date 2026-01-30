@@ -766,30 +766,6 @@ export default function StepPage() {
           onOpenTool={handleOpenTool}
           projectId={projectId}
           stepId={stepId}
-          renderDeliverables={() => (
-            <Card className="h-full">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center justify-between">
-                  <span>Deliverables</span>
-                  {deliverables.length > 0 && (
-                    <Badge variant="secondary">{completedDeliverables}/{deliverables.length}</Badge>
-                  )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {deliverables.map((d) => (
-                  <div key={d.id} className={cn("flex items-center gap-2 p-2 rounded border", d.completed ? "bg-success/5" : "bg-muted/20")}>
-                    <Checkbox checked={d.completed} onCheckedChange={() => handleToggleDeliverable(d.id)} />
-                    <span className={cn("flex-1 text-sm", d.completed && "line-through text-muted-foreground")}>{d.text}</span>
-                  </div>
-                ))}
-                <div className="flex gap-2 mt-2">
-                  <Input value={newDeliverable} onChange={(e) => setNewDeliverable(e.target.value)} placeholder="Add..." onKeyPress={(e) => e.key === 'Enter' && handleAddDeliverable()} className="h-8 text-sm" />
-                  <Button size="sm" onClick={handleAddDeliverable} disabled={!newDeliverable.trim()}><Plus className="h-3 w-3" /></Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
           renderNotes={() => (
             <Card className="h-full">
               <CardHeader className="pb-3"><CardTitle className="text-base">Notes</CardTitle></CardHeader>
