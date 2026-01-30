@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrency, SUPPORTED_CURRENCIES, CurrencyCode } from "@/hooks/useCurrency";
@@ -22,7 +22,6 @@ export default function ProfileSettings() {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  const [displayName, setDisplayName] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [isSavingCurrency, setIsSavingCurrency] = useState(false);
 
@@ -38,14 +37,20 @@ export default function ProfileSettings() {
         .single();
       
       if (error && error.code !== "PGRST116") throw error;
-      
-      if (data) {
-        setDisplayName(data.display_name || "");
-      }
       return data;
     },
     enabled: !!user,
   });
+
+  // Sync display name state with profile data
+  const [displayName, setDisplayName] = useState("");
+  
+  // Update local state when profile data changes
+  useEffect(() => {
+    if (profile?.display_name) {
+      setDisplayName(profile.display_name);
+    }
+  }, [profile?.display_name]);
 
   // Update profile mutation
   const updateProfileMutation = useMutation({
