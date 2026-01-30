@@ -116,10 +116,16 @@ export function CustomToolBuilder({ onClose, onSave, existingTool }: CustomToolB
           await uploadBase64Image(pageImages[0]);
         }
       } else {
-        // Handle image upload
+        // Handle image upload - use user-scoped path for RLS compliance
+        if (!user) {
+          toast.error("You must be logged in to upload images");
+          return;
+        }
+        
         const fileExt = file.name.split(".").pop();
         const fileName = `${crypto.randomUUID()}.${fileExt}`;
-        const filePath = `canvas-backgrounds/${fileName}`;
+        // User-scoped path: {user_id}/canvas-backgrounds/{filename}
+        const filePath = `${user.id}/canvas-backgrounds/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
           .from("tool-images")
@@ -127,11 +133,14 @@ export function CustomToolBuilder({ onClose, onSave, existingTool }: CustomToolB
 
         if (uploadError) throw uploadError;
 
-        const { data: { publicUrl } } = supabase.storage
+        // Use signed URL since bucket is now private
+        const { data: signedUrlData, error: signedUrlError } = await supabase.storage
           .from("tool-images")
-          .getPublicUrl(filePath);
+          .createSignedUrl(filePath, 60 * 60 * 24 * 365); // 1 year expiry
 
-        setImageUrl(publicUrl);
+        if (signedUrlError) throw signedUrlError;
+
+        setImageUrl(signedUrlData.signedUrl);
         setPdfPages([]);
         setShowPageSelector(false);
         toast.success("Image uploaded successfully");
@@ -146,12 +155,18 @@ export function CustomToolBuilder({ onClose, onSave, existingTool }: CustomToolB
 
   const uploadBase64Image = async (base64: string) => {
     try {
+      if (!user) {
+        toast.error("You must be logged in to upload images");
+        return;
+      }
+      
       // Convert base64 to blob
       const response = await fetch(base64);
       const blob = await response.blob();
 
       const fileName = `${crypto.randomUUID()}.png`;
-      const filePath = `canvas-backgrounds/${fileName}`;
+      // User-scoped path: {user_id}/canvas-backgrounds/{filename}
+      const filePath = `${user.id}/canvas-backgrounds/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from("tool-images")
@@ -159,11 +174,14 @@ export function CustomToolBuilder({ onClose, onSave, existingTool }: CustomToolB
 
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
+      // Use signed URL since bucket is now private
+      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
         .from("tool-images")
-        .getPublicUrl(filePath);
+        .createSignedUrl(filePath, 60 * 60 * 24 * 365); // 1 year expiry
 
-      setImageUrl(publicUrl);
+      if (signedUrlError) throw signedUrlError;
+
+      setImageUrl(signedUrlData.signedUrl);
       setPdfPages([]);
       setShowPageSelector(false);
       toast.success("Page uploaded successfully");
