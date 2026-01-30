@@ -5,9 +5,9 @@ import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 const navItems = [{
-  icon: LayoutDashboard,
-  label: "Dashboard",
-  path: "/"
+  icon: Bot,
+  label: "Expert AI",
+  path: "/ai-chat"
 }, {
   icon: Search,
   label: "Research",
@@ -17,25 +17,17 @@ const navItems = [{
   label: "Tool Library",
   path: "/tools"
 }, {
-  icon: BookOpen,
-  label: "Runbooks",
-  path: "/runbooks"
+  icon: ClipboardList,
+  label: "Assessments",
+  path: "/assessments"
 }, {
   icon: FolderKanban,
   label: "Projects",
   path: "/projects"
 }, {
-  icon: ClipboardList,
-  label: "Assessments",
-  path: "/assessments"
-}, {
   icon: Users,
   label: "Team",
   path: "/team"
-}, {
-  icon: Bot,
-  label: "Expert AI",
-  path: "/ai-chat"
 }, {
   icon: Settings,
   label: "Admin",
