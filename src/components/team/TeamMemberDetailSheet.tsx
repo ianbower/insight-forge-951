@@ -14,6 +14,7 @@ import { Separator } from "@/components/ui/separator";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useCurrency } from "@/hooks/useCurrency";
 import { cn } from "@/lib/utils";
 import type { TeamMember } from "./TeamMemberCard";
 import { AvailabilityCalendar } from "./AvailabilityCalendar";
@@ -73,6 +74,7 @@ export function TeamMemberDetailSheet({
   onUpdate,
 }: TeamMemberDetailSheetProps) {
   const { toast } = useToast();
+  const { formatCurrency } = useCurrency();
   const [activeTab, setActiveTab] = useState("overview");
   const [assignments, setAssignments] = useState<ProjectAssignment[]>([]);
   const [availableProjects, setAvailableProjects] = useState<AvailableProject[]>([]);
@@ -322,7 +324,7 @@ export function TeamMemberDetailSheet({
             <div className="grid grid-cols-2 gap-4">
               <Card>
                 <CardContent className="pt-4">
-                  <div className="text-2xl font-bold">${member.hourly_rate || "—"}/hr</div>
+                  <div className="text-2xl font-bold">{member.hourly_rate ? `${formatCurrency(member.hourly_rate, "USD")}/hr` : "—"}</div>
                   <p className="text-sm text-muted-foreground">Hourly Rate</p>
                 </CardContent>
               </Card>
