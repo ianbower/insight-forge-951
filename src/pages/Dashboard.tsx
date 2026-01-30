@@ -26,6 +26,8 @@ import { useDashboardData } from "@/hooks/useDashboardData";
 import { useDashboardPreferences, WidgetLayout } from "@/hooks/useDashboardPreferences";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 const GRID_COLS = 4;
 const ROW_HEIGHT = 120;
@@ -44,6 +46,23 @@ export default function Dashboard() {
   } = useDashboardPreferences();
   const [isEditing, setIsEditing] = useState(false);
   const [containerWidth, setContainerWidth] = useState(1200);
+
+  // Fetch user profile for display name
+  const { data: profile } = useQuery({
+    queryKey: ["profile", user?.id],
+    queryFn: async () => {
+      if (!user) return null;
+      const { data } = await supabase
+        .from("profiles")
+        .select("display_name")
+        .eq("user_id", user.id)
+        .single();
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  const displayName = profile?.display_name || user?.user_metadata?.full_name || user?.email?.split("@")[0];
 
   // Convert our layout format to react-grid-layout format
   const gridLayout: LayoutItem[] = useMemo(() => {
@@ -321,7 +340,7 @@ export default function Dashboard() {
             Dashboard
           </h1>
           <p className="text-muted-foreground mt-1">
-            {user ? `Welcome back, ${user.email?.split("@")[0]}` : "Your consulting practice overview"}
+            {user ? `Welcome back, ${displayName}` : "Your consulting practice overview"}
           </p>
         </div>
         <div className="flex items-center gap-2">
