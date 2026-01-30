@@ -11,8 +11,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import * as pdfjsLib from "pdfjs-dist";
 
-// Set up PDF.js worker for v3.x
-pdfjsLib.GlobalWorkerOptions.workerSrc = "//cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+// Set up PDF.js worker for v4.x
+pdfjsLib.GlobalWorkerOptions.workerSrc = "//cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.js";
 
 interface CustomToolBuilderProps {
   onClose: () => void;
@@ -65,6 +65,7 @@ export function CustomToolBuilder({ onClose, onSave, existingTool }: CustomToolB
     await page.render({
       canvasContext: context,
       viewport: viewport,
+      canvas: canvas,
     }).promise;
 
     return canvas.toDataURL("image/png");
