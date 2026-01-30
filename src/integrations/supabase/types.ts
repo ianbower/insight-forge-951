@@ -771,6 +771,7 @@ export type Database = {
           order_index: number
           project_id: string
           status: string
+          step_id: string | null
           title: string
           updated_at: string
         }
@@ -783,6 +784,7 @@ export type Database = {
           order_index?: number
           project_id: string
           status?: string
+          step_id?: string | null
           title: string
           updated_at?: string
         }
@@ -795,6 +797,7 @@ export type Database = {
           order_index?: number
           project_id?: string
           status?: string
+          step_id?: string | null
           title?: string
           updated_at?: string
         }
@@ -811,6 +814,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_deliverables_step_id_fkey"
+            columns: ["step_id"]
+            isOneToOne: false
+            referencedRelation: "project_tasks"
             referencedColumns: ["id"]
           },
         ]
