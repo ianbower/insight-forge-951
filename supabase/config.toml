@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.benchmark-discovery]
 verify_jwt = false
+
+[functions.generate-chat-title]
+verify_jwt = false
