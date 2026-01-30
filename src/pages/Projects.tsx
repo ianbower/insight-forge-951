@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { ProjectSetupWizard } from "@/components/project/ProjectSetupWizard";
+import { EditProjectDialog } from "@/components/project/EditProjectDialog";
 
 interface Client {
   id: string;
@@ -40,6 +41,13 @@ export default function Projects() {
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+
+  const handleEditProject = (projectId: string) => {
+    setEditingProjectId(projectId);
+    setEditDialogOpen(true);
+  };
 
   const fetchData = async () => {
     if (!user) {
@@ -242,6 +250,14 @@ export default function Projects() {
         onSuccess={fetchData}
       />
 
+      {/* Edit Project Dialog */}
+      <EditProjectDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        projectId={editingProjectId}
+        onSuccess={fetchData}
+      />
+
       {/* Search */}
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -331,11 +347,13 @@ export default function Projects() {
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
                             <DropdownMenuItem onClick={() => navigate(`/projects/${project.id}`)}>
                               View Details
                             </DropdownMenuItem>
-                            <DropdownMenuItem>Edit Project</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleEditProject(project.id)}>
+                              Edit Project
+                            </DropdownMenuItem>
                             <DropdownMenuItem>Export Report</DropdownMenuItem>
                             <DropdownMenuItem className="text-destructive">
                               Archive
