@@ -180,17 +180,23 @@ export function FloatingAIAssistant({
       Object.values(toolDataContent).forEach(({ toolName, data }) => {
         parts.push(`\n### ${toolName} Data`);
         try {
+          // Helper to extract text from sticky note items (handles both text and content properties)
+          const extractText = (item: any): string => {
+            if (typeof item === 'string') return item;
+            return item.content || item.text || JSON.stringify(item);
+          };
+
           if (toolName === "SWOT Analysis" && data) {
-            if (data.strengths?.length) parts.push(`**Strengths:** ${data.strengths.map((s: any) => s.text || s).join(", ")}`);
-            if (data.weaknesses?.length) parts.push(`**Weaknesses:** ${data.weaknesses.map((w: any) => w.text || w).join(", ")}`);
-            if (data.opportunities?.length) parts.push(`**Opportunities:** ${data.opportunities.map((o: any) => o.text || o).join(", ")}`);
-            if (data.threats?.length) parts.push(`**Threats:** ${data.threats.map((t: any) => t.text || t).join(", ")}`);
+            if (data.strengths?.length) parts.push(`**Strengths:** ${data.strengths.map(extractText).join(", ")}`);
+            if (data.weaknesses?.length) parts.push(`**Weaknesses:** ${data.weaknesses.map(extractText).join(", ")}`);
+            if (data.opportunities?.length) parts.push(`**Opportunities:** ${data.opportunities.map(extractText).join(", ")}`);
+            if (data.threats?.length) parts.push(`**Threats:** ${data.threats.map(extractText).join(", ")}`);
           } else if (toolName === "Business Model Canvas" && data) {
             const sections = ["keyPartners", "keyActivities", "keyResources", "valuePropositions", "customerRelationships", "channels", "customerSegments", "costStructure", "revenueStreams"];
             sections.forEach(section => {
               if (data[section]?.length) {
                 const label = section.replace(/([A-Z])/g, ' $1').trim();
-                parts.push(`**${label}:** ${data[section].map((item: any) => item.text || item).join(", ")}`);
+                parts.push(`**${label}:** ${data[section].map(extractText).join(", ")}`);
               }
             });
           } else if (toolName === "7S Framework" && data) {
@@ -198,7 +204,7 @@ export function FloatingAIAssistant({
             sections.forEach(section => {
               if (data[section]?.length) {
                 const label = section.replace(/([A-Z])/g, ' $1').trim();
-                parts.push(`**${label}:** ${data[section].map((item: any) => item.text || item).join(", ")}`);
+                parts.push(`**${label}:** ${data[section].map(extractText).join(", ")}`);
               }
             });
           } else if (toolName === "Operating Model Canvas" && data) {
@@ -206,7 +212,7 @@ export function FloatingAIAssistant({
             sections.forEach(section => {
               if (data[section]?.length) {
                 const label = section.replace(/([A-Z])/g, ' $1').trim();
-                parts.push(`**${label}:** ${data[section].map((item: any) => item.text || item).join(", ")}`);
+                parts.push(`**${label}:** ${data[section].map(extractText).join(", ")}`);
               }
             });
           } else {
