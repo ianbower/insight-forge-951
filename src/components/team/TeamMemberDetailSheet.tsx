@@ -321,11 +321,17 @@ export function TeamMemberDetailSheet({
               </CardContent>
             </Card>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <Card>
                 <CardContent className="pt-4">
                   <div className="text-2xl font-bold">{member.hourly_rate ? `${formatCurrency(member.hourly_rate, "USD")}/hr` : "—"}</div>
                   <p className="text-sm text-muted-foreground">Hourly Rate</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4">
+                  <div className="text-2xl font-bold">{member.hourly_rate ? `${formatCurrency(member.hourly_rate * 8, "USD")}/day` : "—"}</div>
+                  <p className="text-sm text-muted-foreground">Day Rate</p>
                 </CardContent>
               </Card>
               <Card>
