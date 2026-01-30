@@ -14,6 +14,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 import { ProjectSetupWizard } from "@/components/project/ProjectSetupWizard";
 import { EditProjectDialog } from "@/components/project/EditProjectDialog";
 
@@ -44,9 +45,35 @@ export default function Projects() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
 
+  const { toast } = useToast();
+
   const handleEditProject = (projectId: string) => {
     setEditingProjectId(projectId);
     setEditDialogOpen(true);
+  };
+
+  const handleArchiveProject = async (projectId: string, projectName: string) => {
+    try {
+      const { error } = await supabase
+        .from("projects")
+        .update({ status: "Cancelled" })
+        .eq("id", projectId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Project archived",
+        description: `"${projectName}" has been archived.`,
+      });
+      
+      fetchData();
+    } catch (error: any) {
+      toast({
+        title: "Error archiving project",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   };
 
   const fetchData = async () => {
@@ -57,9 +84,11 @@ export default function Projects() {
 
     try {
       // Fetch projects the user has access to (RLS handles filtering)
+      // Exclude archived/cancelled projects from the main list
       const { data: projectsData, error: projectsError } = await supabase
         .from("projects")
         .select("*")
+        .neq("status", "Cancelled")
         .order("created_at", { ascending: false });
 
       if (projectsError) throw projectsError;
@@ -355,7 +384,10 @@ export default function Projects() {
                               Edit Project
                             </DropdownMenuItem>
                             <DropdownMenuItem>Export Report</DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive">
+                            <DropdownMenuItem 
+                              className="text-destructive"
+                              onClick={() => handleArchiveProject(project.id, project.name)}
+                            >
                               Archive
                             </DropdownMenuItem>
                           </DropdownMenuContent>
