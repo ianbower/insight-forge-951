@@ -156,8 +156,30 @@ export function GridBlockLayout({
     );
   };
 
-  // In view mode, use auto-height flex layout for better content fitting
+  // In view mode, use CSS grid to preserve horizontal positions with auto-height
   if (!isEditing) {
+    // Group blocks by row (y position) and sort
+    const sortedBlocks = [...blocks].sort((a, b) => {
+      const aY = a.gridPosition?.y ?? a.order;
+      const bY = b.gridPosition?.y ?? b.order;
+      if (aY !== bY) return aY - bY;
+      const aX = a.gridPosition?.x ?? 0;
+      const bX = b.gridPosition?.x ?? 0;
+      return aX - bX;
+    });
+
+    // Group blocks into rows based on y position
+    const rows: { y: number; blocks: typeof blocks }[] = [];
+    sortedBlocks.forEach(block => {
+      const y = block.gridPosition?.y ?? block.order * 10;
+      const existingRow = rows.find(r => Math.abs(r.y - y) < 3); // Blocks within 3 units are same row
+      if (existingRow) {
+        existingRow.blocks.push(block);
+      } else {
+        rows.push({ y, blocks: [block] });
+      }
+    });
+
     return (
       <div ref={containerRef} className="relative w-full space-y-4">
         {blocks.length === 0 ? (
@@ -165,13 +187,30 @@ export function GridBlockLayout({
             <p className="text-muted-foreground">No blocks yet. Add your first block above.</p>
           </div>
         ) : (
-          blocks
-            .sort((a, b) => a.order - b.order)
-            .map((block) => (
-              <div key={block.id} className="w-full">
-                {renderBlockContent(block)}
-              </div>
-            ))
+          rows.map((row, rowIndex) => (
+            <div 
+              key={rowIndex} 
+              className="grid gap-4"
+              style={{ gridTemplateColumns: 'repeat(12, 1fr)' }}
+            >
+              {row.blocks
+                .sort((a, b) => (a.gridPosition?.x ?? 0) - (b.gridPosition?.x ?? 0))
+                .map((block) => {
+                  const colStart = (block.gridPosition?.x ?? 0) + 1;
+                  const colSpan = block.gridPosition?.w ?? 12;
+                  return (
+                    <div 
+                      key={block.id}
+                      style={{ 
+                        gridColumn: `${colStart} / span ${colSpan}`,
+                      }}
+                    >
+                      {renderBlockContent(block)}
+                    </div>
+                  );
+                })}
+            </div>
+          ))
         )}
       </div>
     );
