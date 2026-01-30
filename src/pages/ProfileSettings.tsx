@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useCurrency, SUPPORTED_CURRENCIES, CurrencyCode } from "@/hooks/useCurrency";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -9,11 +10,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ArrowLeft, Camera, Loader2, User } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowLeft, Camera, Loader2, User, Coins } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export default function ProfileSettings() {
   const { user } = useAuth();
+  const { currency, setCurrency, isLoading: isCurrencyLoading } = useCurrency();
   const { toast } = useToast();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -21,6 +24,7 @@ export default function ProfileSettings() {
   
   const [displayName, setDisplayName] = useState("");
   const [isUploading, setIsUploading] = useState(false);
+  const [isSavingCurrency, setIsSavingCurrency] = useState(false);
 
   // Fetch profile data
   const { data: profile, isLoading } = useQuery({
@@ -140,6 +144,25 @@ export default function ProfileSettings() {
     updateProfileMutation.mutate({ display_name: displayName });
   };
 
+  const handleCurrencyChange = async (newCurrency: CurrencyCode) => {
+    setIsSavingCurrency(true);
+    try {
+      await setCurrency(newCurrency);
+      toast({
+        title: "Currency updated",
+        description: `Your preferred currency is now ${newCurrency}.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error updating currency",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingCurrency(false);
+    }
+  };
+
   const getInitials = () => {
     if (displayName) {
       return displayName.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
@@ -241,6 +264,49 @@ export default function ProfileSettings() {
               )}
               Save Changes
             </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Coins className="h-5 w-5" />
+              Currency
+            </CardTitle>
+            <CardDescription>
+              Set your preferred currency for displaying monetary values across the platform
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="currency">Preferred Currency</Label>
+              <Select 
+                value={currency} 
+                onValueChange={(value) => handleCurrencyChange(value as CurrencyCode)}
+                disabled={isSavingCurrency || isCurrencyLoading}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select currency" />
+                </SelectTrigger>
+                <SelectContent>
+                  {SUPPORTED_CURRENCIES.map((curr) => (
+                    <SelectItem key={curr.code} value={curr.code}>
+                      <span className="flex items-center gap-2">
+                        <span className="font-mono text-muted-foreground">{curr.symbol}</span>
+                        <span>{curr.code}</span>
+                        <span className="text-muted-foreground">- {curr.name}</span>
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {isSavingCurrency && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Saving...</span>
+              </div>
+            )}
           </CardContent>
         </Card>
 
