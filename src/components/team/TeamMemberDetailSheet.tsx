@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -26,6 +26,9 @@ import {
   Trash2,
   Clock,
   CalendarPlus,
+  Pencil,
+  Check,
+  X,
 } from "lucide-react";
 
 interface ProjectAssignment {
@@ -92,6 +95,39 @@ export function TeamMemberDetailSheet({
   const [selectedFutureProject, setSelectedFutureProject] = useState("");
   const [selectedFutureRole, setSelectedFutureRole] = useState("Team Member");
   const [futureAssignmentStatus, setFutureAssignmentStatus] = useState<'potential' | 'confirmed'>('confirmed');
+
+  // For rate display and editing
+  const [rateDisplayMode, setRateDisplayMode] = useState<"hourly" | "daily">("hourly");
+  const [isEditingRate, setIsEditingRate] = useState(false);
+  const [editingHourlyRate, setEditingHourlyRate] = useState("");
+
+  const handleStartEditRate = () => {
+    setEditingHourlyRate(member?.hourly_rate?.toString() || "");
+    setIsEditingRate(true);
+  };
+
+  const handleCancelEditRate = () => {
+    setIsEditingRate(false);
+    setEditingHourlyRate("");
+  };
+
+  const handleSaveRate = async () => {
+    if (!member) return;
+    const newRate = parseFloat(editingHourlyRate) || null;
+    
+    const { error } = await supabase
+      .from("team_members")
+      .update({ hourly_rate: newRate })
+      .eq("id", member.id);
+
+    if (error) {
+      toast({ title: "Error updating rate", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Rate updated" });
+      onUpdate?.();
+      setIsEditingRate(false);
+    }
+  };
 
   useEffect(() => {
     if (member && open) {
@@ -321,17 +357,62 @@ export function TeamMemberDetailSheet({
               </CardContent>
             </Card>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <Card>
                 <CardContent className="pt-4">
-                  <div className="text-2xl font-bold">{member.hourly_rate ? `${formatCurrency(member.hourly_rate, "USD")}/hr` : "—"}</div>
-                  <p className="text-sm text-muted-foreground">Hourly Rate</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-4">
-                  <div className="text-2xl font-bold">{member.hourly_rate ? `${formatCurrency(member.hourly_rate * 8, "USD")}/day` : "—"}</div>
-                  <p className="text-sm text-muted-foreground">Day Rate</p>
+                  {isEditingRate ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          value={editingHourlyRate}
+                          onChange={(e) => setEditingHourlyRate(e.target.value)}
+                          className="h-8 text-lg font-bold"
+                          placeholder="0"
+                        />
+                        <span className="text-sm text-muted-foreground">/hr</span>
+                      </div>
+                      <div className="flex gap-1">
+                        <Button size="sm" variant="ghost" className="h-7 px-2" onClick={handleSaveRate}>
+                          <Check className="h-4 w-4" />
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-7 px-2" onClick={handleCancelEditRate}>
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="text-2xl font-bold">
+                          {member.hourly_rate 
+                            ? rateDisplayMode === "hourly" 
+                              ? `${formatCurrency(member.hourly_rate, "USD")}/hr`
+                              : `${formatCurrency(member.hourly_rate * 8, "USD")}/day`
+                            : "—"}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <ToggleGroup 
+                            type="single" 
+                            value={rateDisplayMode} 
+                            onValueChange={(v) => v && setRateDisplayMode(v as "hourly" | "daily")}
+                            size="sm"
+                          >
+                            <ToggleGroupItem value="hourly" className="text-xs h-6 px-2">Hourly</ToggleGroupItem>
+                            <ToggleGroupItem value="daily" className="text-xs h-6 px-2">Daily</ToggleGroupItem>
+                          </ToggleGroup>
+                        </div>
+                      </div>
+                      <Button 
+                        size="icon" 
+                        variant="ghost" 
+                        className="h-7 w-7" 
+                        onClick={handleStartEditRate}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
               <Card>
