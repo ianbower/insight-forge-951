@@ -131,3 +131,105 @@ export async function exportToPDF(elementId: string, title: string) {
 
   pdf.save(`${title.replace(/\s+/g, "_")}.pdf`);
 }
+
+export async function exportDocumentationToPDF(elementId: string, title: string) {
+  const element = document.getElementById(elementId);
+  if (!element) {
+    throw new Error("Element not found");
+  }
+
+  // Capture at higher scale for quality
+  const canvas = await html2canvas(element, {
+    scale: 2,
+    backgroundColor: "#ffffff",
+    logging: false,
+    useCORS: true,
+    allowTaint: true,
+  });
+
+  const imgData = canvas.toDataURL("image/png");
+  
+  // Use portrait orientation for documentation
+  const pdf = new jsPDF({
+    orientation: "portrait",
+    unit: "mm",
+    format: "a4",
+  });
+
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const margin = 10;
+  const contentWidth = pageWidth - (margin * 2);
+  const headerHeight = 15;
+  const footerHeight = 10;
+  const contentAreaHeight = pageHeight - headerHeight - footerHeight - (margin * 2);
+
+  // Calculate scaled image dimensions
+  const imgWidth = contentWidth;
+  const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+  // Calculate number of pages needed
+  const totalPages = Math.ceil(imgHeight / contentAreaHeight);
+
+  for (let page = 0; page < totalPages; page++) {
+    if (page > 0) {
+      pdf.addPage();
+    }
+
+    // Add header
+    pdf.setFontSize(10);
+    pdf.setTextColor(26, 54, 93);
+    pdf.text(title, margin, margin + 5);
+    
+    // Add page number
+    pdf.setFontSize(9);
+    pdf.setTextColor(128, 128, 128);
+    pdf.text(`Page ${page + 1} of ${totalPages}`, pageWidth - margin - 25, margin + 5);
+
+    // Calculate the portion of image to show on this page
+    const sourceY = page * contentAreaHeight * (canvas.width / contentWidth);
+    const sourceHeight = Math.min(
+      contentAreaHeight * (canvas.width / contentWidth),
+      canvas.height - sourceY
+    );
+    
+    // Create a temporary canvas for this page's portion
+    const tempCanvas = document.createElement("canvas");
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = sourceHeight;
+    const tempCtx = tempCanvas.getContext("2d");
+    
+    if (tempCtx) {
+      tempCtx.fillStyle = "#ffffff";
+      tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+      tempCtx.drawImage(
+        canvas,
+        0, sourceY, canvas.width, sourceHeight,
+        0, 0, canvas.width, sourceHeight
+      );
+      
+      const pageImgData = tempCanvas.toDataURL("image/png");
+      const pageImgHeight = (sourceHeight * contentWidth) / canvas.width;
+      
+      pdf.addImage(
+        pageImgData,
+        "PNG",
+        margin,
+        headerHeight + margin,
+        contentWidth,
+        pageImgHeight
+      );
+    }
+
+    // Add footer
+    pdf.setFontSize(8);
+    pdf.setTextColor(128, 128, 128);
+    pdf.text(
+      `aXet Consult Platform Documentation • Generated ${new Date().toLocaleDateString()}`,
+      margin,
+      pageHeight - margin
+    );
+  }
+
+  pdf.save(`${title.replace(/\s+/g, "_")}.pdf`);
+}

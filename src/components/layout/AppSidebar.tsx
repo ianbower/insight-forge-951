@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { LayoutDashboard, Briefcase, BookOpen, FolderKanban, Bot, Settings, ChevronLeft, ChevronRight, Search, Users, ClipboardList } from "lucide-react";
+import { LayoutDashboard, Briefcase, BookOpen, FolderKanban, Bot, Settings, ChevronLeft, ChevronRight, Search, Users, ClipboardList, FileText } from "lucide-react";
 import axetLogo from "@/assets/axet-consult-logo.png";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -40,6 +40,10 @@ const navItems = [{
   icon: Settings,
   label: "Admin",
   path: "/admin"
+}, {
+  icon: FileText,
+  label: "Documentation",
+  path: "/documentation"
 }];
 export function AppSidebar() {
   const [collapsed, setCollapsed] = useState(false);
