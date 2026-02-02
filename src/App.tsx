@@ -27,6 +27,7 @@ import AssessmentRespond from "@/pages/AssessmentRespond";
 import AssessmentPreview from "@/pages/AssessmentPreview";
 import AssessmentTake from "@/pages/AssessmentTake";
 import ProfileSettings from "@/pages/ProfileSettings";
+import Documentation from "@/pages/Documentation";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -63,6 +64,7 @@ const App = () => (
                 <Route path="/assessments" element={<ProtectedRoute><AppLayout><Assessments /></AppLayout></ProtectedRoute>} />
                 <Route path="/assessments/take/:token" element={<ProtectedRoute><AppLayout><AssessmentTake /></AppLayout></ProtectedRoute>} />
                 <Route path="/admin" element={<ProtectedRoute><AppLayout><Admin /></AppLayout></ProtectedRoute>} />
+                <Route path="/documentation" element={<ProtectedRoute><AppLayout><Documentation /></AppLayout></ProtectedRoute>} />
                 <Route path="/profile" element={<ProtectedRoute><ProfileSettings /></ProtectedRoute>} />
                 <Route path="*" element={<AppLayout><NotFound /></AppLayout>} />
               </Routes>
