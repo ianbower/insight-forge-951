@@ -529,6 +529,41 @@ export type Database = {
           },
         ]
       }
+      client_access: {
+        Row: {
+          access_level: string
+          client_id: string
+          created_at: string | null
+          granted_by: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          access_level?: string
+          client_id: string
+          created_at?: string | null
+          granted_by?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          access_level?: string
+          client_id?: string
+          created_at?: string | null
+          granted_by?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_access_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           created_at: string
@@ -1392,7 +1427,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_access_project: {
+        Args: { _project_id: string; _user_id: string }
+        Returns: boolean
+      }
       can_manage_project: { Args: { _project_id: string }; Returns: boolean }
+      can_manage_users: { Args: { _user_id: string }; Returns: boolean }
       get_projects_for_assignment: {
         Args: never
         Returns: {
@@ -1403,7 +1443,12 @@ export type Database = {
           status: string
         }[]
       }
+      has_client_access: {
+        Args: { _client_id: string; _user_id: string }
+        Returns: boolean
+      }
       has_elevated_role: { Args: { _user_id: string }; Returns: boolean }
+      has_global_access: { Args: { _user_id: string }; Returns: boolean }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1412,9 +1457,19 @@ export type Database = {
         Returns: boolean
       }
       is_project_member: { Args: { _project_id: string }; Returns: boolean }
+      is_super_admin: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
-      app_role: "admin" | "practice_leader" | "engagement_lead" | "member"
+      app_role:
+        | "admin"
+        | "practice_leader"
+        | "engagement_lead"
+        | "member"
+        | "super_admin"
+        | "partner"
+        | "account_lead"
+        | "delivery_lead"
+        | "consultant"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1542,7 +1597,17 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "practice_leader", "engagement_lead", "member"],
+      app_role: [
+        "admin",
+        "practice_leader",
+        "engagement_lead",
+        "member",
+        "super_admin",
+        "partner",
+        "account_lead",
+        "delivery_lead",
+        "consultant",
+      ],
     },
   },
 } as const
