@@ -10,9 +10,10 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import * as pdfjsLib from "pdfjs-dist";
+import pdfjsWorker from "pdfjs-dist/build/pdf.worker.mjs?url";
 
-// Set up PDF.js worker for v4.x
-pdfjsLib.GlobalWorkerOptions.workerSrc = "//cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.js";
+// Set up PDF.js worker using Vite URL import for v5.x
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 interface CustomToolBuilderProps {
   onClose: () => void;
