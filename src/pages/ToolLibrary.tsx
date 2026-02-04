@@ -16,6 +16,8 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
+import type { CanvasSection } from "@/components/tools/CanvasSectionEditor";
+
 interface CustomTool {
   id: string;
   name: string;
@@ -26,6 +28,7 @@ interface CustomTool {
   visibility: string | null;
   owner_id: string | null;
   created_at: string;
+  sections_json?: CanvasSection[] | null | unknown;
 }
 
 const builtInTools = [
@@ -165,7 +168,7 @@ export default function ToolLibrary() {
     return matchesSearch && matchesCategory;
   });
 
-  const handleBuilderSave = (tool: CustomTool) => {
+  const handleBuilderSave = (tool: any) => {
     setShowBuilder(false);
     setEditingTool(null);
     fetchCustomTools();
@@ -173,6 +176,17 @@ export default function ToolLibrary() {
   };
 
   const isOwnTool = (tool: CustomTool) => tool.owner_id === user?.id;
+
+  // Prepare editing tool with proper type
+  const editingToolForBuilder = editingTool ? {
+    id: editingTool.id,
+    name: editingTool.name,
+    description: editingTool.description,
+    category: editingTool.category,
+    canvas_image_url: editingTool.canvas_image_url,
+    is_public: editingTool.is_public,
+    sections_json: Array.isArray(editingTool.sections_json) ? editingTool.sections_json : null,
+  } : undefined;
 
   // Show builder
   if (showBuilder || editingTool) {
@@ -183,7 +197,7 @@ export default function ToolLibrary() {
           setEditingTool(null);
         }}
         onSave={handleBuilderSave}
-        existingTool={editingTool || undefined}
+        existingTool={editingToolForBuilder}
       />
     );
   }
@@ -234,6 +248,7 @@ export default function ToolLibrary() {
           toolId={selectedCustomTool.id}
           toolName={selectedCustomTool.name}
           canvasImageUrl={selectedCustomTool.canvas_image_url || undefined}
+          sections={Array.isArray(selectedCustomTool.sections_json) ? selectedCustomTool.sections_json as CanvasSection[] : undefined}
         />
       </div>
     );

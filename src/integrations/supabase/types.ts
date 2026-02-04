@@ -632,6 +632,7 @@ export type Database = {
           is_public: boolean
           name: string
           owner_id: string | null
+          sections_json: Json | null
           updated_at: string
           visibility: string | null
         }
@@ -645,6 +646,7 @@ export type Database = {
           is_public?: boolean
           name: string
           owner_id?: string | null
+          sections_json?: Json | null
           updated_at?: string
           visibility?: string | null
         }
@@ -658,6 +660,7 @@ export type Database = {
           is_public?: boolean
           name?: string
           owner_id?: string | null
+          sections_json?: Json | null
           updated_at?: string
           visibility?: string | null
         }

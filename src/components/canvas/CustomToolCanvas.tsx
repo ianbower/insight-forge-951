@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { exportToPPT, exportToPDF } from "@/lib/exportUtils";
 import { Slider } from "@/components/ui/slider";
+import { cn } from "@/lib/utils";
 
 interface Note {
   id: string;
@@ -15,11 +16,21 @@ interface Note {
   size?: { width: number; height: number };
 }
 
+export interface CanvasSectionDef {
+  id: string;
+  title: string;
+  description: string;
+  shape: "rectangle" | "circle" | "rounded-rectangle";
+  position: { x: number; y: number; width: number; height: number };
+  color: string;
+}
+
 interface CustomToolCanvasProps {
   toolId?: string;
   toolName?: string;
   canvasImageUrl?: string;
   projectId?: string;
+  sections?: CanvasSectionDef[];
   initialData?: Record<string, Note[]>;
   onSave?: (data: Record<string, Note[]>) => void;
 }
@@ -45,18 +56,59 @@ export function CustomToolCanvas({
   toolName = "Custom Canvas",
   canvasImageUrl,
   projectId,
+  sections = [],
   initialData,
   onSave,
 }: CustomToolCanvasProps) {
-  const [notes, setNotes] = useState<Record<string, Note[]>>(
-    initialData || { canvas: [] }
-  );
+  // If sections are defined, use section-based notes; otherwise use "canvas" key
+  const hasSections = sections && sections.length > 0;
+  
+  const [notes, setNotes] = useState<Record<string, Note[]>>(() => {
+    if (initialData) return initialData;
+    if (hasSections) {
+      // Initialize with empty arrays for each section
+      const initial: Record<string, Note[]> = {};
+      sections.forEach(s => { initial[s.id] = []; });
+      return initial;
+    }
+    return { canvas: [] };
+  });
   const [saving, setSaving] = useState(false);
   const [scale, setScale] = useState(1);
   const [canvasSizeIndex, setCanvasSizeIndex] = useState(0);
+  const [selectedSection, setSelectedSection] = useState<string | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   const currentSize = CANVAS_SIZES[canvasSizeIndex];
+
+  const addNoteToSection = useCallback((sectionId: string, e?: React.MouseEvent) => {
+    if (!canvasRef.current) return;
+    
+    const section = sections.find(s => s.id === sectionId);
+    if (!section) return;
+    
+    // Position note within the section bounds (in percentage of canvas)
+    const sectionX = (section.position.x / 100) * currentSize.width;
+    const sectionY = (section.position.y / 100) * currentSize.height;
+    const sectionW = (section.position.width / 100) * currentSize.width;
+    const sectionH = (section.position.height / 100) * currentSize.height;
+    
+    const newNote: Note = {
+      id: crypto.randomUUID(),
+      content: "",
+      color: noteColors[Math.floor(Math.random() * noteColors.length)],
+      position: { 
+        x: sectionX + 10 + Math.random() * Math.max(20, sectionW - 160), 
+        y: sectionY + 40 + Math.random() * Math.max(20, sectionH - 120) 
+      },
+      size: { width: 120, height: 80 },
+    };
+    
+    setNotes((prev) => ({
+      ...prev,
+      [sectionId]: [...(prev[sectionId] || []), newNote],
+    }));
+  }, [sections, currentSize]);
 
   const addNote = useCallback((e?: React.MouseEvent) => {
     if (!canvasRef.current) return;
@@ -82,38 +134,51 @@ export function CustomToolCanvas({
     }));
   }, [scale]);
 
+  // Generic note operations that work across all keys
   const resizeNote = useCallback((noteId: string, size: { width: number; height: number }) => {
-    setNotes((prev) => ({
-      ...prev,
-      canvas: prev.canvas.map((note) =>
-        note.id === noteId ? { ...note, size } : note
-      ),
-    }));
+    setNotes((prev) => {
+      const newNotes = { ...prev };
+      for (const key of Object.keys(newNotes)) {
+        newNotes[key] = newNotes[key].map((note) =>
+          note.id === noteId ? { ...note, size } : note
+        );
+      }
+      return newNotes;
+    });
   }, []);
 
   const updateNote = useCallback((noteId: string, content: string) => {
-    setNotes((prev) => ({
-      ...prev,
-      canvas: prev.canvas.map((note) =>
-        note.id === noteId ? { ...note, content } : note
-      ),
-    }));
+    setNotes((prev) => {
+      const newNotes = { ...prev };
+      for (const key of Object.keys(newNotes)) {
+        newNotes[key] = newNotes[key].map((note) =>
+          note.id === noteId ? { ...note, content } : note
+        );
+      }
+      return newNotes;
+    });
   }, []);
 
   const deleteNote = useCallback((noteId: string) => {
-    setNotes((prev) => ({
-      ...prev,
-      canvas: prev.canvas.filter((note) => note.id !== noteId),
-    }));
+    setNotes((prev) => {
+      const newNotes = { ...prev };
+      for (const key of Object.keys(newNotes)) {
+        newNotes[key] = newNotes[key].filter((note) => note.id !== noteId);
+      }
+      return newNotes;
+    });
   }, []);
 
   const moveNote = useCallback((noteId: string, position: { x: number; y: number }) => {
-    setNotes((prev) => ({
-      ...prev,
-      canvas: prev.canvas.map((note) =>
-        note.id === noteId ? { ...note, position } : note
-      ),
-    }));
+    setNotes((prev) => {
+      const newNotes = { ...prev };
+      for (const key of Object.keys(newNotes)) {
+        newNotes[key] = newNotes[key].map((note) =>
+          note.id === noteId ? { ...note, position } : note
+        );
+      }
+      return newNotes;
+    });
   }, []);
 
   const handleSave = async () => {
@@ -155,19 +220,30 @@ export function CustomToolCanvas({
   };
 
   const handleExportPPT = () => {
-    exportToPPT({
-      title: toolName,
-      sections: [
-        {
-          name: toolName,
-          notes: notes.canvas?.map((n) => ({
+    // Export with section names if available
+    const exportSections = hasSections
+      ? sections.map(s => ({
+          name: s.title,
+          notes: (notes[s.id] || []).map((n) => ({
             id: n.id,
             content: n.content,
             color: n.color,
             position: n.position,
-          })) || [],
-        },
-      ],
+          })),
+        }))
+      : [{
+          name: toolName,
+          notes: (notes.canvas || []).map((n) => ({
+            id: n.id,
+            content: n.content,
+            color: n.color,
+            position: n.position,
+          })),
+        }];
+
+    exportToPPT({
+      title: toolName,
+      sections: exportSections,
     });
   };
 
@@ -177,7 +253,16 @@ export function CustomToolCanvas({
 
   const handleCanvasClick = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest(".sticky-note-wrapper")) return;
-    addNote(e);
+    if ((e.target as HTMLElement).closest(".section-zone")) return;
+    if (!hasSections) {
+      addNote(e);
+    }
+  };
+
+  const handleSectionClick = (e: React.MouseEvent, sectionId: string) => {
+    e.stopPropagation();
+    if ((e.target as HTMLElement).closest(".sticky-note-wrapper")) return;
+    addNoteToSection(sectionId, e);
   };
 
   const handleZoomIn = () => {
@@ -314,7 +399,8 @@ export function CustomToolCanvas({
             }}
             onClick={handleCanvasClick}
           >
-            {!canvasImageUrl && (
+            {/* Show placeholder only if no image and no sections */}
+            {!canvasImageUrl && !hasSections && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className="text-center text-muted-foreground/50">
                   <p className="text-lg font-medium">No canvas image</p>
@@ -323,7 +409,69 @@ export function CustomToolCanvas({
               </div>
             )}
 
-            {notes.canvas?.map((note) => (
+            {/* Render sections if defined */}
+            {hasSections && sections.map((section) => (
+              <div
+                key={section.id}
+                className={cn(
+                  "section-zone absolute border-2 cursor-pointer transition-all hover:shadow-md group",
+                  section.shape === "circle" && "rounded-full",
+                  section.shape === "rounded-rectangle" && "rounded-xl",
+                  selectedSection === section.id && "ring-2 ring-primary ring-offset-2"
+                )}
+                style={{
+                  left: `${section.position.x}%`,
+                  top: `${section.position.y}%`,
+                  width: `${section.position.width}%`,
+                  height: `${section.position.height}%`,
+                  backgroundColor: `${section.color}22`,
+                  borderColor: section.color,
+                }}
+                onClick={(e) => handleSectionClick(e, section.id)}
+              >
+                {/* Section header */}
+                <div 
+                  className="absolute top-0 left-0 right-0 px-2 py-1 flex items-center justify-between"
+                  style={{ backgroundColor: `${section.color}dd` }}
+                >
+                  <span className="text-xs font-semibold text-white truncate flex-1">
+                    {section.title}
+                  </span>
+                  <button
+                    className="ml-1 p-0.5 rounded bg-white/20 hover:bg-white/40 transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      addNoteToSection(section.id);
+                    }}
+                    title="Add sticky note"
+                  >
+                    <Plus className="h-3 w-3 text-white" />
+                  </button>
+                </div>
+
+                {/* Notes in this section */}
+                {(notes[section.id] || []).map((note) => (
+                  <div key={note.id} className="sticky-note-wrapper">
+                    <StickyNote
+                      id={note.id}
+                      content={note.content}
+                      color={note.color}
+                      position={note.position}
+                      size={note.size || { width: 120, height: 80 }}
+                      onUpdate={updateNote}
+                      onDelete={deleteNote}
+                      onMove={moveNote}
+                      onResize={resizeNote}
+                      canvasRef={canvasRef}
+                      scale={scale}
+                    />
+                  </div>
+                ))}
+              </div>
+            ))}
+
+            {/* Fallback: render notes in canvas key for non-sectioned canvases */}
+            {!hasSections && notes.canvas?.map((note) => (
               <div key={note.id} className="sticky-note-wrapper">
                 <StickyNote
                   id={note.id}
