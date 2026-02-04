@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import {
   AreaChart,
   Area,
@@ -8,27 +9,102 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { Loader2 } from "lucide-react";
 
-const data = [
-  { month: "Jan", projects: 4, revenue: 120 },
-  { month: "Feb", projects: 6, revenue: 180 },
-  { month: "Mar", projects: 5, revenue: 150 },
-  { month: "Apr", projects: 8, revenue: 240 },
-  { month: "May", projects: 7, revenue: 210 },
-  { month: "Jun", projects: 9, revenue: 270 },
-  { month: "Jul", projects: 11, revenue: 330 },
-  { month: "Aug", projects: 10, revenue: 300 },
-  { month: "Sep", projects: 12, revenue: 360 },
-  { month: "Oct", projects: 14, revenue: 420 },
-  { month: "Nov", projects: 13, revenue: 390 },
-  { month: "Dec", projects: 15, revenue: 450 },
-];
+interface ChartData {
+  month: string;
+  projects: number;
+  revenue: number;
+}
 
 interface ProjectsChartProps {
   className?: string;
 }
 
 export function ProjectsChart({ className }: ProjectsChartProps) {
+  const [data, setData] = useState<ChartData[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const { data: projects, error } = await supabase
+          .from("projects")
+          .select("created_at, budget_amount")
+          .order("created_at", { ascending: true });
+
+        if (error) throw error;
+
+        // Group projects by month for the last 12 months
+        const now = new Date();
+        const monthsData: ChartData[] = [];
+        
+        for (let i = 11; i >= 0; i--) {
+          const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          const monthName = date.toLocaleDateString("en-US", { month: "short" });
+          const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
+          const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+          
+          const monthProjects = (projects || []).filter((p) => {
+            const createdAt = new Date(p.created_at);
+            return createdAt >= monthStart && createdAt <= monthEnd;
+          });
+          
+          const revenue = monthProjects.reduce((sum, p) => sum + (p.budget_amount || 0), 0);
+          
+          monthsData.push({
+            month: monthName,
+            projects: monthProjects.length,
+            revenue: Math.round(revenue / 1000), // Convert to thousands
+          });
+        }
+        
+        setData(monthsData);
+      } catch (error) {
+        console.error("Error fetching chart data:", error);
+        setData([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className={cn("rounded-xl border border-border bg-card h-full flex flex-col", className)}>
+        <div className="border-b border-border p-4">
+          <h3 className="font-semibold font-display">Engagement Trend</h3>
+          <p className="text-sm text-muted-foreground">Monthly project activity</p>
+        </div>
+        <div className="flex-1 flex items-center justify-center p-4">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </div>
+    );
+  }
+
+  const hasData = data.some((d) => d.projects > 0 || d.revenue > 0);
+
+  if (!hasData) {
+    return (
+      <div className={cn("rounded-xl border border-border bg-card h-full flex flex-col", className)}>
+        <div className="border-b border-border p-4">
+          <h3 className="font-semibold font-display">Engagement Trend</h3>
+          <p className="text-sm text-muted-foreground">Monthly project activity</p>
+        </div>
+        <div className="flex-1 flex items-center justify-center p-4 text-center">
+          <div className="text-muted-foreground">
+            <p className="text-sm">No project data yet</p>
+            <p className="text-xs mt-1">Create your first project to see trends</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={cn("rounded-xl border border-border bg-card h-full flex flex-col", className)}>
       <div className="border-b border-border p-4">

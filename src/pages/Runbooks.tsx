@@ -36,51 +36,6 @@ interface Client {
   name: string;
 }
 
-const mockRunbooks: RunbookTemplate[] = [
-  {
-    id: "1",
-    name: "Digital Transformation Strategy",
-    industry_focus: "Cross-Industry",
-    workflow_json: [
-      { step: 1, title: "Current State Assessment", tools: ["SWOT", "Operating Model Canvas"] },
-      { step: 2, title: "Vision & Strategy Definition", tools: ["Business Model Canvas"] },
-      { step: 3, title: "Roadmap Development", tools: ["Transformation Roadmap"] },
-      { step: 4, title: "Implementation Planning", tools: ["7S Framework"] },
-    ],
-  },
-  {
-    id: "2",
-    name: "Post-Merger Integration",
-    industry_focus: "Financial Services",
-    workflow_json: [
-      { step: 1, title: "Due Diligence Review", tools: ["SWOT"] },
-      { step: 2, title: "Synergy Identification", tools: ["Operating Model Canvas"] },
-      { step: 3, title: "Integration Roadmap", tools: ["Transformation Roadmap"] },
-      { step: 4, title: "Day 1 Planning", tools: ["7S Framework"] },
-    ],
-  },
-  {
-    id: "3",
-    name: "Operating Model Redesign",
-    industry_focus: "Technology",
-    workflow_json: [
-      { step: 1, title: "As-Is Analysis", tools: ["Operating Model Canvas", "7S Framework"] },
-      { step: 2, title: "Target State Design", tools: ["Operating Model Canvas"] },
-      { step: 3, title: "Gap Analysis", tools: ["SWOT"] },
-      { step: 4, title: "Transition Planning", tools: ["Transformation Roadmap"] },
-    ],
-  },
-  {
-    id: "4",
-    name: "Market Entry Strategy",
-    industry_focus: "Cross-Industry",
-    workflow_json: [
-      { step: 1, title: "Market Analysis", tools: ["SWOT", "Porter's Five Forces"] },
-      { step: 2, title: "Business Model Design", tools: ["Business Model Canvas"] },
-      { step: 3, title: "Go-to-Market Planning", tools: ["Transformation Roadmap"] },
-    ],
-  },
-];
 
 export default function Runbooks() {
   const navigate = useNavigate();
@@ -122,7 +77,7 @@ export default function Runbooks() {
     navigate(runbookId ? `/runbooks/design/${runbookId}` : "/runbooks/design/new");
   };
 
-  const displayRunbooks = runbooks.length > 0 ? runbooks : mockRunbooks;
+  
 
   const handleStartEngagement = (runbook: RunbookTemplate) => {
     setSelectedRunbook(runbook);
@@ -220,8 +175,23 @@ export default function Runbooks() {
       </div>
 
       {/* Runbooks Grid */}
+      {loading ? (
+        <div className="p-8 text-center text-muted-foreground">Loading runbooks...</div>
+      ) : runbooks.length === 0 ? (
+        <div className="rounded-xl border border-border bg-card p-12 text-center">
+          <BookOpen className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+          <h3 className="text-lg font-medium text-foreground mb-2">No runbook templates yet</h3>
+          <p className="text-muted-foreground mb-4 max-w-sm mx-auto">
+            Create your first engagement template with pre-configured workflows and consulting tools.
+          </p>
+          <Button onClick={() => handleOpenDesigner()} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Create Your First Runbook
+          </Button>
+        </div>
+      ) : (
       <div className="grid gap-6 lg:grid-cols-2">
-        {displayRunbooks.map((runbook, index) => {
+        {runbooks.map((runbook, index) => {
           const workflow = Array.isArray(runbook.workflow_json)
             ? runbook.workflow_json
             : [];
@@ -323,6 +293,7 @@ export default function Runbooks() {
           );
         })}
       </div>
+      )}
 
       {/* Start Engagement Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>

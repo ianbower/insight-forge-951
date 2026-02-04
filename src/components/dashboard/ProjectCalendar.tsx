@@ -1,7 +1,9 @@
 import { Calendar } from "@/components/ui/calendar";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { Loader2 } from "lucide-react";
 
 interface Milestone {
   date: Date;
@@ -11,36 +13,56 @@ interface Milestone {
 }
 
 interface ProjectCalendarProps {
-  milestones?: Milestone[];
   className?: string;
 }
 
-export function ProjectCalendar({ milestones = [], className }: ProjectCalendarProps) {
+export function ProjectCalendar({ className }: ProjectCalendarProps) {
   const [date, setDate] = useState<Date | undefined>(new Date());
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mock milestones for display
-  const mockMilestones: Milestone[] = [
-    {
-      date: new Date(2024, 11, 20),
-      title: "Strategy Review",
-      project: "Digital Transformation",
-      type: "review",
-    },
-    {
-      date: new Date(2024, 11, 23),
-      title: "Phase 1 Complete",
-      project: "Operating Model",
-      type: "milestone",
-    },
-    {
-      date: new Date(2024, 11, 28),
-      title: "Client Presentation",
-      project: "M&A Integration",
-      type: "deadline",
-    },
-  ];
+  useEffect(() => {
+    const fetchMilestones = async () => {
+      try {
+        const now = new Date();
+        const futureDate = new Date();
+        futureDate.setDate(now.getDate() + 60); // Next 60 days
 
-  const displayMilestones = milestones.length > 0 ? milestones : mockMilestones;
+        const { data, error } = await supabase
+          .from("project_milestones")
+          .select(`
+            id,
+            title,
+            target_date,
+            status,
+            project_id,
+            projects:project_id (name)
+          `)
+          .gte("target_date", now.toISOString().split("T")[0])
+          .lte("target_date", futureDate.toISOString().split("T")[0])
+          .order("target_date", { ascending: true })
+          .limit(5);
+
+        if (error) throw error;
+
+        const formattedMilestones: Milestone[] = (data || []).map((m: any) => ({
+          date: new Date(m.target_date),
+          title: m.title,
+          project: m.projects?.name || "Unknown Project",
+          type: m.status === "completed" ? "milestone" : m.status === "in_progress" ? "review" : "deadline",
+        }));
+
+        setMilestones(formattedMilestones);
+      } catch (error) {
+        console.error("Error fetching milestones:", error);
+        setMilestones([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMilestones();
+  }, []);
 
   return (
     <div className={cn("rounded-xl border border-border bg-card h-full flex flex-col overflow-hidden", className)}>
@@ -56,7 +78,16 @@ export function ProjectCalendar({ milestones = [], className }: ProjectCalendarP
         />
         <div className="mt-4 space-y-2">
           <p className="text-sm font-medium text-muted-foreground">Upcoming</p>
-          {displayMilestones.slice(0, 3).map((milestone, i) => (
+          {loading ? (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : milestones.length === 0 ? (
+            <div className="text-center py-4 text-sm text-muted-foreground">
+              No upcoming milestones
+            </div>
+          ) : (
+            milestones.slice(0, 3).map((milestone, i) => (
             <div
               key={i}
               className="flex items-center justify-between rounded-lg bg-muted/50 p-3"
@@ -78,7 +109,8 @@ export function ProjectCalendar({ milestones = [], className }: ProjectCalendarP
                 {milestone.type}
               </Badge>
             </div>
-          ))}
+          ))
+          )}
         </div>
       </div>
     </div>
