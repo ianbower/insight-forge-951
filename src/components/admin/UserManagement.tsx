@@ -9,8 +9,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
-import { Search, UserPlus, Loader2 } from "lucide-react";
+import { Search, UserPlus, Loader2, MoreHorizontal, KeyRound, UserX, Ban, UserCheck, Trash2 } from "lucide-react";
 import { BulkUserImport } from "./BulkUserImport";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { useAuth } from "@/hooks/useAuth";
 
 interface UserWithRole {
   id: string;
@@ -19,10 +22,14 @@ interface UserWithRole {
   avatar_url: string | null;
   roles: AppRole[];
   created_at: string;
+  is_suspended?: boolean;
 }
+
+type UserAction = "delete" | "suspend" | "unsuspend" | "reset_password";
 
 export function UserManagement() {
   const { isSuperAdmin, canManageUsers } = useUserRole();
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -36,6 +43,11 @@ export function UserManagement() {
   const [newUserName, setNewUserName] = useState("");
   const [newUserRole, setNewUserRole] = useState<AppRole>("consultant");
   const [addingUser, setAddingUser] = useState(false);
+  
+  // User action state
+  const [actionUser, setActionUser] = useState<UserWithRole | null>(null);
+  const [pendingAction, setPendingAction] = useState<UserAction | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -173,6 +185,86 @@ export function UserManagement() {
     }
   };
 
+  const executeUserAction = async () => {
+    if (!actionUser || !pendingAction) return;
+    
+    setActionLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-user-actions`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            action: pendingAction,
+            userId: actionUser.id,
+          }),
+        }
+      );
+
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.message);
+      }
+
+      toast.success(result.message);
+      
+      // Refresh users list (for delete) or update local state (for suspend/unsuspend)
+      if (pendingAction === "delete") {
+        setUsers(prev => prev.filter(u => u.id !== actionUser.id));
+      } else if (pendingAction === "suspend") {
+        setUsers(prev => prev.map(u => u.id === actionUser.id ? { ...u, is_suspended: true } : u));
+      } else if (pendingAction === "unsuspend") {
+        setUsers(prev => prev.map(u => u.id === actionUser.id ? { ...u, is_suspended: false } : u));
+      }
+    } catch (error: any) {
+      console.error("User action error:", error);
+      toast.error(error.message || "Failed to perform action");
+    } finally {
+      setActionLoading(false);
+      setActionUser(null);
+      setPendingAction(null);
+    }
+  };
+
+  const getActionDialogContent = () => {
+    if (!actionUser || !pendingAction) return { title: "", description: "" };
+    
+    const userName = actionUser.display_name || actionUser.email;
+    
+    switch (pendingAction) {
+      case "delete":
+        return {
+          title: "Delete User",
+          description: `Are you sure you want to permanently delete ${userName}? This action cannot be undone and will remove all their data.`,
+        };
+      case "suspend":
+        return {
+          title: "Suspend User",
+          description: `Are you sure you want to suspend ${userName}? They will not be able to log in until reactivated.`,
+        };
+      case "unsuspend":
+        return {
+          title: "Reactivate User",
+          description: `Are you sure you want to reactivate ${userName}? They will be able to log in again.`,
+        };
+      case "reset_password":
+        return {
+          title: "Force Password Reset",
+          description: `Send a password reset email to ${userName}? They will need to set a new password to continue using their account.`,
+        };
+      default:
+        return { title: "", description: "" };
+    }
+  };
+
   const filteredUsers = users.filter(
     (user) =>
       user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -270,13 +362,16 @@ export function UserManagement() {
             <TableHeader>
               <TableRow>
                 <TableHead>User</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>Joined</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredUsers.map((user) => (
+              {filteredUsers.map((user) => {
+                const isCurrentUser = user.id === currentUser?.id;
+                return (
                 <TableRow key={user.id}>
                   <TableCell>
                     <div className="flex items-center gap-3">
@@ -293,6 +388,19 @@ export function UserManagement() {
                     </div>
                   </TableCell>
                   <TableCell>
+                    {user.is_suspended ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-destructive/10 text-destructive">
+                        <Ban className="h-3 w-3" />
+                        Suspended
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-primary/10 text-primary">
+                        <UserCheck className="h-3 w-3" />
+                        Active
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell>
                     <div className="flex flex-wrap gap-1">
                       {user.roles.map((role) => (
                         <RoleBadge key={role} role={role} />
@@ -303,66 +411,154 @@ export function UserManagement() {
                     {new Date(user.created_at).toLocaleDateString()}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Dialog
-                      open={editingUser?.id === user.id}
-                      onOpenChange={(open) => {
-                        if (open) {
-                          setEditingUser(user);
-                          setSelectedRole(user.roles[0] || "consultant");
-                        } else {
-                          setEditingUser(null);
-                        }
-                      }}
-                    >
-                      <DialogTrigger asChild>
-                        <Button variant="outline" size="sm">
-                          Edit Role
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Edit User Role</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4 py-4">
-                          <div className="flex items-center gap-3">
-                            <Avatar className="h-12 w-12">
-                              <AvatarImage src={user.avatar_url || undefined} />
-                              <AvatarFallback>
-                                {(user.display_name || user.email).slice(0, 2).toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <p className="font-medium">{user.display_name || "No name"}</p>
-                              <p className="text-sm text-muted-foreground">{user.email}</p>
+                      <div className="flex items-center justify-end gap-2">
+                        <Dialog
+                          open={editingUser?.id === user.id}
+                          onOpenChange={(open) => {
+                            if (open) {
+                              setEditingUser(user);
+                              setSelectedRole(user.roles[0] || "consultant");
+                            } else {
+                              setEditingUser(null);
+                            }
+                          }}
+                        >
+                          <DialogTrigger asChild>
+                            <Button variant="outline" size="sm">
+                              Edit Role
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Edit User Role</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-4 py-4">
+                              <div className="flex items-center gap-3">
+                                <Avatar className="h-12 w-12">
+                                  <AvatarImage src={user.avatar_url || undefined} />
+                                  <AvatarFallback>
+                                    {(user.display_name || user.email).slice(0, 2).toUpperCase()}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <p className="font-medium">{user.display_name || "No name"}</p>
+                                  <p className="text-sm text-muted-foreground">{user.email}</p>
+                                </div>
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Role</Label>
+                                <RoleSelector
+                                  value={selectedRole}
+                                  onChange={setSelectedRole}
+                                  canAssignSuperAdmin={isSuperAdmin}
+                                />
+                              </div>
                             </div>
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Role</Label>
-                            <RoleSelector
-                              value={selectedRole}
-                              onChange={setSelectedRole}
-                              canAssignSuperAdmin={isSuperAdmin}
-                            />
-                          </div>
-                        </div>
-                        <div className="flex justify-end gap-2">
-                          <Button variant="outline" onClick={() => setEditingUser(null)}>
-                            Cancel
-                          </Button>
-                          <Button onClick={handleUpdateRole} disabled={saving}>
-                            {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                            Save Changes
-                          </Button>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                  </TableCell>
-                </TableRow>
-              ))}
+                            <div className="flex justify-end gap-2">
+                              <Button variant="outline" onClick={() => setEditingUser(null)}>
+                                Cancel
+                              </Button>
+                              <Button onClick={handleUpdateRole} disabled={saving}>
+                                {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                                Save Changes
+                              </Button>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+
+                        {!isCurrentUser && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setActionUser(user);
+                                  setPendingAction("reset_password");
+                                }}
+                              >
+                                <KeyRound className="h-4 w-4 mr-2" />
+                                Force Password Reset
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              {user.is_suspended ? (
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setActionUser(user);
+                                    setPendingAction("unsuspend");
+                                  }}
+                                >
+                                  <UserCheck className="h-4 w-4 mr-2" />
+                                  Reactivate User
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setActionUser(user);
+                                    setPendingAction("suspend");
+                                  }}
+                                  className="text-amber-600 focus:text-amber-600"
+                                >
+                                  <Ban className="h-4 w-4 mr-2" />
+                                  Suspend User
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setActionUser(user);
+                                  setPendingAction("delete");
+                                }}
+                                className="text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete User
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>
       )}
+
+      {/* Action Confirmation Dialog */}
+      <AlertDialog open={!!actionUser && !!pendingAction} onOpenChange={(open) => {
+        if (!open) {
+          setActionUser(null);
+          setPendingAction(null);
+        }
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{getActionDialogContent().title}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {getActionDialogContent().description}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={actionLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={executeUserAction}
+              disabled={actionLoading}
+              className={pendingAction === "delete" ? "bg-destructive hover:bg-destructive/90" : ""}
+            >
+              {actionLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {pendingAction === "delete" ? "Delete" : 
+               pendingAction === "suspend" ? "Suspend" :
+               pendingAction === "unsuspend" ? "Reactivate" : "Send Reset"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
