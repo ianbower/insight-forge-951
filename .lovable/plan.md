@@ -1,300 +1,182 @@
 
-# Enhanced Role-Based Access Control (RBAC) for aXet Consult
+# Platform Audit: Stubbed Data, Issues & Improvements
 
-## ✅ Implementation Status: COMPLETE
+## Executive Summary
 
-This plan redesigns the access control system to reflect how a professional consulting firm operates, with clear hierarchies, account-level access control, and strict client data segregation. The new model introduces a **Super Admin** tier, expands the role hierarchy, and adds **Account Lead** functionality for managing client-level access.
-
----
-
-## Current State Analysis
-
-### Existing Role Structure
-| Role | Current Permissions |
-|------|---------------------|
-| `admin` | Full platform access, user management |
-| `practice_leader` | Create projects, elevated access |
-| `engagement_lead` | Create projects, elevated access |
-| `member` | Access only to assigned projects |
-
-### Current Limitations
-1. **No Super Admin distinction** - Admin and Super Admin have identical powers
-2. **No account-level access** - Cannot grant access to all projects for a specific client
-3. **Limited granularity** - All elevated roles have similar permissions
-4. **No user management UI** - Admin page uses static mock data
-5. **Partners/Principals not represented** - Senior leadership roles missing
+After a thorough review of the aXet Consult platform, I've identified several areas that need attention including stubbed/mock data that should be replaced with real database queries, a React warning in the Admin page, and some inconsistencies across the application.
 
 ---
 
-## Proposed Role Hierarchy
+## Issues Identified
 
-```text
-SUPER_ADMIN
-    |
-    +-- ADMIN
-          |
-          +-- PARTNER
-                |
-                +-- ACCOUNT_LEAD
-                      |
-                      +-- DELIVERY_LEAD
-                            |
-                            +-- CONSULTANT
+### 1. React Warning - AccountAccessManager Component
+**Priority: Medium**
+**File**: `src/components/admin/AccountAccessManager.tsx`
+
+The console shows a React warning about function components being given refs. This is a minor issue but should be fixed to clean up the console.
+
+**Fix**: The component is being passed as a child to TabsContent which may be passing a ref. Wrap the component export with `React.forwardRef` or ensure proper ref handling.
+
+---
+
+### 2. Projects Page - Mock/Stubbed Data Fallback
+**Priority: High**
+**File**: `src/pages/Projects.tsx` (Lines 198-255)
+
+The Projects page has hardcoded mock data that displays when no real projects exist. While this provides a nice onboarding experience, clicking on these mock projects would cause errors since they don't exist in the database.
+
+**Mock Data Displayed**:
+- "Acme Corporation" with "Digital Transformation Strategy" and "Operating Model Redesign"
+- "Global Finance Inc" with "Post-Merger Integration"
+- "HealthCare Plus" with "Cost Optimization Program"
+
+**Fix**: Replace the mock fallback with an empty state that encourages users to create their first project, or ensure mock project IDs are clearly non-navigable (using a proper placeholder instead of fake IDs).
+
+---
+
+### 3. Runbooks Page - Mock Templates
+**Priority: High**
+**File**: `src/pages/Runbooks.tsx` (Lines 39-83)
+
+Similar to Projects, the Runbooks page displays mock templates when no real templates exist in the database. Starting an engagement from a mock template partially works but the runbook_id reference will be null.
+
+**Mock Templates**:
+- "Digital Transformation Strategy"
+- "Post-Merger Integration"
+- "Operating Model Redesign"
+- "Market Entry Strategy"
+
+**Fix**: The code at line 144 already handles this by checking if the ID is one of the mock IDs ("1", "2", "3", "4") and setting runbook_id to null. This is acceptable, but consider replacing with a proper empty state.
+
+---
+
+### 4. Dashboard - ProjectsChart with Static Data
+**Priority: Medium**
+**File**: `src/components/dashboard/ProjectsChart.tsx` (Lines 12-25)
+
+The "Engagement Trend" chart displays completely static/hardcoded data (Jan-Dec with fictional project counts and revenue). This should query actual project data from the database.
+
+**Current Static Data**:
+```typescript
+const data = [
+  { month: "Jan", projects: 4, revenue: 120 },
+  { month: "Feb", projects: 6, revenue: 180 },
+  // ... hardcoded for all 12 months
+];
 ```
 
-### Role Definitions
-
-| Role | Description | Project Access | Admin Access |
-|------|-------------|----------------|--------------|
-| **super_admin** | Platform owner. Full system access including billing, security settings, and all data | All projects globally | Full system configuration |
-| **admin** | IT/Operations admin. Manages users, roles, and platform settings | All projects globally | User management, settings |
-| **partner** | Senior Partner/Principal. Oversees all client engagements | All projects globally | View-only admin dashboard |
-| **account_lead** | Account/Client Lead. Manages specific client accounts | All projects for assigned accounts | None |
-| **delivery_lead** | Engagement/Delivery Manager. Runs specific engagements | Assigned projects only | None |
-| **consultant** | Team member. Works on assigned project tasks | Assigned projects only | None |
+**Fix**: Replace with actual database query that aggregates projects by creation month.
 
 ---
 
-## Database Schema Changes
+### 5. Dashboard - ProjectCalendar with Mock Milestones
+**Priority: Medium**
+**File**: `src/components/dashboard/ProjectCalendar.tsx` (Lines 22-41)
 
-### 1. Update Role Enum
-```sql
--- Add new roles to the enum
-ALTER TYPE public.app_role ADD VALUE 'super_admin';
-ALTER TYPE public.app_role ADD VALUE 'partner';
-ALTER TYPE public.app_role ADD VALUE 'account_lead';
-ALTER TYPE public.app_role ADD VALUE 'delivery_lead';
-ALTER TYPE public.app_role RENAME VALUE 'member' TO 'consultant';
--- Note: engagement_lead and practice_leader will be deprecated
+The calendar widget shows mock milestones when no real data exists. These have hardcoded dates from 2024 which are now in the past.
+
+**Mock Milestones**:
+- "Strategy Review" - Dec 20, 2024
+- "Phase 1 Complete" - Dec 23, 2024
+- "Client Presentation" - Dec 28, 2024
+
+**Fix**: Query actual project milestones from `project_milestones` table and show "No upcoming milestones" when empty.
+
+---
+
+### 6. Sidebar Logo - Uses Uploaded Image Instead of Asset
+**Priority: Low**
+**File**: `src/components/layout/AppSidebar.tsx` (Line 93)
+
+The sidebar imports `axetLogo` from assets but actually uses a different image from `/lovable-uploads/`. The import is unused.
+
+**Current Code**:
+```typescript
+import axetLogo from "@/assets/axet-consult-logo.png"; // Imported but not used
+// ...
+<img alt="aXet consult" className="h-8" src="/lovable-uploads/3719f63a-7253-4d1d-9213-327c9940cd39.png" />
 ```
 
-### 2. Create Account Assignments Table
-This enables account-level access for Account Leads.
-
-```sql
-CREATE TABLE public.client_access (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    client_id uuid NOT NULL REFERENCES public.clients(id) ON DELETE CASCADE,
-    access_level text NOT NULL DEFAULT 'view', -- 'view', 'edit', 'manage'
-    granted_by uuid REFERENCES auth.users(id),
-    created_at timestamptz DEFAULT now(),
-    UNIQUE (user_id, client_id)
-);
-
-ALTER TABLE public.client_access ENABLE ROW LEVEL SECURITY;
-```
-
-### 3. New Security Functions
-```sql
--- Check if user has global access (super_admin, admin, or partner)
-CREATE OR REPLACE FUNCTION public.has_global_access(_user_id uuid)
-RETURNS boolean
-LANGUAGE sql STABLE SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.user_roles
-    WHERE user_id = _user_id 
-    AND role IN ('super_admin', 'admin', 'partner')
-  )
-$$;
-
--- Check if user has client-level access
-CREATE OR REPLACE FUNCTION public.has_client_access(_user_id uuid, _client_id uuid)
-RETURNS boolean
-LANGUAGE sql STABLE SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.client_access
-    WHERE user_id = _user_id AND client_id = _client_id
-  )
-$$;
-
--- Check if user can access a project (comprehensive check)
-CREATE OR REPLACE FUNCTION public.can_access_project(_user_id uuid, _project_id uuid)
-RETURNS boolean
-LANGUAGE sql STABLE SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT 
-    -- Global access roles
-    has_global_access(_user_id)
-    -- Account-level access
-    OR EXISTS (
-      SELECT 1 FROM projects p
-      JOIN client_access ca ON ca.client_id = p.client_id
-      WHERE p.id = _project_id AND ca.user_id = _user_id
-    )
-    -- Direct project membership
-    OR EXISTS (
-      SELECT 1 FROM project_members pm
-      WHERE pm.project_id = _project_id AND pm.user_id = _user_id
-    )
-    -- Project ownership
-    OR EXISTS (
-      SELECT 1 FROM projects p
-      WHERE p.id = _project_id 
-      AND (p.owner_id = _user_id OR p.created_by = _user_id)
-    )
-$$;
-```
+**Fix**: Either use the imported asset or remove the unused import.
 
 ---
 
-## Updated RLS Policies
+### 7. Activity Feed - Shows "Getting Started" Placeholder
+**Priority: Low**
+**File**: `src/pages/Dashboard.tsx` (Lines 118-129)
 
-### Projects Table
-```sql
--- Replace existing SELECT policy
-DROP POLICY IF EXISTS "Users can view accessible projects" ON projects;
-
-CREATE POLICY "Users can view accessible projects" ON projects
-FOR SELECT USING (
-  has_global_access(auth.uid())
-  OR has_client_access(auth.uid(), client_id)
-  OR is_project_member(id)
-  OR owner_id = auth.uid()
-  OR created_by = auth.uid()
-);
-```
-
-### Clients Table
-```sql
--- Account Leads can only see their assigned clients
-DROP POLICY IF EXISTS "Authenticated users can view clients" ON clients;
-
-CREATE POLICY "Users can view accessible clients" ON clients
-FOR SELECT USING (
-  has_global_access(auth.uid())
-  OR has_client_access(auth.uid(), id)
-  OR id IN (
-    SELECT client_id FROM projects 
-    WHERE is_project_member(id) OR owner_id = auth.uid()
-  )
-);
-```
+The Dashboard shows a fallback activity item when no real activities exist. This is acceptable behavior for onboarding.
 
 ---
 
-## Frontend Implementation
+### 8. Tool Library - "Porter's Five Forces" Not Implemented
+**Priority: Low**
+**File**: `src/pages/ToolLibrary.tsx` (Lines 85-92)
 
-### 1. Update useUserRole Hook
-**File**: `src/hooks/useUserRole.tsx`
-
-- Add new role types to `AppRole`
-- Add new permission flags:
-  - `isSuperAdmin`
-  - `isPartner`
-  - `isAccountLead`
-  - `isDeliveryLead`
-  - `isConsultant`
-  - `hasGlobalAccess`
-  - `canManageAccounts`
-
-### 2. Enhanced Admin Page
-**File**: `src/pages/Admin.tsx`
-
-- Replace mock data with real database queries
-- Add new tab: **"User Management"**
-  - View all platform users with their roles
-  - Assign/modify user roles (Super Admin and Admin only)
-  - Invite new users via email
-- Add new tab: **"Account Access"**
-  - Assign Account Leads to specific clients
-  - View who has access to which accounts
-- Show role-appropriate content based on user permissions
-
-### 3. Role-Based Navigation
-**File**: `src/components/layout/AppSidebar.tsx`
-
-- Hide Admin link for Consultants and Delivery Leads
-- Show Documentation to all authenticated users
-- Add visual indicator for current user's role
-
-### 4. Protected Route Enhancement
-**File**: `src/components/auth/ProtectedRoute.tsx`
-
-- Add optional `requiredRoles` prop
-- Redirect unauthorized users to appropriate pages
-- Show "Access Denied" message for insufficient permissions
+The Porter's Five Forces tool is listed in the tool library but has `component: null`, meaning it shows "Coming soon" when opened. This is intentional but should be noted.
 
 ---
 
-## Access Control Matrix
+## Recommended Implementation
 
-| Feature | Super Admin | Admin | Partner | Account Lead | Delivery Lead | Consultant |
-|---------|:-----------:|:-----:|:-------:|:------------:|:-------------:|:----------:|
-| View all projects | Yes | Yes | Yes | Assigned accounts only | Assigned projects | Assigned projects |
-| Create projects | Yes | Yes | Yes | For assigned accounts | No | No |
-| Manage users | Yes | Yes | No | No | No | No |
-| Assign roles | Yes | Yes (except super_admin) | No | No | No | No |
-| Manage account access | Yes | Yes | Yes | No | No | No |
-| View Admin page | Yes | Yes | Yes (read-only) | No | No | No |
-| Use Tool Library | Yes | Yes | Yes | Yes | Yes | Yes |
-| Use Expert AI | Yes | Yes | Yes | Yes | Yes | Yes |
-| Create Assessments | Yes | Yes | Yes | Yes | Yes | No |
-| Manage Team Library | Yes | Yes | Yes | No | No | No |
+### Phase 1: Quick Fixes (Console Errors & Unused Code)
 
----
+| Task | File | Effort |
+|------|------|--------|
+| Fix React ref warning in AccountAccessManager | AccountAccessManager.tsx | Small |
+| Remove unused import in AppSidebar | AppSidebar.tsx | Trivial |
+| Update sidebar to use correct logo asset | AppSidebar.tsx | Small |
 
-## Migration Strategy
+### Phase 2: Replace Mock Data with Real Queries
 
-### Phase 1: Database Updates
-1. Add new role enum values
-2. Create `client_access` table
-3. Create new security functions
-4. Update RLS policies
+| Task | File | Effort |
+|------|------|--------|
+| Replace ProjectsChart with real data query | ProjectsChart.tsx | Medium |
+| Update ProjectCalendar to fetch real milestones | ProjectCalendar.tsx | Medium |
+| Improve Projects page empty state | Projects.tsx | Small |
+| Improve Runbooks page empty state | Runbooks.tsx | Small |
 
-### Phase 2: Data Migration
-1. Map existing `practice_leader` → `partner`
-2. Map existing `engagement_lead` → `delivery_lead`
-3. Map existing `member` → `consultant`
-4. Preserve existing `admin` users
+### Phase 3: Enhancements
 
-### Phase 3: Frontend Updates
-1. Update `useUserRole` hook with new roles
-2. Enhance Admin page with user management
-3. Add role-based navigation filtering
-4. Update route protection
-
-### Phase 4: Testing & Validation
-1. Verify all role permissions work correctly
-2. Test cross-account access restrictions
-3. Validate data segregation between clients
+| Task | Description | Effort |
+|------|-------------|--------|
+| Implement Porter's Five Forces canvas | Complete the last built-in tool | Large |
+| Add data seeding option for demos | Allow admins to populate demo data | Medium |
 
 ---
 
-## Security Considerations
+## Technical Details
 
-1. **Super Admin Protection**: Only Super Admins can create or demote other Super Admins
-2. **Audit Trail**: Log all role changes and access grants
-3. **Client Isolation**: Account Leads cannot see other accounts' data
-4. **No Anonymous Access**: All core tables require authentication
-5. **Principle of Least Privilege**: Default role is `consultant` with minimal access
+### ProjectsChart Real Data Implementation
+
+The component should:
+1. Accept a date range prop (default: last 12 months)
+2. Query projects table grouping by created_at month
+3. Calculate revenue based on project budget data if available
+4. Handle empty state gracefully
+
+### ProjectCalendar Real Data Implementation
+
+The component should:
+1. Query `project_milestones` table with target_date in the next 30-60 days
+2. Include the related project name via join
+3. Show proper empty state when no milestones exist
+
+### Sidebar Logo Fix
+
+Two options:
+1. Use the imported asset: Replace the `src` with `{axetLogo}`
+2. Remove unused import and keep current behavior
 
 ---
 
-## Files to Create/Modify
+## Summary of Changes
 
-| File | Action | Purpose |
-|------|--------|---------|
-| Database migration | Create | Add new roles, tables, functions, policies |
-| `src/hooks/useUserRole.tsx` | Modify | Add new role types and permissions |
-| `src/pages/Admin.tsx` | Modify | Add real user management functionality |
-| `src/components/layout/AppSidebar.tsx` | Modify | Role-based navigation visibility |
-| `src/components/auth/ProtectedRoute.tsx` | Modify | Add role-based route protection |
-| `src/components/admin/UserManagement.tsx` | Create | User list with role assignment |
-| `src/components/admin/AccountAccessManager.tsx` | Create | Client-level access assignment |
-| `src/components/admin/RoleSelector.tsx` | Create | Reusable role selection component |
+| Category | Count | Priority |
+|----------|-------|----------|
+| Console Errors/Warnings | 1 | Medium |
+| Mock/Stubbed Data | 4 | High/Medium |
+| Unused Code | 1 | Low |
+| Incomplete Features | 1 | Low |
 
----
-
-## Technical Notes
-
-- All role checks use **Security Definer** functions to prevent RLS recursion
-- Role enum is extended (not recreated) to preserve existing data
-- `client_access` table enables granular account-level permissions
-- Frontend caches role data in React Context for performance
-- Role changes take effect immediately (no cache refresh required)
+The platform is generally well-implemented with proper database integration across most features. The main issues are legacy mock data fallbacks in a few components that were likely used during initial development and should now be replaced with proper empty states or real queries.
