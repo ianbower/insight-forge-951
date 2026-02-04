@@ -87,21 +87,30 @@ export function CustomToolCanvas({
     const section = sections.find(s => s.id === sectionId);
     if (!section) return;
     
-    // Position note within the section bounds (in percentage of canvas)
-    const sectionX = (section.position.x / 100) * currentSize.width;
-    const sectionY = (section.position.y / 100) * currentSize.height;
+    // Calculate section dimensions in pixels for reference
     const sectionW = (section.position.width / 100) * currentSize.width;
     const sectionH = (section.position.height / 100) * currentSize.height;
+    
+    // Position note RELATIVE to the section (not the canvas)
+    // Notes are rendered inside the section div, so coordinates are relative to section
+    const noteWidth = 120;
+    const noteHeight = 80;
+    const headerHeight = 28; // Account for section header
+    const padding = 10;
+    
+    // Calculate available space inside section
+    const availableWidth = Math.max(noteWidth + padding, sectionW - padding * 2);
+    const availableHeight = Math.max(noteHeight + padding, sectionH - headerHeight - padding * 2);
     
     const newNote: Note = {
       id: crypto.randomUUID(),
       content: "",
       color: noteColors[Math.floor(Math.random() * noteColors.length)],
       position: { 
-        x: sectionX + 10 + Math.random() * Math.max(20, sectionW - 160), 
-        y: sectionY + 40 + Math.random() * Math.max(20, sectionH - 120) 
+        x: padding + Math.random() * Math.max(0, availableWidth - noteWidth - padding), 
+        y: headerHeight + padding + Math.random() * Math.max(0, availableHeight - noteHeight - padding)
       },
-      size: { width: 120, height: 80 },
+      size: { width: noteWidth, height: noteHeight },
     };
     
     setNotes((prev) => ({
