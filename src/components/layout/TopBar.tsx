@@ -1,4 +1,4 @@
-import { Search, Bell, Plus, User, LogOut } from "lucide-react";
+import { Search, Bell, Plus, User, LogOut, Settings, FileText, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -17,11 +17,13 @@ import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useUserRole } from "@/hooks/useUserRole";
 
 export function TopBar() {
   const [newEngagementOpen, setNewEngagementOpen] = useState(false);
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const { canViewAdmin, hasGlobalAccess } = useUserRole();
 
   // Fetch profile data
   const { data: profile } = useQuery({
@@ -115,7 +117,23 @@ export function TopBar() {
               <User className="mr-2 h-4 w-4" />
               Profile Settings
             </DropdownMenuItem>
-            <DropdownMenuItem>Team Management</DropdownMenuItem>
+            {hasGlobalAccess && (
+              <DropdownMenuItem onClick={() => navigate("/team")}>
+                <Users className="mr-2 h-4 w-4" />
+                Team Management
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuSeparator />
+            {canViewAdmin && (
+              <DropdownMenuItem onClick={() => navigate("/admin")}>
+                <Settings className="mr-2 h-4 w-4" />
+                Admin
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem onClick={() => navigate("/documentation")}>
+              <FileText className="mr-2 h-4 w-4" />
+              Documentation
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="text-destructive" onClick={handleSignOut}>
               <LogOut className="mr-2 h-4 w-4" />
