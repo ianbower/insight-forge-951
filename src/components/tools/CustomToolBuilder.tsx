@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
-import { ArrowLeft, Upload, Image, Save, Globe, Lock, FileText, ChevronLeft, ChevronRight, Users } from "lucide-react";
+import { ArrowLeft, Upload, Image, Save, Globe, Lock, FileText, ChevronLeft, ChevronRight, Users, Sparkles, X } from "lucide-react";
+import { AICanvasDesigner } from "./AICanvasDesigner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -51,7 +52,15 @@ export function CustomToolBuilder({ onClose, onSave, existingTool }: CustomToolB
   const [pdfPages, setPdfPages] = useState<string[]>([]);
   const [selectedPage, setSelectedPage] = useState(0);
   const [showPageSelector, setShowPageSelector] = useState(false);
+  const [showAIDesigner, setShowAIDesigner] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleApplyAIDesign = (design: { name: string; description: string; category: string }) => {
+    setName(design.name);
+    setDescription(design.description);
+    setCategory(design.category);
+    setShowAIDesigner(false);
+  };
 
   const renderPdfPage = async (pdf: pdfjsLib.PDFDocumentProxy, pageNum: number): Promise<string> => {
     const page = await pdf.getPage(pageNum);
@@ -273,8 +282,30 @@ export function CustomToolBuilder({ onClose, onSave, existingTool }: CustomToolB
             Design your own canvas with a custom background image or PDF
           </p>
         </div>
+        <Button
+          variant={showAIDesigner ? "secondary" : "outline"}
+          onClick={() => setShowAIDesigner(!showAIDesigner)}
+          className="ml-auto"
+        >
+          {showAIDesigner ? (
+            <>
+              <X className="h-4 w-4 mr-2" />
+              Close AI
+            </>
+          ) : (
+            <>
+              <Sparkles className="h-4 w-4 mr-2" />
+              AI Designer
+            </>
+          )}
+        </Button>
       </div>
 
+      {showAIDesigner ? (
+        <div className="h-[600px]">
+          <AICanvasDesigner onApplyDesign={handleApplyAIDesign} />
+        </div>
+      ) : (
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Form Section */}
         <div className="space-y-4">
@@ -473,6 +504,7 @@ export function CustomToolBuilder({ onClose, onSave, existingTool }: CustomToolB
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }
