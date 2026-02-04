@@ -87,11 +87,13 @@ export function StickyNote({
       }
       
       if (isResizing && onResize) {
-        const deltaX = (e.clientX - startPos.current.x) / scale;
-        const deltaY = (e.clientY - startPos.current.y) / scale;
+        // Apply a dampening factor to make resizing less sensitive
+        const dampening = 0.5;
+        const deltaX = ((e.clientX - startPos.current.x) / scale) * dampening;
+        const deltaY = ((e.clientY - startPos.current.y) / scale) * dampening;
         
-        const newWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, startSize.current.width + deltaX));
-        const newHeight = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, startSize.current.height + deltaY));
+        const newWidth = Math.round(Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, startSize.current.width + deltaX)));
+        const newHeight = Math.round(Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, startSize.current.height + deltaY)));
         
         onResize(id, { width: newWidth, height: newHeight });
       }
