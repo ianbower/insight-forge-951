@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { LayoutDashboard, Briefcase, BookOpen, FolderKanban, Bot, Settings, ChevronLeft, ChevronRight, Search, Users, ClipboardList, FileText } from "lucide-react";
+import { LayoutDashboard, Briefcase, BookOpen, FolderKanban, Bot, ChevronLeft, ChevronRight, Search, Users, ClipboardList } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ interface NavItem {
   icon: React.ElementType;
   label: string;
   path: string;
-  requiredPermission?: "canViewAdmin" | "hasGlobalAccess";
+  requiredPermission?: "hasGlobalAccess";
 }
 
 const navItems: NavItem[] = [
@@ -53,29 +53,17 @@ const navItems: NavItem[] = [
     label: "Team",
     path: "/team",
     requiredPermission: "hasGlobalAccess"
-  },
-  {
-    icon: Settings,
-    label: "Admin",
-    path: "/admin",
-    requiredPermission: "canViewAdmin"
-  },
-  {
-    icon: FileText,
-    label: "Documentation",
-    path: "/documentation"
   }
 ];
 
 export function AppSidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
-  const { canViewAdmin, hasGlobalAccess } = useUserRole();
+  const { hasGlobalAccess } = useUserRole();
 
   // Filter nav items based on permissions
   const filteredNavItems = navItems.filter((item) => {
     if (!item.requiredPermission) return true;
-    if (item.requiredPermission === "canViewAdmin") return canViewAdmin;
     if (item.requiredPermission === "hasGlobalAccess") return hasGlobalAccess;
     return true;
   });

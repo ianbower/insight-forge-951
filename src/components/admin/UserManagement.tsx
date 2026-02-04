@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RoleSelector, RoleBadge } from "./RoleSelector";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
@@ -28,6 +28,13 @@ export function UserManagement() {
   const [editingUser, setEditingUser] = useState<UserWithRole | null>(null);
   const [selectedRole, setSelectedRole] = useState<AppRole>("consultant");
   const [saving, setSaving] = useState(false);
+  
+  // Add user state
+  const [addUserOpen, setAddUserOpen] = useState(false);
+  const [newUserEmail, setNewUserEmail] = useState("");
+  const [newUserName, setNewUserName] = useState("");
+  const [newUserRole, setNewUserRole] = useState<AppRole>("consultant");
+  const [addingUser, setAddingUser] = useState(false);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -107,6 +114,64 @@ export function UserManagement() {
     }
   };
 
+  const handleAddUser = async () => {
+    if (!newUserEmail.trim()) {
+      toast.error("Please enter an email address");
+      return;
+    }
+
+    setAddingUser(true);
+    try {
+      // Generate a temporary password
+      const tempPassword = crypto.randomUUID().slice(0, 16);
+      
+      // Create the user via Supabase Auth admin API (this requires admin privileges)
+      // For now, we'll use the signUp method which will send a confirmation email
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: newUserEmail.trim(),
+        password: tempPassword,
+        options: {
+          emailRedirectTo: window.location.origin,
+          data: {
+            full_name: newUserName.trim() || undefined,
+          },
+        },
+      });
+
+      if (authError) throw authError;
+
+      if (authData.user) {
+        // Assign the selected role
+        const { error: roleError } = await supabase
+          .from("user_roles")
+          .insert({ user_id: authData.user.id, role: newUserRole });
+
+        if (roleError) {
+          console.error("Error assigning role:", roleError);
+          // Don't throw - user is created, just role assignment failed
+        }
+      }
+
+      toast.success(`Invitation sent to ${newUserEmail}. They will receive an email to set their password.`);
+      setAddUserOpen(false);
+      setNewUserEmail("");
+      setNewUserName("");
+      setNewUserRole("consultant");
+      
+      // Refresh the user list after a short delay to allow the profile trigger to create the profile
+      setTimeout(() => fetchUsers(), 1000);
+    } catch (error: any) {
+      console.error("Error adding user:", error);
+      if (error.message?.includes("already registered")) {
+        toast.error("This email is already registered");
+      } else {
+        toast.error("Failed to add user: " + (error.message || "Unknown error"));
+      }
+    } finally {
+      setAddingUser(false);
+    }
+  };
+
   const filteredUsers = users.filter(
     (user) =>
       user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -133,6 +198,61 @@ export function UserManagement() {
             className="pl-9"
           />
         </div>
+        
+        <Dialog open={addUserOpen} onOpenChange={setAddUserOpen}>
+          <DialogTrigger asChild>
+            <Button className="gap-2">
+              <UserPlus className="h-4 w-4" />
+              Add User
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add New User</DialogTitle>
+              <DialogDescription>
+                Invite a new user to the platform. They will receive an email to set their password.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email Address *</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="user@company.com"
+                  value={newUserEmail}
+                  onChange={(e) => setNewUserEmail(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="name">Full Name</Label>
+                <Input
+                  id="name"
+                  placeholder="John Doe"
+                  value={newUserName}
+                  onChange={(e) => setNewUserName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Role</Label>
+                <RoleSelector
+                  value={newUserRole}
+                  onChange={setNewUserRole}
+                  canAssignSuperAdmin={isSuperAdmin}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setAddUserOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleAddUser} disabled={addingUser || !newUserEmail.trim()}>
+                {addingUser && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Send Invitation
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {loading ? (
