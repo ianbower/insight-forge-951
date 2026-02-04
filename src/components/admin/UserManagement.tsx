@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { Search, UserPlus, Loader2 } from "lucide-react";
+import { BulkUserImport } from "./BulkUserImport";
 
 interface UserWithRole {
   id: string;
@@ -199,14 +200,17 @@ export function UserManagement() {
           />
         </div>
         
-        <Dialog open={addUserOpen} onOpenChange={setAddUserOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <UserPlus className="h-4 w-4" />
-              Add User
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
+        <div className="flex items-center gap-2">
+          <BulkUserImport onComplete={fetchUsers} isSuperAdmin={isSuperAdmin} />
+          
+          <Dialog open={addUserOpen} onOpenChange={setAddUserOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2">
+                <UserPlus className="h-4 w-4" />
+                Add User
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
             <DialogHeader>
               <DialogTitle>Add New User</DialogTitle>
               <DialogDescription>
@@ -253,6 +257,7 @@ export function UserManagement() {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {loading ? (
