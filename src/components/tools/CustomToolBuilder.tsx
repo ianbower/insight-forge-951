@@ -1,12 +1,14 @@
 import { useState, useRef } from "react";
-import { ArrowLeft, Upload, Image, Save, Globe, Lock, FileText, ChevronLeft, ChevronRight, Users, Sparkles, X } from "lucide-react";
+import { ArrowLeft, Upload, Image, Save, Globe, Lock, FileText, ChevronLeft, ChevronRight, Users, Sparkles, X, Pencil } from "lucide-react";
 import { AICanvasDesigner } from "./AICanvasDesigner";
+import { CanvasSectionEditor, type CanvasSection } from "./CanvasSectionEditor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -25,6 +27,7 @@ interface CustomToolBuilderProps {
     category: string;
     canvas_image_url: string | null;
     is_public: boolean;
+    sections_json?: CanvasSection[] | null;
   }) => void;
   existingTool?: {
     id: string;
@@ -33,6 +36,7 @@ interface CustomToolBuilderProps {
     category: string;
     canvas_image_url: string | null;
     is_public: boolean;
+    sections_json?: CanvasSection[] | null;
   };
 }
 
@@ -47,12 +51,14 @@ export function CustomToolBuilder({ onClose, onSave, existingTool }: CustomToolB
     existingTool?.is_public ? "public" : "private"
   );
   const [imageUrl, setImageUrl] = useState<string | null>(existingTool?.canvas_image_url || null);
+  const [sections, setSections] = useState<CanvasSection[]>(existingTool?.sections_json || []);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [pdfPages, setPdfPages] = useState<string[]>([]);
   const [selectedPage, setSelectedPage] = useState(0);
   const [showPageSelector, setShowPageSelector] = useState(false);
   const [showAIDesigner, setShowAIDesigner] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>("details");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleApplyAIDesign = (design: { name: string; description: string; category: string }) => {
@@ -228,6 +234,7 @@ export function CustomToolBuilder({ onClose, onSave, existingTool }: CustomToolB
         description: description.trim() || null,
         category,
         canvas_image_url: imageUrl,
+        sections_json: sections.length > 0 ? JSON.parse(JSON.stringify(sections)) : null,
         visibility,
         is_public: visibility === "public",
         owner_id: user.id,
@@ -250,7 +257,7 @@ export function CustomToolBuilder({ onClose, onSave, existingTool }: CustomToolB
       } else {
         const { data, error } = await supabase
           .from("custom_tools")
-          .insert(toolData)
+          .insert([toolData])
           .select()
           .single();
 
@@ -279,26 +286,31 @@ export function CustomToolBuilder({ onClose, onSave, existingTool }: CustomToolB
             {existingTool ? "Edit Custom Tool" : "Create Custom Tool"}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Design your own canvas with a custom background image or PDF
+            Design your own interactive canvas with sections for sticky notes
           </p>
         </div>
-        <Button
-          variant={showAIDesigner ? "secondary" : "outline"}
-          onClick={() => setShowAIDesigner(!showAIDesigner)}
-          className="ml-auto"
-        >
-          {showAIDesigner ? (
-            <>
-              <X className="h-4 w-4 mr-2" />
-              Close AI
-            </>
-          ) : (
-            <>
-              <Sparkles className="h-4 w-4 mr-2" />
-              AI Designer
-            </>
-          )}
-        </Button>
+        <div className="ml-auto flex gap-2">
+          <Button
+            variant={showAIDesigner ? "secondary" : "outline"}
+            onClick={() => setShowAIDesigner(!showAIDesigner)}
+          >
+            {showAIDesigner ? (
+              <>
+                <X className="h-4 w-4 mr-2" />
+                Close AI
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4 mr-2" />
+                AI Designer
+              </>
+            )}
+          </Button>
+          <Button onClick={handleSave} disabled={saving}>
+            <Save className="h-4 w-4 mr-2" />
+            {saving ? "Saving..." : existingTool ? "Update" : "Create"}
+          </Button>
+        </div>
       </div>
 
       {showAIDesigner ? (
@@ -306,204 +318,236 @@ export function CustomToolBuilder({ onClose, onSave, existingTool }: CustomToolB
           <AICanvasDesigner onApplyDesign={handleApplyAIDesign} />
         </div>
       ) : (
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Form Section */}
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Tool Name *</Label>
-            <Input
-              id="name"
-              placeholder="e.g., Customer Journey Map"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList className="grid w-full grid-cols-3 max-w-md">
+          <TabsTrigger value="details">1. Details</TabsTrigger>
+          <TabsTrigger value="background">2. Background</TabsTrigger>
+          <TabsTrigger value="sections">3. Sections</TabsTrigger>
+        </TabsList>
 
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              placeholder="Describe what this tool is used for..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="category">Category</Label>
-            <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Visibility</Label>
-            <RadioGroup value={visibility} onValueChange={(v) => setVisibility(v as typeof visibility)}>
-              <div className="flex items-center space-x-2 rounded-lg border border-border p-3">
-                <RadioGroupItem value="private" id="private" />
-                <Label htmlFor="private" className="flex-1 cursor-pointer">
-                  <div className="flex items-center gap-2">
-                    <Lock className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-medium">Private</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground">Only visible to you</p>
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2 rounded-lg border border-border p-3">
-                <RadioGroupItem value="team" id="team" />
-                <Label htmlFor="team" className="flex-1 cursor-pointer">
-                  <div className="flex items-center gap-2">
-                    <Users className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-medium">Team</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground">Visible to all authenticated users</p>
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2 rounded-lg border border-border p-3">
-                <RadioGroupItem value="public" id="public" />
-                <Label htmlFor="public" className="flex-1 cursor-pointer">
-                  <div className="flex items-center gap-2">
-                    <Globe className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-medium">Public</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground">Anyone on the platform can use this tool</p>
-                </Label>
-              </div>
-            </RadioGroup>
-          </div>
-
-          <Button onClick={handleSave} disabled={saving} className="w-full">
-            <Save className="h-4 w-4 mr-2" />
-            {saving ? "Saving..." : existingTool ? "Update Tool" : "Create Tool"}
-          </Button>
-        </div>
-
-        {/* Image/PDF Upload Section */}
-        <div className="space-y-4">
-          <Label>Canvas Background (Image or PDF)</Label>
-          
-          {showPageSelector && pdfPages.length > 1 ? (
-            // PDF Page Selector
-            <div className="space-y-4">
-              <div className="relative min-h-[400px] rounded-xl border border-border bg-muted/30 flex items-center justify-center overflow-hidden">
-                <img
-                  src={pdfPages[selectedPage]}
-                  alt={`Page ${selectedPage + 1}`}
-                  className="max-w-full max-h-[400px] object-contain"
-                />
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setSelectedPage((p) => Math.max(0, p - 1))}
-                  disabled={selectedPage === 0}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                
-                <span className="text-sm text-muted-foreground">
-                  Page {selectedPage + 1} of {pdfPages.length}
-                </span>
-                
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setSelectedPage((p) => Math.min(pdfPages.length - 1, p + 1))}
-                  disabled={selectedPage === pdfPages.length - 1}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-
-              <div className="flex gap-2">
-                <Button onClick={handlePageSelect} disabled={uploading} className="flex-1">
-                  {uploading ? "Uploading..." : "Use This Page"}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setPdfPages([]);
-                    setShowPageSelector(false);
-                  }}
-                >
-                  Cancel
-                </Button>
-              </div>
+        {/* Tab 1: Details */}
+        <TabsContent value="details" className="space-y-4">
+          <div className="max-w-2xl space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Tool Name *</Label>
+              <Input
+                id="name"
+                placeholder="e.g., Customer Journey Map"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
             </div>
-          ) : (
-            // File Upload Area
-            <>
-              <div
-                className="relative min-h-[400px] rounded-xl border-2 border-dashed border-border bg-muted/30 flex items-center justify-center cursor-pointer hover:border-primary/50 hover:bg-muted/50 transition-colors overflow-hidden"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                {imageUrl ? (
+
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                placeholder="Describe what this tool is used for..."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="category">Category</Label>
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Visibility</Label>
+              <RadioGroup value={visibility} onValueChange={(v) => setVisibility(v as typeof visibility)}>
+                <div className="flex items-center space-x-2 rounded-lg border border-border p-3">
+                  <RadioGroupItem value="private" id="private" />
+                  <Label htmlFor="private" className="flex-1 cursor-pointer">
+                    <div className="flex items-center gap-2">
+                      <Lock className="h-4 w-4 text-muted-foreground" />
+                      <span className="font-medium">Private</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">Only visible to you</p>
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2 rounded-lg border border-border p-3">
+                  <RadioGroupItem value="team" id="team" />
+                  <Label htmlFor="team" className="flex-1 cursor-pointer">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                      <span className="font-medium">Team</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">Visible to all authenticated users</p>
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2 rounded-lg border border-border p-3">
+                  <RadioGroupItem value="public" id="public" />
+                  <Label htmlFor="public" className="flex-1 cursor-pointer">
+                    <div className="flex items-center gap-2">
+                      <Globe className="h-4 w-4 text-muted-foreground" />
+                      <span className="font-medium">Public</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">Anyone on the platform can use this tool</p>
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            <Button onClick={() => setActiveTab("background")} className="w-full">
+              Continue to Background
+            </Button>
+          </div>
+        </TabsContent>
+
+        {/* Tab 2: Background */}
+        <TabsContent value="background" className="space-y-4">
+          <div className="max-w-2xl space-y-4">
+            <Label>Canvas Background (Image or PDF)</Label>
+            
+            {showPageSelector && pdfPages.length > 1 ? (
+              // PDF Page Selector
+              <div className="space-y-4">
+                <div className="relative min-h-[400px] rounded-xl border border-border bg-muted/30 flex items-center justify-center overflow-hidden">
                   <img
-                    src={imageUrl}
-                    alt="Canvas background"
+                    src={pdfPages[selectedPage]}
+                    alt={`Page ${selectedPage + 1}`}
                     className="max-w-full max-h-[400px] object-contain"
                   />
-                ) : (
-                  <div className="text-center p-8">
-                    {uploading ? (
-                      <div className="flex flex-col items-center gap-2">
-                        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                        <p className="text-muted-foreground">Processing...</p>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-                          <div className="flex -space-x-2">
-                            <Image className="h-6 w-6 text-muted-foreground" />
-                            <FileText className="h-6 w-6 text-muted-foreground" />
-                          </div>
-                        </div>
-                        <p className="font-medium">Upload Canvas Background</p>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          Click to upload an image or PDF
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-2">
-                          PNG, JPG, SVG (max 5MB) or PDF (max 10MB)
-                        </p>
-                      </>
-                    )}
-                  </div>
-                )}
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setSelectedPage((p) => Math.max(0, p - 1))}
+                    disabled={selectedPage === 0}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  
+                  <span className="text-sm text-muted-foreground">
+                    Page {selectedPage + 1} of {pdfPages.length}
+                  </span>
+                  
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setSelectedPage((p) => Math.min(pdfPages.length - 1, p + 1))}
+                    disabled={selectedPage === pdfPages.length - 1}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button onClick={handlePageSelect} disabled={uploading} className="flex-1">
+                    {uploading ? "Uploading..." : "Use This Page"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setPdfPages([]);
+                      setShowPageSelector(false);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
               </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*,.pdf,application/pdf"
-                className="hidden"
-                onChange={handleFileUpload}
-              />
-              {imageUrl && (
-                <Button
-                  variant="outline"
-                  size="sm"
+            ) : (
+              // File Upload Area
+              <>
+                <div
+                  className="relative min-h-[400px] rounded-xl border-2 border-dashed border-border bg-muted/30 flex items-center justify-center cursor-pointer hover:border-primary/50 hover:bg-muted/50 transition-colors overflow-hidden"
                   onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
                 >
-                  <Upload className="h-4 w-4 mr-2" />
-                  Replace Background
-                </Button>
-              )}
-            </>
-          )}
-        </div>
-      </div>
+                  {imageUrl ? (
+                    <img
+                      src={imageUrl}
+                      alt="Canvas background"
+                      className="max-w-full max-h-[400px] object-contain"
+                    />
+                  ) : (
+                    <div className="text-center p-8">
+                      {uploading ? (
+                        <div className="flex flex-col items-center gap-2">
+                          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                          <p className="text-muted-foreground">Processing...</p>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+                            <div className="flex -space-x-2">
+                              <Image className="h-6 w-6 text-muted-foreground" />
+                              <FileText className="h-6 w-6 text-muted-foreground" />
+                            </div>
+                          </div>
+                          <p className="font-medium">Upload Canvas Background</p>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Click to upload an image or PDF
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-2">
+                            PNG, JPG, SVG (max 5MB) or PDF (max 10MB)
+                          </p>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,.pdf,application/pdf"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                />
+                <div className="flex gap-2">
+                  {imageUrl && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploading}
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      Replace Background
+                    </Button>
+                  )}
+                  <Button 
+                    onClick={() => setActiveTab("sections")} 
+                    className="ml-auto"
+                    disabled={!imageUrl}
+                  >
+                    <Pencil className="h-4 w-4 mr-2" />
+                    {imageUrl ? "Continue to Section Editor" : "Upload an image first"}
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* Tab 3: Sections */}
+        <TabsContent value="sections" className="space-y-4">
+          <div className="text-sm text-muted-foreground mb-4">
+            Draw interactive sections on your canvas where users can add sticky notes. 
+            Use the toolbar to draw shapes or click "AI Detect" to automatically identify sections.
+          </div>
+          <CanvasSectionEditor
+            backgroundImageUrl={imageUrl}
+            sections={sections}
+            onSectionsChange={setSections}
+          />
+        </TabsContent>
+      </Tabs>
       )}
     </div>
   );
