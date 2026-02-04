@@ -46,6 +46,7 @@ import { AssessmentLaunch } from "@/components/assessments/AssessmentLaunch";
 import { AssessmentResults } from "@/components/assessments/AssessmentResults";
 import { BenchmarkManager } from "@/components/assessments/BenchmarkManager";
 import { MyAssessments } from "@/components/assessments/MyAssessments";
+import { ActiveAssessments } from "@/components/assessments/ActiveAssessments";
 
 interface AssessmentTemplate {
   id: string;
@@ -409,74 +410,18 @@ export default function Assessments() {
 
         {/* Active Assessments Tab */}
         <TabsContent value="active" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {instances.filter((i) => i.status !== "archived").map((instance) => (
-              <Card key={instance.id} className="border-border">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <Badge variant="outline" className={cn("capitalize", statusColors[instance.status])}>
-                      {instance.status}
-                    </Badge>
-                    <div className="flex gap-1">
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-8 w-8"
-                        onClick={() => {
-                          setSelectedInstance(instance);
-                          setResultsDialogOpen(true);
-                        }}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-8 w-8"
-                        onClick={() => {
-                          setSelectedInstance(instance);
-                          setManageDialogOpen(true);
-                        }}
-                        title="Manage recipients"
-                      >
-                        <Send className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                  <CardTitle className="text-lg mt-2">{instance.name}</CardTitle>
-                  {instance.assessment_template && (
-                    <CardDescription>
-                      Based on: {instance.assessment_template.name}
-                    </CardDescription>
-                  )}
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <Calendar className="h-3.5 w-3.5" />
-                      <span>{new Date(instance.created_at).toLocaleDateString()}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Users className="h-3.5 w-3.5" />
-                      <span>0 responses</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-
-            {instances.filter((i) => i.status !== "archived").length === 0 && (
-              <Card className="col-span-full border-dashed">
-                <CardContent className="py-12 text-center">
-                  <Target className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-                  <p className="text-lg font-medium text-muted-foreground">No active assessments</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Launch an assessment from a template to get started
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-          </div>
+          <ActiveAssessments
+            instances={instances}
+            onViewResults={(instance) => {
+              setSelectedInstance(instance);
+              setResultsDialogOpen(true);
+            }}
+            onManageRecipients={(instance) => {
+              setSelectedInstance(instance);
+              setManageDialogOpen(true);
+            }}
+            onRefresh={fetchData}
+          />
         </TabsContent>
 
         {/* Results Tab */}
