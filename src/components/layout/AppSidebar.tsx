@@ -1,6 +1,5 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { LayoutDashboard, Briefcase, BookOpen, FolderKanban, Bot, Settings, ChevronLeft, ChevronRight, Search, Users, ClipboardList, FileText } from "lucide-react";
-import axetLogo from "@/assets/axet-consult-logo.png";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";

@@ -194,65 +194,8 @@ export default function Projects() {
       )
   );
 
-  // Mock data if no real data exists
-  const displayClients =
-    filteredClients.length > 0
-      ? filteredClients
-      : [
-          {
-            id: "1",
-            name: "Acme Corporation",
-            industry: "Technology",
-            projects: [
-              {
-                id: "p1",
-                name: "Digital Transformation Strategy",
-                status: "Active",
-                progress_percentage: 65,
-                start_date: "2024-01-15",
-                end_date: "2024-06-30",
-              },
-              {
-                id: "p2",
-                name: "Operating Model Redesign",
-                status: "Proposed",
-                progress_percentage: 0,
-                start_date: null,
-                end_date: null,
-              },
-            ],
-          },
-          {
-            id: "2",
-            name: "Global Finance Inc",
-            industry: "Financial Services",
-            projects: [
-              {
-                id: "p3",
-                name: "Post-Merger Integration",
-                status: "Active",
-                progress_percentage: 45,
-                start_date: "2024-02-01",
-                end_date: "2024-08-31",
-              },
-            ],
-          },
-          {
-            id: "3",
-            name: "HealthCare Plus",
-            industry: "Healthcare",
-            projects: [
-              {
-                id: "p4",
-                name: "Cost Optimization Program",
-                status: "Complete",
-                progress_percentage: 100,
-                start_date: "2023-06-01",
-                end_date: "2023-12-15",
-              },
-            ],
-          },
-        ];
+  // Use actual filtered data (no mock fallback)
+  const displayClients = filteredClients;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -305,8 +248,16 @@ export default function Projects() {
             Loading projects...
           </div>
         ) : displayClients.length === 0 ? (
-          <div className="p-8 text-center text-muted-foreground">
-            No projects found. Create your first engagement to get started.
+          <div className="p-12 text-center">
+            <FolderOpen className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+            <h3 className="text-lg font-medium text-foreground mb-2">No projects yet</h3>
+            <p className="text-muted-foreground mb-4 max-w-sm mx-auto">
+              Create your first client engagement to get started with aXet consult.
+            </p>
+            <Button onClick={() => setWizardOpen(true)} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Create Your First Project
+            </Button>
           </div>
         ) : (
           <div className="divide-y divide-border">
