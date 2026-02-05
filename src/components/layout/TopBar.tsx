@@ -1,6 +1,8 @@
 import { Search, Bell, Plus, User, LogOut, Settings, FileText, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,9 +20,11 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
+import { formatDistanceToNow } from "date-fns";
 
 export function TopBar() {
   const [newEngagementOpen, setNewEngagementOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const { canViewAdmin, hasGlobalAccess } = useUserRole();
@@ -40,9 +44,39 @@ export function TopBar() {
     enabled: !!user,
   });
 
+  // Fetch recent activities for notifications
+  const { data: notifications = [], refetch: refetchNotifications } = useQuery({
+    queryKey: ["notifications", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from("activity_feed")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(10);
+      
+      if (error) {
+        console.error("Error fetching notifications:", error);
+        return [];
+      }
+      return data || [];
+    },
+    enabled: !!user,
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
+  const unreadCount = notifications.length;
+
   const handleSignOut = async () => {
     await signOut();
     navigate("/auth");
+  };
+
+  const handleNotificationClick = (notification: any) => {
+    if (notification.project_id) {
+      navigate(`/projects/${notification.project_id}`);
+      setNotificationsOpen(false);
+    }
   };
 
   const userEmail = user?.email || "user@example.com";
@@ -84,12 +118,82 @@ export function TopBar() {
         </Dialog>
 
         {/* Notifications */}
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="h-5 w-5 text-muted-foreground" />
-          <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[10px] font-bold text-accent-foreground">
-            3
-          </span>
-        </Button>
+        <Popover open={notificationsOpen} onOpenChange={setNotificationsOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="icon" className="relative">
+              <Bell className="h-5 w-5 text-muted-foreground" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[10px] font-bold text-accent-foreground">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80 p-0" align="end">
+            <div className="flex items-center justify-between border-b border-border px-4 py-3">
+              <h4 className="font-semibold text-sm">Notifications</h4>
+              {unreadCount > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  {unreadCount} recent
+                </span>
+              )}
+            </div>
+            <ScrollArea className="h-[300px]">
+              {notifications.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <Bell className="h-8 w-8 text-muted-foreground/50 mb-2" />
+                  <p className="text-sm text-muted-foreground">No notifications yet</p>
+                  <p className="text-xs text-muted-foreground/70 mt-1">
+                    Activity will appear here
+                  </p>
+                </div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {notifications.map((notification: any) => (
+                    <button
+                      key={notification.id}
+                      onClick={() => handleNotificationClick(notification)}
+                      className="w-full px-4 py-3 text-left hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                          <User className="h-4 w-4 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">
+                            {notification.user_name}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {notification.action}
+                            {notification.target && ` - ${notification.target}`}
+                          </p>
+                          <p className="text-xs text-muted-foreground/70 mt-1">
+                            {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+            {notifications.length > 0 && (
+              <div className="border-t border-border p-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-xs"
+                  onClick={() => {
+                    navigate("/");
+                    setNotificationsOpen(false);
+                  }}
+                >
+                  View all activity
+                </Button>
+              </div>
+            )}
+          </PopoverContent>
+        </Popover>
 
         {/* Profile */}
         <DropdownMenu>
