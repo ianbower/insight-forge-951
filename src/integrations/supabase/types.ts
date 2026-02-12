@@ -717,6 +717,42 @@ export type Database = {
         }
         Relationships: []
       }
+      llm_config: {
+        Row: {
+          api_key_secret_name: string | null
+          created_at: string
+          endpoint_url: string
+          id: string
+          is_active: boolean
+          label: string
+          model: string | null
+          provider: string
+          updated_at: string
+        }
+        Insert: {
+          api_key_secret_name?: string | null
+          created_at?: string
+          endpoint_url?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          model?: string | null
+          provider?: string
+          updated_at?: string
+        }
+        Update: {
+          api_key_secret_name?: string | null
+          created_at?: string
+          endpoint_url?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          model?: string | null
+          provider?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
