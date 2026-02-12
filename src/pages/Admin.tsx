@@ -1,4 +1,4 @@
-import { Settings, Users, Database, Shield, Building2 } from "lucide-react";
+import { Settings, Users, Database, Shield, Building2, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUserRole } from "@/hooks/useUserRole";
 import { UserManagement } from "@/components/admin/UserManagement";
 import { AccountAccessManager } from "@/components/admin/AccountAccessManager";
+import { LLMSettings } from "@/components/admin/LLMSettings";
 import { RoleBadge } from "@/components/admin/RoleSelector";
 import { Navigate } from "react-router-dom";
 
@@ -62,6 +63,12 @@ export default function Admin() {
             <Shield className="h-4 w-4" />
             Security
           </TabsTrigger>
+          {canManageUsers && (
+            <TabsTrigger value="llm" className="gap-2">
+              <Brain className="h-4 w-4" />
+              AI / LLM
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {canManageUsers && (
@@ -172,6 +179,12 @@ export default function Admin() {
             </div>
           </div>
         </TabsContent>
+
+        {canManageUsers && (
+          <TabsContent value="llm" className="space-y-6">
+            <LLMSettings />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

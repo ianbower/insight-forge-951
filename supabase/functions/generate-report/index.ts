@@ -6,133 +6,83 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Axet LLM endpoint - NTT Data's custom LLM
-const AXET_URL = "https://axet.nttdata.com/flows/cloud/hackthon-be/v1/chat/completions";
+interface LLMConfig { provider: string; model: string | null; endpoint_url: string; api_key_secret_name: string | null; }
+async function getActiveLLMConfig(): Promise<LLMConfig> {
+  const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  const { data } = await sb.from("llm_config").select("provider,model,endpoint_url,api_key_secret_name").eq("is_active", true).limit(1).single();
+  if (!data) return { provider: "axet", model: null, endpoint_url: "https://axet.nttdata.com/flows/cloud/hackthon-be/v1/chat/completions", api_key_secret_name: null };
+  return data as LLMConfig;
+}
+async function callLLM(config: LLMConfig, messages: any[], stream = false): Promise<Response> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const body: any = { messages, stream };
+  if (config.provider === "lovable_ai") { const key = Deno.env.get("LOVABLE_API_KEY"); if (!key) throw new Error("LOVABLE_API_KEY not configured"); headers["Authorization"] = `Bearer ${key}`; if (config.model) body.model = config.model; }
+  else if (config.provider === "custom" && config.api_key_secret_name) { const key = Deno.env.get(config.api_key_secret_name); if (key) headers["Authorization"] = `Bearer ${key}`; if (config.model) body.model = config.model; }
+  return fetch(config.endpoint_url, { method: "POST", headers, body: JSON.stringify(body) });
+}
 
 async function validateAuth(req: Request): Promise<{ userId: string } | null> {
   const authHeader = req.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
-    return null;
-  }
-
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_ANON_KEY")!,
-    { global: { headers: { Authorization: authHeader } } }
-  );
-
+  if (!authHeader?.startsWith("Bearer ")) return null;
+  const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: authHeader } } });
   const token = authHeader.replace("Bearer ", "");
   const { data, error } = await supabase.auth.getUser(token);
-  if (error || !data?.user) {
-    return null;
-  }
-
+  if (error || !data?.user) return null;
   return { userId: data.user.id };
 }
 
-interface TaskData {
-  title: string;
-  description: string | null;
-  status: string;
-  deliverables: any;
-  notes: any;
-}
-
-interface ToolData {
-  toolName: string;
-  content: any;
-}
-
-interface BrandingConfig {
-  primaryColor: string;
-  secondaryColor: string;
-  accentColor: string;
-  headingFont: string;
-  bodyFont: string;
-  styleGuideNotes: string;
-}
-
-interface RequestBody {
-  projectId: string;
-  projectName: string;
-  clientName: string;
-  tasks: TaskData[];
-  toolData: ToolData[];
-  branding: BrandingConfig;
-}
+interface TaskData { title: string; description: string | null; status: string; deliverables: any; notes: any; }
+interface ToolData { toolName: string; content: any; }
+interface BrandingConfig { primaryColor: string; secondaryColor: string; accentColor: string; headingFont: string; bodyFont: string; styleGuideNotes: string; }
+interface RequestBody { projectId: string; projectName: string; clientName: string; tasks: TaskData[]; toolData: ToolData[]; branding: BrandingConfig; }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    // Validate authentication
     const auth = await validateAuth(req);
-    if (!auth) {
-      return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    if (!auth) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     const body: RequestBody = await req.json();
     const { projectName, clientName, tasks, toolData, branding } = body;
 
-    console.log("Generating report for project:", projectName);
-    console.log("Tasks count:", tasks.length);
-    console.log("Tool data count:", toolData.length);
+    const tasksContext = tasks.map((t, i) => {
+      let taskStr = `Step ${i + 1}: ${t.title} (Status: ${t.status})`;
+      if (t.description) taskStr += `\nDescription: ${t.description}`;
+      if (t.deliverables && Array.isArray(t.deliverables)) {
+        const dels = t.deliverables.map((d: any) => `- ${d.text || d.name || d} ${d.completed ? "✓" : ""}`).join("\n");
+        if (dels) taskStr += `\nDeliverables:\n${dels}`;
+      }
+      if (t.notes && Array.isArray(t.notes)) {
+        const notes = t.notes.map((n: any) => n.text || n).join("; ");
+        if (notes) taskStr += `\nNotes: ${notes}`;
+      }
+      return taskStr;
+    }).join("\n\n");
 
-    // Build context from project data
-    const tasksContext = tasks
-      .map((t, i) => {
-        let taskStr = `Step ${i + 1}: ${t.title} (Status: ${t.status})`;
-        if (t.description) taskStr += `\nDescription: ${t.description}`;
-        if (t.deliverables && Array.isArray(t.deliverables)) {
-          const dels = t.deliverables
-            .map((d: any) => `- ${d.text || d.name || d} ${d.completed ? "✓" : ""}`)
-            .join("\n");
-          if (dels) taskStr += `\nDeliverables:\n${dels}`;
+    const toolsContext = toolData.filter((td) => td.toolName && td.content).map((td) => {
+      let toolStr = `Tool: ${td.toolName}`;
+      if (typeof td.content === "object") {
+        const content = td.content;
+        if (content.strengths || content.weaknesses || content.opportunities || content.threats) {
+          toolStr += "\nSWOT Analysis:";
+          if (content.strengths?.length) toolStr += `\n  Strengths: ${content.strengths.map((n: any) => n.content).join(", ")}`;
+          if (content.weaknesses?.length) toolStr += `\n  Weaknesses: ${content.weaknesses.map((n: any) => n.content).join(", ")}`;
+          if (content.opportunities?.length) toolStr += `\n  Opportunities: ${content.opportunities.map((n: any) => n.content).join(", ")}`;
+          if (content.threats?.length) toolStr += `\n  Threats: ${content.threats.map((n: any) => n.content).join(", ")}`;
+        } else {
+          Object.entries(content).forEach(([key, value]) => {
+            if (Array.isArray(value) && value.length > 0) {
+              const items = value.map((v: any) => v.content || v.title || JSON.stringify(v)).join(", ");
+              toolStr += `\n  ${key}: ${items}`;
+            }
+          });
         }
-        if (t.notes && Array.isArray(t.notes)) {
-          const notes = t.notes.map((n: any) => n.text || n).join("; ");
-          if (notes) taskStr += `\nNotes: ${notes}`;
-        }
-        return taskStr;
-      })
-      .join("\n\n");
+      }
+      return toolStr;
+    }).join("\n\n");
 
-    const toolsContext = toolData
-      .filter((td) => td.toolName && td.content)
-      .map((td) => {
-        let toolStr = `Tool: ${td.toolName}`;
-        if (typeof td.content === "object") {
-          // Format tool content based on known structures
-          const content = td.content;
-          if (content.strengths || content.weaknesses || content.opportunities || content.threats) {
-            // SWOT
-            toolStr += "\nSWOT Analysis:";
-            if (content.strengths?.length) toolStr += `\n  Strengths: ${content.strengths.map((n: any) => n.content).join(", ")}`;
-            if (content.weaknesses?.length) toolStr += `\n  Weaknesses: ${content.weaknesses.map((n: any) => n.content).join(", ")}`;
-            if (content.opportunities?.length) toolStr += `\n  Opportunities: ${content.opportunities.map((n: any) => n.content).join(", ")}`;
-            if (content.threats?.length) toolStr += `\n  Threats: ${content.threats.map((n: any) => n.content).join(", ")}`;
-          } else {
-            // Generic: stringify sections
-            Object.entries(content).forEach(([key, value]) => {
-              if (Array.isArray(value) && value.length > 0) {
-                const items = value.map((v: any) => v.content || v.title || JSON.stringify(v)).join(", ");
-                toolStr += `\n  ${key}: ${items}`;
-              }
-            });
-          }
-        }
-        return toolStr;
-      })
-      .join("\n\n");
-
-    const styleNotes = branding.styleGuideNotes
-      ? `\n\nStyle/Tone Guidelines: ${branding.styleGuideNotes}`
-      : "";
+    const styleNotes = branding.styleGuideNotes ? `\n\nStyle/Tone Guidelines: ${branding.styleGuideNotes}` : "";
 
     const systemPrompt = `You are an expert consulting report writer for a top-tier strategy firm like McKinsey, BCG, or Bain. Generate a comprehensive, professional consulting deliverable report.
 
@@ -157,91 +107,43 @@ IMPORTANT: You must respond with a JSON object in this exact format:
 }
 
 Create the following sections:
-1. Executive Summary - High-level overview of the engagement, key findings, and critical recommendations
-2. Methodology - How the work was conducted, frameworks used
-3. Key Findings - Detailed analysis from each workflow step
-4. Strategic Analysis - Insights from any tools/frameworks used (SWOT, Business Model Canvas, etc.)
-5. Recommendations - Actionable next steps prioritized by impact
-6. Implementation Roadmap - High-level timeline for executing recommendations
-7. Appendix - Supporting details, data sources, and methodology notes${styleNotes}`;
+1. Executive Summary
+2. Methodology
+3. Key Findings
+4. Strategic Analysis
+5. Recommendations
+6. Implementation Roadmap
+7. Appendix${styleNotes}`;
 
-    const userPrompt = `Generate a comprehensive consulting report for:
+    const userPrompt = `Generate a comprehensive consulting report for:\n\nProject: ${projectName}\nClient: ${clientName}\n\nWORKFLOW STEPS:\n${tasksContext || "No workflow steps defined yet."}\n\nSTRATEGIC ANALYSIS (from consulting tools):\n${toolsContext || "No tool analysis data available."}\n\nGenerate a professional consulting report with all required sections. Respond ONLY with the JSON object.`;
 
-Project: ${projectName}
-Client: ${clientName}
+    const llmConfig = await getActiveLLMConfig();
+    console.log(`Calling LLM (${llmConfig.provider}) for report generation...`);
 
-WORKFLOW STEPS:
-${tasksContext || "No workflow steps defined yet."}
-
-STRATEGIC ANALYSIS (from consulting tools):
-${toolsContext || "No tool analysis data available."}
-
-Generate a professional consulting report with all required sections. Make it actionable and insightful.
-Respond ONLY with the JSON object, no additional text.`;
-
-    console.log("Calling Axet LLM for report generation...");
-
-    const response = await fetch(AXET_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        stream: false,
-      }),
-    });
+    const response = await callLLM(llmConfig, [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }], false);
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Axet error:", response.status, errorText);
-      
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again later." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      
-      throw new Error(`Axet error: ${response.status}`);
+      console.error("LLM error:", response.status, errorText);
+      if (response.status === 429) return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again later." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      throw new Error(`LLM error: ${response.status}`);
     }
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || "";
 
-    console.log("Axet report response received");
-
-    // Try to parse the JSON from the response
     let reportData;
     try {
-      // Try to extract JSON from the content
       const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        reportData = JSON.parse(jsonMatch[0]);
-      } else {
-        reportData = JSON.parse(content);
-      }
+      reportData = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(content);
     } catch {
       console.error("Failed to parse report JSON:", content);
       throw new Error("Invalid AI response format");
     }
 
-    console.log("Report sections generated:", reportData.sections?.length);
-
-    return new Response(JSON.stringify(reportData), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify(reportData), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error) {
     console.error("Error generating report:", error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
