@@ -1044,6 +1044,56 @@ export type Database = {
           },
         ]
       }
+      project_reports: {
+        Row: {
+          blocks_json: Json | null
+          branding_json: Json | null
+          created_at: string
+          created_by: string | null
+          editor_mode: string
+          id: string
+          images_json: Json | null
+          project_id: string
+          sections_json: Json | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          blocks_json?: Json | null
+          branding_json?: Json | null
+          created_at?: string
+          created_by?: string | null
+          editor_mode?: string
+          id?: string
+          images_json?: Json | null
+          project_id: string
+          sections_json?: Json | null
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          blocks_json?: Json | null
+          branding_json?: Json | null
+          created_at?: string
+          created_by?: string | null
+          editor_mode?: string
+          id?: string
+          images_json?: Json | null
+          project_id?: string
+          sections_json?: Json | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_reports_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_risks: {
         Row: {
           category: string
