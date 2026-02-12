@@ -11,16 +11,20 @@ import {
   Sparkles,
   History,
   Plus,
-  ChevronRight
+  ChevronRight,
+  Globe,
+  ExternalLink
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import ReactMarkdown from "react-markdown";
 
 interface ResearchPersona {
   id: string;
@@ -140,6 +144,7 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
+  citations?: string[];
 }
 
 interface Conversation {
@@ -150,6 +155,8 @@ interface Conversation {
   createdAt: Date;
 }
 
+const SEARCH_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/web-search`;
+
 export default function Research() {
   const { toast } = useToast();
   const [selectedPersona, setSelectedPersona] = useState<ResearchPersona | null>(null);
@@ -158,6 +165,7 @@ export default function Research() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [webSearchEnabled, setWebSearchEnabled] = useState(true); // On by default for Research
 
   const startNewConversation = (persona: ResearchPersona) => {
     const newConversation: Conversation = {
@@ -196,24 +204,74 @@ export default function Research() {
     setConversations(prev => prev.map(c => c.id === updatedConversation.id ? updatedConversation : c));
 
     try {
-      const response = await supabase.functions.invoke('research-ai', {
-        body: {
-          messages: updatedConversation.messages.map(m => ({
-            role: m.role,
-            content: m.content
-          })),
-          systemPrompt: selectedPersona.systemPrompt,
-          personaName: selectedPersona.name
-        }
-      });
+      // If web search is enabled, use Perplexity first
+      let searchContent = "";
+      let citations: string[] = [];
 
-      if (response.error) throw new Error(response.error.message);
+      if (webSearchEnabled) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const accessToken = session?.access_token;
+          if (accessToken) {
+            const searchResp = await fetch(SEARCH_URL, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${accessToken}`,
+              },
+              body: JSON.stringify({
+                query: text,
+                options: {
+                  model: "sonar-pro",
+                  systemPrompt: selectedPersona.systemPrompt,
+                  conversationHistory: updatedConversation.messages.slice(0, -1).map(m => ({
+                    role: m.role,
+                    content: m.content,
+                  })),
+                },
+              }),
+            });
+            if (searchResp.ok) {
+              const searchData = await searchResp.json();
+              searchContent = searchData.content || "";
+              citations = searchData.citations || [];
+            }
+          }
+        } catch (searchErr) {
+          console.warn("Web search failed, falling back to LLM:", searchErr);
+        }
+      }
+
+      let finalContent = "";
+
+      if (searchContent) {
+        // Use search results directly since Perplexity already provides grounded answers
+        finalContent = searchContent;
+        if (citations.length > 0) {
+          finalContent += "\n\n---\n**Sources:**\n" + citations.map((c, i) => `- [${i + 1}] [${new URL(c).hostname}](${c})`).join("\n");
+        }
+      } else {
+        // Fall back to standard LLM
+        const response = await supabase.functions.invoke('research-ai', {
+          body: {
+            messages: updatedConversation.messages.map(m => ({
+              role: m.role,
+              content: m.content
+            })),
+            systemPrompt: selectedPersona.systemPrompt,
+            personaName: selectedPersona.name
+          }
+        });
+        if (response.error) throw new Error(response.error.message);
+        finalContent = response.data.content;
+      }
 
       const assistantMessage: Message = {
         id: `msg-${Date.now()}`,
         role: "assistant",
-        content: response.data.content,
-        timestamp: new Date()
+        content: finalContent,
+        timestamp: new Date(),
+        citations,
       };
 
       const finalConversation = {
@@ -357,14 +415,24 @@ export default function Research() {
               <p className="text-xs text-muted-foreground">{activeConversation?.title}</p>
             </div>
           </div>
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => startNewConversation(selectedPersona)}
-          >
-            <Plus className="h-4 w-4 mr-1" />
-            New Research
-          </Button>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Globe className={cn("h-4 w-4", webSearchEnabled ? "text-primary" : "text-muted-foreground")} />
+              <span className="text-xs text-muted-foreground">Web Search</span>
+              <Switch
+                checked={webSearchEnabled}
+                onCheckedChange={setWebSearchEnabled}
+              />
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => startNewConversation(selectedPersona)}
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              New Research
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -417,7 +485,13 @@ export default function Research() {
                     : "bg-muted"
                 )}
               >
-                <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                {message.role === "assistant" ? (
+                  <div className="text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-2">
+                    <ReactMarkdown>{message.content}</ReactMarkdown>
+                  </div>
+                ) : (
+                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                )}
               </div>
             </div>
           ))}
@@ -430,7 +504,9 @@ export default function Research() {
               <div className="bg-muted rounded-xl px-4 py-3">
                 <div className="flex items-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="text-sm text-muted-foreground">Researching...</span>
+                  <span className="text-sm text-muted-foreground">
+                    {webSearchEnabled ? "Searching the web..." : "Researching..."}
+                  </span>
                 </div>
               </div>
             </div>

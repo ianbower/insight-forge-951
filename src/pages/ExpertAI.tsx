@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Send, Bot, User, Sparkles, History } from "lucide-react";
+import { Send, Bot, User, Sparkles, History, Globe, ExternalLink } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useChatSessions, ChatMessage } from "@/hooks/useChatSessions";
@@ -37,6 +38,7 @@ const personas = [
 ];
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/expert-ai-chat`;
+const SEARCH_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/web-search`;
 
 export default function ExpertAI() {
   const { toast } = useToast();
@@ -63,6 +65,8 @@ export default function ExpertAI() {
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
+  const [lastCitations, setLastCitations] = useState<string[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Get messages from active session or use welcome message
@@ -125,6 +129,47 @@ export default function ExpertAI() {
       const accessToken = session?.access_token;
       if (!accessToken) throw new Error("Not authenticated");
 
+      // If web search is enabled, search first and augment the conversation
+      let searchContext = "";
+      let citations: string[] = [];
+      if (webSearchEnabled) {
+        try {
+          const searchResp = await fetch(SEARCH_URL, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({
+              query: userMessageContent,
+              options: {
+                model: "sonar",
+                systemPrompt: `You are a research assistant. Provide detailed, factual information with citations to help answer consulting questions. Focus on recent data and trends.`,
+              },
+            }),
+          });
+          if (searchResp.ok) {
+            const searchData = await searchResp.json();
+            searchContext = searchData.content || "";
+            citations = searchData.citations || [];
+            setLastCitations(citations);
+          }
+        } catch (searchErr) {
+          console.warn("Web search failed, continuing without:", searchErr);
+        }
+      } else {
+        setLastCitations([]);
+      }
+
+      // Build messages with search context injected
+      const messagesForLLM = allMessages.map((m) => ({ role: m.role, content: m.content }));
+      if (searchContext) {
+        messagesForLLM[messagesForLLM.length - 1] = {
+          role: "user",
+          content: `${userMessageContent}\n\n---\n**Web Search Results:**\n${searchContext}\n\n**Sources:** ${citations.map((c, i) => `[${i + 1}] ${c}`).join(", ")}\n---\n\nPlease use the above search results to inform your response. Cite sources where relevant using [1], [2], etc.`,
+        };
+      }
+
       const resp = await fetch(CHAT_URL, {
         method: "POST",
         headers: {
@@ -132,7 +177,7 @@ export default function ExpertAI() {
           Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
-          messages: allMessages.map((m) => ({ role: m.role, content: m.content })),
+          messages: messagesForLLM,
           persona: selectedPersona.id,
         }),
       });
@@ -274,24 +319,34 @@ export default function ExpertAI() {
               </p>
             </div>
           </div>
-          <Select
-            value={selectedPersona.id}
-            onValueChange={handlePersonaChange}
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {personas.map((persona) => (
-                <SelectItem key={persona.id} value={persona.id}>
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="h-4 w-4" />
-                    {persona.name}
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Globe className={cn("h-4 w-4", webSearchEnabled ? "text-primary" : "text-muted-foreground")} />
+              <span className="text-xs text-muted-foreground">Web Search</span>
+              <Switch
+                checked={webSearchEnabled}
+                onCheckedChange={setWebSearchEnabled}
+              />
+            </div>
+            <Select
+              value={selectedPersona.id}
+              onValueChange={handlePersonaChange}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {personas.map((persona) => (
+                  <SelectItem key={persona.id} value={persona.id}>
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="h-4 w-4" />
+                      {persona.name}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* Messages */}
@@ -354,11 +409,32 @@ export default function ExpertAI() {
           </div>
         </ScrollArea>
 
+        {/* Citations */}
+        {lastCitations.length > 0 && (
+          <div className="border-t border-border px-4 py-2 bg-muted/20">
+            <p className="text-xs font-medium text-muted-foreground mb-1">Sources:</p>
+            <div className="flex flex-wrap gap-1">
+              {lastCitations.map((url, i) => (
+                <a
+                  key={i}
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline bg-primary/5 rounded px-1.5 py-0.5"
+                >
+                  [{i + 1}] {new URL(url).hostname}
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Input Area */}
         <div className="border-t border-border p-4">
           <div className="flex gap-3">
             <Input
-              placeholder="Ask about strategy, frameworks, or best practices..."
+              placeholder={webSearchEnabled ? "Search the web and ask..." : "Ask about strategy, frameworks, or best practices..."}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
