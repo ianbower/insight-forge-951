@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface CanvasDesign {
   name: string;
@@ -220,8 +221,8 @@ export function AICanvasDesigner({ onApplyDesign }: AICanvasDesignerProps) {
                 >
                   {message.role === "assistant" ? (
                     <div className="space-y-3">
-                      <div className="prose prose-sm dark:prose-invert max-w-none">
-                        <ReactMarkdown>
+                      <div className="prose prose-sm dark:prose-invert max-w-none prose-table:border-collapse prose-th:border prose-th:border-border prose-th:px-3 prose-th:py-2 prose-th:bg-muted prose-td:border prose-td:border-border prose-td:px-3 prose-td:py-2">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
                           {message.content.replace(/```json[\s\S]*?```/g, "").trim() || 
                            "Here's your canvas design:"}
                         </ReactMarkdown>

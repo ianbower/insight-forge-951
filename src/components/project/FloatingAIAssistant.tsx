@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface Message {
   id: string;
@@ -463,8 +464,8 @@ export function FloatingAIAssistant({
                   )}
                 >
                   {message.role === "assistant" ? (
-                    <div className="text-xs leading-relaxed prose prose-sm max-w-none">
-                      <ReactMarkdown>{message.content}</ReactMarkdown>
+                    <div className="text-xs leading-relaxed prose prose-sm dark:prose-invert max-w-none prose-table:border-collapse prose-th:border prose-th:border-border prose-th:px-2 prose-th:py-1 prose-th:bg-muted prose-td:border prose-td:border-border prose-td:px-2 prose-td:py-1">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
                     </div>
                   ) : (
                     <p className="text-xs leading-relaxed">{message.content}</p>
