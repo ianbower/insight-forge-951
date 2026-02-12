@@ -38,7 +38,7 @@ export default function Admin() {
       </div>
 
       <Tabs defaultValue="users" className="space-y-6">
-        <TabsList className="bg-muted/50">
+        <TabsList className="bg-muted/50 h-auto flex-wrap">
           {canManageUsers && (
             <TabsTrigger value="users" className="gap-2">
               <Users className="h-4 w-4" />
