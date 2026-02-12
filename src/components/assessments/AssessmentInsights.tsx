@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sparkles, FileText, Target, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface AssessmentInsightsProps {
   instanceId: string;
@@ -60,44 +62,9 @@ export function AssessmentInsights({ instanceId, instanceName }: AssessmentInsig
   const renderContent = (content: string | undefined) => {
     if (!content) return null;
     
-    // Simple markdown-like rendering
-    const lines = content.split("\n");
     return (
-      <div className="prose prose-sm dark:prose-invert max-w-none">
-        {lines.map((line, i) => {
-          if (line.startsWith("# ")) {
-            return <h1 key={i} className="text-xl font-bold mt-4 mb-2">{line.slice(2)}</h1>;
-          }
-          if (line.startsWith("## ")) {
-            return <h2 key={i} className="text-lg font-semibold mt-3 mb-2">{line.slice(3)}</h2>;
-          }
-          if (line.startsWith("### ")) {
-            return <h3 key={i} className="text-base font-medium mt-2 mb-1">{line.slice(4)}</h3>;
-          }
-          if (line.startsWith("- ") || line.startsWith("* ")) {
-            return (
-              <div key={i} className="flex gap-2 my-1">
-                <span className="text-primary">•</span>
-                <span>{line.slice(2)}</span>
-              </div>
-            );
-          }
-          if (line.match(/^\d+\.\s/)) {
-            return (
-              <div key={i} className="flex gap-2 my-1">
-                <span className="text-primary font-medium">{line.match(/^\d+/)?.[0]}.</span>
-                <span>{line.replace(/^\d+\.\s/, "")}</span>
-              </div>
-            );
-          }
-          if (line.startsWith("**") && line.endsWith("**")) {
-            return <p key={i} className="font-semibold my-1">{line.slice(2, -2)}</p>;
-          }
-          if (line.trim() === "") {
-            return <br key={i} />;
-          }
-          return <p key={i} className="my-1">{line}</p>;
-        })}
+      <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-2 prose-table:border-collapse prose-th:border prose-th:border-border prose-th:px-3 prose-th:py-2 prose-th:bg-muted prose-td:border prose-td:border-border prose-td:px-3 prose-td:py-2 prose-hr:my-4">
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
       </div>
     );
   };
