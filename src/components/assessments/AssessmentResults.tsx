@@ -41,6 +41,7 @@ interface ResponseData {
   dimension_name: string;
   question_text: string;
   response_value: number;
+  target_value: number | null;
   recipient_industry?: string;
   recipient_organization?: string;
 }
