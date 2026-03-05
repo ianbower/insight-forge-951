@@ -420,9 +420,24 @@ export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, d
                 <Button variant="outline" size="sm" onClick={handleSave} disabled={saving}>
                   <Save className="h-4 w-4 mr-1" /> {saving ? "Saving..." : "Save"}
                 </Button>
-                <Button variant="outline" size="sm" onClick={handleExportPDF}>
-                  <FileText className="h-4 w-4 mr-1" /> Export PDF
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <Download className="h-4 w-4 mr-1" /> Export
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={handleExportExcel}>
+                      <FileSpreadsheet className="h-4 w-4 mr-2" /> Export to Excel
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleExportPDF}>
+                      <FileText className="h-4 w-4 mr-2" /> Export to PDF
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleExportPPT}>
+                      <Presentation className="h-4 w-4 mr-2" /> Export to PowerPoint
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </>
             )}
           </div>
