@@ -79,6 +79,7 @@ export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, d
   const [aiLoading, setAiLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [displayCount, setDisplayCount] = useState<number>(maxItems || 0);
   const matrixRef = useRef<HTMLDivElement>(null);
   const autosaveTimerRef = useRef<number | null>(null);
 
@@ -87,6 +88,26 @@ export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, d
     const timer = setTimeout(() => setMounted(true), 50);
     return () => clearTimeout(timer);
   }, []);
+
+  // Visible items filtered by displayCount (0 = show all)
+  const visibleItems = useMemo(() => {
+    if (!displayCount || displayCount >= items.length) return items;
+    // Sort by priority score descending (highest priority first), then by impact descending
+    return [...items]
+      .sort((a, b) => (b.priorityScore ?? 0) - (a.priorityScore ?? 0) || b.impact - a.impact)
+      .slice(0, displayCount);
+  }, [items, displayCount]);
+
+  // Group visible items by category for the collapsible list
+  const groupedItems = useMemo(() => {
+    const groups: Record<string, MatrixItem[]> = {};
+    visibleItems.forEach(item => {
+      const cat = item.category || "Uncategorised";
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(item);
+    });
+    return groups;
+  }, [visibleItems]);
 
   // New item form state
   const [newItem, setNewItem] = useState<Partial<MatrixItem>>({ title: "", description: "", effort: 50, impact: 50, category: "" });
