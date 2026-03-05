@@ -379,6 +379,25 @@ export default function AssessmentRespond() {
                     className="max-w-[200px]"
                   />
                 )}
+
+                {/* Optional notes */}
+                <Collapsible className="mt-4">
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-foreground p-0 h-auto">
+                      <MessageSquarePlus className="h-4 w-4" />
+                      <span className="text-sm">{notes[question.id] ? "Edit additional comments" : "Add additional comments"}</span>
+                      <ChevronDown className="h-3 w-3" />
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="mt-2">
+                    <Textarea
+                      value={notes[question.id] || ""}
+                      onChange={(e) => handleNotesChange(question.id, e.target.value)}
+                      placeholder="Share any additional thoughts, context, or insights about your answer..."
+                      className="min-h-[80px] text-sm"
+                    />
+                  </CollapsibleContent>
+                </Collapsible>
               </CardContent>
             </Card>
           ))}
