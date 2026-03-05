@@ -41,6 +41,7 @@ interface ResponseData {
   dimension_name: string;
   question_text: string;
   response_value: number;
+  target_value: number | null;
   recipient_industry?: string;
   recipient_organization?: string;
 }
@@ -138,10 +139,24 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
     const transformedResponses: ResponseData[] = (responsesData || []).map((r) => {
       const question = questionsData?.find((q) => q.id === r.question_id);
       const dimension = dimensionsData?.find((d) => d.id === question?.dimension_id);
+      
+      // Handle dual-score format { asIs, toBe } or legacy single number
+      const rawVal = r.response_value as any;
+      let asIsScore: number;
+      let toBeScore: number | null = null;
+      
+      if (rawVal && typeof rawVal === "object" && "asIs" in rawVal) {
+        asIsScore = typeof rawVal.asIs === "number" ? rawVal.asIs : Number(rawVal.asIs) || 0;
+        toBeScore = rawVal.toBe != null ? (typeof rawVal.toBe === "number" ? rawVal.toBe : Number(rawVal.toBe) || null) : null;
+      } else {
+        asIsScore = typeof rawVal === "number" ? rawVal : Number(rawVal) || 0;
+      }
+      
       return {
         dimension_name: dimension?.name || "General",
         question_text: question?.question_text || "",
-        response_value: typeof r.response_value === "number" ? r.response_value : Number(r.response_value) || 0,
+        response_value: asIsScore,
+        target_value: toBeScore,
         recipient_industry: r.recipient?.industry,
         recipient_organization: r.recipient?.organization,
       };
@@ -190,25 +205,31 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
 
   // Calculate dimension scores with benchmarks
   const dimensionScores = useMemo(() => {
-    const scoresByDimension: Record<string, { scores: number[]; id: string }> = {};
+    const scoresByDimension: Record<string, { scores: number[]; targets: number[]; id: string }> = {};
 
     filteredResponses.forEach((r) => {
       const dim = dimensions.find((d) => d.name === r.dimension_name);
       const dimKey = r.dimension_name;
       if (!scoresByDimension[dimKey]) {
-        scoresByDimension[dimKey] = { scores: [], id: dim?.id || "" };
+        scoresByDimension[dimKey] = { scores: [], targets: [], id: dim?.id || "" };
       }
       if (!isNaN(r.response_value)) {
         scoresByDimension[dimKey].scores.push(r.response_value);
+      }
+      if (r.target_value != null && !isNaN(r.target_value)) {
+        scoresByDimension[dimKey].targets.push(r.target_value);
       }
     });
 
     return Object.entries(scoresByDimension).map(([name, data]) => {
       const benchmark = getBenchmarkForDimension(data.id);
+      const avgTarget = data.targets.length > 0
+        ? data.targets.reduce((a, b) => a + b, 0) / data.targets.length
+        : 4; // Fallback to 4 if no to-be scores provided
       return {
         name,
         score: data.scores.length > 0 ? data.scores.reduce((a, b) => a + b, 0) / data.scores.length : 0,
-        target: 4, // Default target
+        target: avgTarget,
         benchmark: benchmark?.score_average || 3.5,
         benchmarkP25: benchmark?.score_percentile_25,
         benchmarkP75: benchmark?.score_percentile_75,

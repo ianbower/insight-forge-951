@@ -68,7 +68,6 @@ export default function AssessmentTake() {
   const fetchAssessment = async () => {
     setLoading(true);
 
-    // Fetch recipient by token
     const { data: recipientData, error: recipientError } = await supabase
       .from("assessment_recipients")
       .select("*, assessment_instance:assessment_instances(*, assessment_template:assessment_templates(*))")
@@ -92,7 +91,6 @@ export default function AssessmentTake() {
 
     const templateId = recipientData.assessment_instance.assessment_template_id;
 
-    // Mark as started if pending
     if (recipientData.status === "pending") {
       await supabase
         .from("assessment_recipients")
@@ -100,35 +98,30 @@ export default function AssessmentTake() {
         .eq("id", recipientData.id);
     }
 
-    // Fetch dimensions
     const { data: dimensionsData } = await supabase
       .from("assessment_dimensions")
       .select("*")
       .eq("assessment_template_id", templateId)
       .order("order_index");
 
-    // Fetch questions
     const { data: questionsData } = await supabase
       .from("assessment_questions")
       .select("*")
       .eq("assessment_template_id", templateId)
       .order("order_index");
 
-    // Fetch existing responses
     const { data: existingResponses } = await supabase
       .from("assessment_responses")
       .select("*")
       .eq("assessment_instance_id", recipientData.assessment_instance.id)
       .eq("recipient_id", recipientData.id);
 
-    // Build responses map
     const responsesMap: Record<string, any> = {};
     (existingResponses || []).forEach((r) => {
       responsesMap[r.question_id] = r.response_value;
     });
     setResponses(responsesMap);
 
-    // Build dimensions with questions
     const dims: Dimension[] = (dimensionsData || []).map((d) => ({
       id: d.id,
       name: d.name,
@@ -146,7 +139,6 @@ export default function AssessmentTake() {
         })),
     }));
 
-    // Add uncategorized questions
     const uncategorizedQuestions = (questionsData || [])
       .filter((q) => !q.dimension_id)
       .map((q) => ({
@@ -175,7 +167,6 @@ export default function AssessmentTake() {
   const handleResponse = async (questionId: string, value: any) => {
     setResponses((prev) => ({ ...prev, [questionId]: value }));
 
-    // Save response to database
     const { error } = await supabase.from("assessment_responses").upsert(
       {
         assessment_instance_id: instance.id,
@@ -191,10 +182,20 @@ export default function AssessmentTake() {
     }
   };
 
+  /** Update just the as-is or to-be part of a dual-score response */
+  const handleDualResponse = async (questionId: string, field: "asIs" | "toBe", value: number) => {
+    const current = responses[questionId];
+    const updated = {
+      asIs: current?.asIs ?? null,
+      toBe: current?.toBe ?? null,
+      [field]: value,
+    };
+    await handleResponse(questionId, updated);
+  };
+
   const handleSubmit = async () => {
     setSubmitting(true);
 
-    // Mark as completed
     const { error } = await supabase
       .from("assessment_recipients")
       .update({ status: "completed", completed_at: new Date().toISOString() })
@@ -212,10 +213,23 @@ export default function AssessmentTake() {
 
   const currentDimension = dimensions[currentDimensionIndex];
   const totalQuestions = dimensions.reduce((sum, d) => sum + d.questions.length, 0);
-  const answeredQuestions = Object.keys(responses).length;
+  const answeredQuestions = Object.keys(responses).filter((qId) => {
+    const val = responses[qId];
+    if (val && typeof val === "object" && "asIs" in val) {
+      return val.asIs != null && val.toBe != null;
+    }
+    return val !== undefined;
+  }).length;
   const progress = totalQuestions > 0 ? (answeredQuestions / totalQuestions) * 100 : 0;
 
-  const canGoNext = currentDimension?.questions.every((q) => !q.required || responses[q.id] !== undefined);
+  const canGoNext = currentDimension?.questions.every((q) => {
+    if (!q.required) return true;
+    const val = responses[q.id];
+    if (val && typeof val === "object" && "asIs" in val) {
+      return val.asIs != null && val.toBe != null;
+    }
+    return val !== undefined;
+  });
 
   if (loading) {
     return (
@@ -324,33 +338,11 @@ export default function AssessmentTake() {
               </CardHeader>
               <CardContent>
                 {question.question_type === "likert" && question.scale_config && (
-                  <RadioGroup
-                    value={responses[question.id]?.toString() || ""}
-                    onValueChange={(value) => handleResponse(question.id, Number(value))}
-                    className="space-y-3"
-                  >
-                    {Array.from(
-                      { length: question.scale_config.max - question.scale_config.min + 1 },
-                      (_, i) => question.scale_config!.min + i
-                    ).map((level) => (
-                      <div key={level} className="flex items-start space-x-3">
-                        <RadioGroupItem value={level.toString()} id={`${question.id}-${level}`} />
-                        <div className="flex-1">
-                          <Label
-                            htmlFor={`${question.id}-${level}`}
-                            className="font-medium cursor-pointer"
-                          >
-                            {level} - {question.scale_config!.labels?.[level] || `Level ${level}`}
-                          </Label>
-                          {question.scale_config!.descriptions?.[level] && (
-                            <p className="text-sm text-muted-foreground mt-0.5">
-                              {question.scale_config!.descriptions[level]}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </RadioGroup>
+                  <LikertDualScore
+                    question={question}
+                    value={responses[question.id]}
+                    onChange={(field, val) => handleDualResponse(question.id, field, val)}
+                  />
                 )}
 
                 {question.question_type === "multiple_choice" && question.options && (
@@ -425,6 +417,86 @@ export default function AssessmentTake() {
             </Button>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** Dual Likert scale: As-Is and To-Be side by side */
+function LikertDualScore({
+  question,
+  value,
+  onChange,
+}: {
+  question: { id: string; scale_config?: { min: number; max: number; labels: Record<number, string>; descriptions: Record<number, string> } };
+  value: any;
+  onChange: (field: "asIs" | "toBe", val: number) => void;
+}) {
+  const config = question.scale_config!;
+  const levels = Array.from(
+    { length: config.max - config.min + 1 },
+    (_, i) => config.min + i
+  );
+
+  const asIsValue = value?.asIs ?? null;
+  const toBeValue = value?.toBe ?? null;
+
+  return (
+    <div className="space-y-6">
+      {/* As-Is Score */}
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">As-Is (Current State)</Badge>
+        </div>
+        <RadioGroup
+          value={asIsValue?.toString() || ""}
+          onValueChange={(val) => onChange("asIs", Number(val))}
+          className="space-y-2"
+        >
+          {levels.map((level) => (
+            <div key={`asis-${level}`} className="flex items-start space-x-3">
+              <RadioGroupItem value={level.toString()} id={`${question.id}-asis-${level}`} />
+              <div className="flex-1">
+                <Label htmlFor={`${question.id}-asis-${level}`} className="font-medium cursor-pointer">
+                  {level} - {config.labels?.[level] || `Level ${level}`}
+                </Label>
+                {config.descriptions?.[level] && (
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    {config.descriptions[level]}
+                  </p>
+                )}
+              </div>
+            </div>
+          ))}
+        </RadioGroup>
+      </div>
+
+      {/* To-Be Score */}
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">To-Be (Target State)</Badge>
+        </div>
+        <RadioGroup
+          value={toBeValue?.toString() || ""}
+          onValueChange={(val) => onChange("toBe", Number(val))}
+          className="space-y-2"
+        >
+          {levels.map((level) => (
+            <div key={`tobe-${level}`} className="flex items-start space-x-3">
+              <RadioGroupItem value={level.toString()} id={`${question.id}-tobe-${level}`} />
+              <div className="flex-1">
+                <Label htmlFor={`${question.id}-tobe-${level}`} className="font-medium cursor-pointer">
+                  {level} - {config.labels?.[level] || `Level ${level}`}
+                </Label>
+                {config.descriptions?.[level] && (
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    {config.descriptions[level]}
+                  </p>
+                )}
+              </div>
+            </div>
+          ))}
+        </RadioGroup>
       </div>
     </div>
   );
