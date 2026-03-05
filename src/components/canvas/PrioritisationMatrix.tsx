@@ -61,6 +61,8 @@ interface PrioritisationMatrixProps {
   maxItems?: number;
   /** Rich assessment context for AI-powered recommendations */
   assessmentContext?: AssessmentContext;
+  /** Key for localStorage persistence when onSave is not provided */
+  storageKey?: string;
 }
 
 const QUADRANT_META = [
@@ -87,10 +89,21 @@ function getCategoryStyle(category?: string) {
   return CATEGORY_COLORS[category] || CATEGORY_COLORS["default"];
 }
 
-export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, defaultItems, compact, maxItems, assessmentContext }: PrioritisationMatrixProps) {
+export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, defaultItems, compact, maxItems, assessmentContext, storageKey }: PrioritisationMatrixProps) {
   const { toast } = useToast();
-  const [items, setItems] = useState<MatrixItem[]>(initialData?.items || defaultItems || []);
-  const [axisLabels, setAxisLabels] = useState(initialData?.axisLabels || { xLabel: "Implementation Effort", yLabel: "Business Impact / Value" });
+
+  // Load persisted data from localStorage if storageKey is provided
+  const loadedFromStorage = useMemo(() => {
+    if (!storageKey) return null;
+    try {
+      const stored = localStorage.getItem(`pmatrix-${storageKey}`);
+      if (stored) return JSON.parse(stored) as PrioritisationMatrixData;
+    } catch { /* ignore */ }
+    return null;
+  }, [storageKey]);
+
+  const [items, setItems] = useState<MatrixItem[]>(loadedFromStorage?.items || initialData?.items || defaultItems || []);
+  const [axisLabels, setAxisLabels] = useState(loadedFromStorage?.axisLabels || initialData?.axisLabels || { xLabel: "Implementation Effort", yLabel: "Business Impact / Value" });
   const [editingItem, setEditingItem] = useState<MatrixItem | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -131,15 +144,19 @@ export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, d
   // New item form state
   const [newItem, setNewItem] = useState<Partial<MatrixItem>>({ title: "", description: "", effort: 50, impact: 50, category: "" });
 
-  // Autosave
+  // Autosave to onSave callback and/or localStorage
   useEffect(() => {
-    if (!onSave) return;
+    if (!onSave && !storageKey) return;
     if (autosaveTimerRef.current) window.clearTimeout(autosaveTimerRef.current);
     autosaveTimerRef.current = window.setTimeout(() => {
-      onSave({ items, axisLabels }, { silent: true });
+      const data = { items, axisLabels };
+      if (storageKey) {
+        try { localStorage.setItem(`pmatrix-${storageKey}`, JSON.stringify(data)); } catch { /* ignore */ }
+      }
+      if (onSave) onSave(data, { silent: true });
     }, 800);
     return () => { if (autosaveTimerRef.current) window.clearTimeout(autosaveTimerRef.current); };
-  }, [items, axisLabels, onSave]);
+  }, [items, axisLabels, onSave, storageKey]);
 
   const handleSave = async () => {
     setSaving(true);
