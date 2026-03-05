@@ -26,7 +26,8 @@ import {
   BenchmarkComparison,
 } from "./AssessmentVisualizations";
 import { AssessmentInsights } from "./AssessmentInsights";
-import { Users, BarChart3, Target, TrendingUp, Sparkles, Download, Filter, Database } from "lucide-react";
+import { PrioritisationMatrix, type MatrixItem } from "@/components/canvas/PrioritisationMatrix";
+import { Users, BarChart3, Target, TrendingUp, Sparkles, Download, Filter, Database, LayoutGrid } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AssessmentResultsProps {
