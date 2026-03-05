@@ -86,7 +86,7 @@ function getCategoryStyle(category?: string) {
   return CATEGORY_COLORS[category] || CATEGORY_COLORS["default"];
 }
 
-export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, defaultItems, compact, maxItems }: PrioritisationMatrixProps) {
+export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, defaultItems, compact, maxItems, assessmentContext }: PrioritisationMatrixProps) {
   const { toast } = useToast();
   const [items, setItems] = useState<MatrixItem[]>(initialData?.items || defaultItems || []);
   const [axisLabels, setAxisLabels] = useState(initialData?.axisLabels || { xLabel: "Implementation Effort", yLabel: "Business Impact / Value" });
@@ -97,6 +97,7 @@ export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, d
   const [saving, setSaving] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [displayCount, setDisplayCount] = useState<number>(maxItems || 0);
+  const [detailLevel, setDetailLevel] = useState<DetailLevel>("medium");
   const matrixRef = useRef<HTMLDivElement>(null);
   const autosaveTimerRef = useRef<number | null>(null);
 
@@ -197,23 +198,36 @@ export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, d
 
   // AI Recommend
   const handleAIRecommend = async () => {
-    if (items.length === 0) {
-      toast({ title: "No items", description: "Add items first, then AI can recommend their placement.", variant: "destructive" });
-      return;
-    }
     setAiLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("prioritisation-ai", {
-        body: { items: items.map(i => ({ id: i.id, title: i.title, description: i.description, category: i.category })) },
-      });
+      const detailRange = detailLevel === "high-level" ? { min: 5, max: 10 } : detailLevel === "medium" ? { min: 11, max: 25 } : { min: 25, max: 50 };
+      
+      const body: any = {
+        detailLevel,
+        itemCountRange: detailRange,
+        assessmentContext: assessmentContext || null,
+      };
+
+      // Also pass existing items if any, so AI can refine
+      if (items.length > 0) {
+        body.existingItems = items.map(i => ({ id: i.id, title: i.title, description: i.description, category: i.category }));
+      }
+
+      const { data, error } = await supabase.functions.invoke("prioritisation-ai", { body });
       if (error) throw error;
       if (data?.recommendations) {
-        setItems(prev => prev.map(item => {
-          const rec = data.recommendations.find((r: any) => r.id === item.id);
-          if (rec) return { ...item, effort: rec.effort, impact: rec.impact, priorityScore: rec.priorityScore };
-          return item;
+        const newItems: MatrixItem[] = data.recommendations.map((rec: any, idx: number) => ({
+          id: rec.id || `ai-${Date.now()}-${idx}`,
+          title: rec.title,
+          description: rec.description,
+          effort: rec.effort,
+          impact: rec.impact,
+          category: rec.category || "Neutral",
+          priorityScore: rec.priorityScore,
         }));
-        toast({ title: "AI Recommendations Applied", description: "Items repositioned based on AI analysis." });
+        setItems(newItems);
+        setDisplayCount(0); // show all
+        toast({ title: "AI Recommendations Generated", description: `${newItems.length} initiatives plotted based on assessment insights.` });
       }
     } catch (err) {
       console.error("AI recommendation error:", err);
