@@ -205,25 +205,31 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
 
   // Calculate dimension scores with benchmarks
   const dimensionScores = useMemo(() => {
-    const scoresByDimension: Record<string, { scores: number[]; id: string }> = {};
+    const scoresByDimension: Record<string, { scores: number[]; targets: number[]; id: string }> = {};
 
     filteredResponses.forEach((r) => {
       const dim = dimensions.find((d) => d.name === r.dimension_name);
       const dimKey = r.dimension_name;
       if (!scoresByDimension[dimKey]) {
-        scoresByDimension[dimKey] = { scores: [], id: dim?.id || "" };
+        scoresByDimension[dimKey] = { scores: [], targets: [], id: dim?.id || "" };
       }
       if (!isNaN(r.response_value)) {
         scoresByDimension[dimKey].scores.push(r.response_value);
+      }
+      if (r.target_value != null && !isNaN(r.target_value)) {
+        scoresByDimension[dimKey].targets.push(r.target_value);
       }
     });
 
     return Object.entries(scoresByDimension).map(([name, data]) => {
       const benchmark = getBenchmarkForDimension(data.id);
+      const avgTarget = data.targets.length > 0
+        ? data.targets.reduce((a, b) => a + b, 0) / data.targets.length
+        : 4; // Fallback to 4 if no to-be scores provided
       return {
         name,
         score: data.scores.length > 0 ? data.scores.reduce((a, b) => a + b, 0) / data.scores.length : 0,
-        target: 4, // Default target
+        target: avgTarget,
         benchmark: benchmark?.score_average || 3.5,
         benchmarkP25: benchmark?.score_percentile_25,
         benchmarkP75: benchmark?.score_percentile_75,
