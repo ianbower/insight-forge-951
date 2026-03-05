@@ -201,6 +201,19 @@ export default function AssessmentTake() {
     await handleResponse(questionId, updated);
   };
 
+  const handleNotesChange = (questionId: string, value: string) => {
+    setNotes((prev) => ({ ...prev, [questionId]: value }));
+    if (notesTimers.current[questionId]) clearTimeout(notesTimers.current[questionId]);
+    notesTimers.current[questionId] = setTimeout(async () => {
+      await supabase
+        .from("assessment_responses")
+        .update({ notes: value })
+        .eq("assessment_instance_id", instance.id)
+        .eq("recipient_id", recipient.id)
+        .eq("question_id", questionId);
+    }, 800);
+  };
+
   const handleSubmit = async () => {
     setSubmitting(true);
 
