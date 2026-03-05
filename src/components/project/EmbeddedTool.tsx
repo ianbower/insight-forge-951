@@ -10,6 +10,7 @@ import { BusinessModelCanvas } from "@/components/canvas/BusinessModelCanvas";
 import { SevenSCanvas } from "@/components/canvas/SevenSCanvas";
 import { OperatingModelCanvas } from "@/components/canvas/OperatingModelCanvas";
 import { TransformationRoadmap } from "@/components/canvas/TransformationRoadmap";
+import { PrioritisationMatrix } from "@/components/canvas/PrioritisationMatrix";
 import { Json } from "@/integrations/supabase/types";
 
 interface EmbeddedToolProps {
@@ -25,6 +26,7 @@ type SaveOptions = { silent?: boolean };
 // Map tool names to info about their components
 const CANVAS_TOOLS = ["SWOT Analysis", "Business Model Canvas", "7S Framework", "Operating Model Canvas"];
 const ROADMAP_TOOLS = ["Transformation Roadmap"];
+const MATRIX_TOOLS = ["Prioritisation Matrix"];
 
 export function EmbeddedTool({ 
   toolName, 
@@ -129,7 +131,8 @@ export function EmbeddedTool({
 
   const isCanvasTool = CANVAS_TOOLS.includes(toolName);
   const isRoadmapTool = ROADMAP_TOOLS.includes(toolName);
-  const isSupported = isCanvasTool || isRoadmapTool;
+  const isMatrixTool = MATRIX_TOOLS.includes(toolName);
+  const isSupported = isCanvasTool || isRoadmapTool || isMatrixTool;
 
   if (!isSupported) {
     // Tool not available for embedding - show link instead
@@ -207,6 +210,17 @@ export function EmbeddedTool({
             projectId={projectId}
             toolId={toolId || undefined}
             initialData={initialData as { items: any[]; tracks: string[] } | undefined}
+            onSave={handleSave}
+          />
+        );
+    }
+
+    if (isMatrixTool) {
+        return (
+          <PrioritisationMatrix
+            projectId={projectId}
+            toolId={toolId || undefined}
+            initialData={initialData as any}
             onSave={handleSave}
           />
         );
