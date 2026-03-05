@@ -602,13 +602,14 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
                   Prioritisation Matrix
                 </CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  Dimensions are pre-plotted based on gap analysis. Drag items to reposition, or click "AI Recommend" for intelligent placement.
+                  Dimensions are pre-plotted based on gap analysis. Select a detail level and click "AI Recommend" to generate specific, actionable initiatives informed by your assessment data.
                 </p>
               </CardHeader>
               <CardContent>
                 <PrioritisationMatrix
                   defaultItems={matrixItems}
                   maxItems={10}
+                  assessmentContext={assessmentCtx}
                   compact
                 />
               </CardContent>
