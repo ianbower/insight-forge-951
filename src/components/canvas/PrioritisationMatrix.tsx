@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect, useRef } from "react";
-import { Plus, Sparkles, Save, Download, FileText, Pencil, Trash2, X } from "lucide-react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { Plus, Sparkles, Save, Download, FileText, Pencil, Trash2, X, ChevronDown, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -40,6 +41,8 @@ interface PrioritisationMatrixProps {
   defaultItems?: MatrixItem[];
   /** Hide toolbar actions not relevant in embedded contexts */
   compact?: boolean;
+  /** Maximum number of items to show (controls level of detail). All items kept, but only top N displayed on matrix. */
+  maxItems?: number;
 }
 
 const QUADRANT_META = [
@@ -66,7 +69,7 @@ function getCategoryStyle(category?: string) {
   return CATEGORY_COLORS[category] || CATEGORY_COLORS["default"];
 }
 
-export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, defaultItems, compact }: PrioritisationMatrixProps) {
+export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, defaultItems, compact, maxItems }: PrioritisationMatrixProps) {
   const { toast } = useToast();
   const [items, setItems] = useState<MatrixItem[]>(initialData?.items || defaultItems || []);
   const [axisLabels, setAxisLabels] = useState(initialData?.axisLabels || { xLabel: "Implementation Effort", yLabel: "Business Impact / Value" });
@@ -76,6 +79,7 @@ export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, d
   const [aiLoading, setAiLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [displayCount, setDisplayCount] = useState<number>(maxItems || 0);
   const matrixRef = useRef<HTMLDivElement>(null);
   const autosaveTimerRef = useRef<number | null>(null);
 
@@ -84,6 +88,26 @@ export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, d
     const timer = setTimeout(() => setMounted(true), 50);
     return () => clearTimeout(timer);
   }, []);
+
+  // Visible items filtered by displayCount (0 = show all)
+  const visibleItems = useMemo(() => {
+    if (!displayCount || displayCount >= items.length) return items;
+    // Sort by priority score descending (highest priority first), then by impact descending
+    return [...items]
+      .sort((a, b) => (b.priorityScore ?? 0) - (a.priorityScore ?? 0) || b.impact - a.impact)
+      .slice(0, displayCount);
+  }, [items, displayCount]);
+
+  // Group visible items by category for the collapsible list
+  const groupedItems = useMemo(() => {
+    const groups: Record<string, MatrixItem[]> = {};
+    visibleItems.forEach(item => {
+      const cat = item.category || "Uncategorised";
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(item);
+    });
+    return groups;
+  }, [visibleItems]);
 
   // New item form state
   const [newItem, setNewItem] = useState<Partial<MatrixItem>>({ title: "", description: "", effort: 50, impact: 50, category: "" });
@@ -202,7 +226,22 @@ export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, d
         {/* Toolbar */}
         <div className="flex items-center justify-between flex-wrap gap-2">
           {!compact && <h2 className="text-xl font-display font-semibold">Prioritisation Matrix</h2>}
-          <div className="flex gap-2 flex-wrap ml-auto">
+          <div className="flex gap-2 flex-wrap ml-auto items-center">
+            {/* Level of detail selector */}
+            <div className="flex items-center gap-1.5">
+              <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+              <Select value={String(displayCount)} onValueChange={v => setDisplayCount(Number(v))}>
+                <SelectTrigger className="h-8 w-[130px] text-xs">
+                  <SelectValue placeholder="Show items" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">All items ({items.length})</SelectItem>
+                  {[5, 10, 15, 20, 25].filter(n => n < items.length).map(n => (
+                    <SelectItem key={n} value={String(n)}>Top {n} items</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <Button variant="outline" size="sm" onClick={() => setShowAddDialog(true)} className="transition-transform duration-200 hover:scale-105">
               <Plus className="h-4 w-4 mr-1" /> Add Item
             </Button>
@@ -278,7 +317,7 @@ export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, d
               <div className={cn("absolute top-1/2 left-0 right-0 h-px bg-border transition-all duration-700", mounted ? "scale-x-100" : "scale-x-0")} style={{ transformOrigin: "left" }} />
 
               {/* Items with staggered entrance animation */}
-              {items.map((item, idx) => (
+              {visibleItems.map((item, idx) => (
                 <Tooltip key={item.id}>
                   <TooltipTrigger asChild>
                     <div
@@ -317,7 +356,7 @@ export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, d
                 </Tooltip>
               ))}
 
-              {items.length === 0 && (
+              {visibleItems.length === 0 && (
                 <div className="absolute inset-0 flex items-center justify-center animate-fade-in">
                   <div className="text-center text-muted-foreground">
                     <p className="text-sm font-medium">No items yet</p>
@@ -334,33 +373,55 @@ export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, d
           </div>
         </div>
 
-        {/* Item list below matrix */}
-        {items.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {items.map((item, idx) => (
-              <div
-                key={item.id}
-                className={cn(
-                  "flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all duration-300 hover:shadow-md hover:scale-[1.02]",
-                  getCategoryStyle(item.category),
-                  mounted ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4"
-                )}
-                style={{ transitionDelay: mounted ? `${500 + idx * 60}ms` : "0ms" }}
-              >
-                {item.priorityScore != null && (
-                  <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-background/80 border text-xs font-bold shrink-0">
-                    {item.priorityScore}
-                  </span>
-                )}
-                <span className="font-medium flex-1 truncate">{item.title}</span>
-                <Badge variant="outline" className="text-[10px] shrink-0">{getQuadrant(item)}</Badge>
-                <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 transition-transform hover:scale-110" onClick={() => setEditingItem(item)}>
-                  <Pencil className="h-3 w-3" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-destructive transition-transform hover:scale-110" onClick={() => deleteItem(item.id)}>
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </div>
+        {/* Collapsible categorised item list */}
+        {visibleItems.length > 0 && (
+          <div className="space-y-2">
+            {Object.entries(groupedItems).map(([category, catItems], catIdx) => (
+              <Collapsible key={category} defaultOpen>
+                <CollapsibleTrigger className={cn(
+                  "flex items-center gap-2 w-full px-3 py-2 rounded-lg border text-sm font-semibold transition-all duration-300 hover:shadow-sm group",
+                  getCategoryStyle(category),
+                  mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
+                )} style={{ transitionDelay: mounted ? `${500 + catIdx * 100}ms` : "0ms" }}>
+                  <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 group-data-[state=closed]:-rotate-90" />
+                  <span>{category}</span>
+                  <Badge variant="secondary" className="text-[10px] ml-auto">{catItems.length}</Badge>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="ml-4 mt-1 space-y-1">
+                    {catItems.map((item, idx) => (
+                      <div
+                        key={item.id}
+                        className={cn(
+                          "flex items-start gap-2 px-3 py-2 rounded-lg border text-sm transition-all duration-300 hover:shadow-md hover:scale-[1.01]",
+                          "bg-card border-border/60",
+                          mounted ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4"
+                        )}
+                        style={{ transitionDelay: mounted ? `${600 + catIdx * 100 + idx * 40}ms` : "0ms" }}
+                      >
+                        {item.priorityScore != null && (
+                          <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-primary/10 border border-primary/20 text-xs font-bold shrink-0 mt-0.5">
+                            {item.priorityScore}
+                          </span>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <span className="font-medium block truncate">{item.title}</span>
+                          {item.description && (
+                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{item.description}</p>
+                          )}
+                        </div>
+                        <Badge variant="outline" className="text-[10px] shrink-0 mt-0.5">{getQuadrant(item)}</Badge>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 transition-transform hover:scale-110" onClick={() => setEditingItem(item)}>
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-destructive transition-transform hover:scale-110" onClick={() => deleteItem(item.id)}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
             ))}
           </div>
         )}
