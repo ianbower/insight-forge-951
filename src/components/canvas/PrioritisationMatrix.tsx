@@ -144,15 +144,19 @@ export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, d
   // New item form state
   const [newItem, setNewItem] = useState<Partial<MatrixItem>>({ title: "", description: "", effort: 50, impact: 50, category: "" });
 
-  // Autosave
+  // Autosave to onSave callback and/or localStorage
   useEffect(() => {
-    if (!onSave) return;
+    if (!onSave && !storageKey) return;
     if (autosaveTimerRef.current) window.clearTimeout(autosaveTimerRef.current);
     autosaveTimerRef.current = window.setTimeout(() => {
-      onSave({ items, axisLabels }, { silent: true });
+      const data = { items, axisLabels };
+      if (storageKey) {
+        try { localStorage.setItem(`pmatrix-${storageKey}`, JSON.stringify(data)); } catch { /* ignore */ }
+      }
+      if (onSave) onSave(data, { silent: true });
     }, 800);
     return () => { if (autosaveTimerRef.current) window.clearTimeout(autosaveTimerRef.current); };
-  }, [items, axisLabels, onSave]);
+  }, [items, axisLabels, onSave, storageKey]);
 
   const handleSave = async () => {
     setSaving(true);
