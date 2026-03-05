@@ -258,7 +258,21 @@ export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, d
         <div className="flex items-center justify-between flex-wrap gap-2">
           {!compact && <h2 className="text-xl font-display font-semibold">Prioritisation Matrix</h2>}
           <div className="flex gap-2 flex-wrap ml-auto items-center">
-            {/* Level of detail selector */}
+            {/* AI Detail level selector */}
+            <div className="flex items-center gap-1.5">
+              <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
+              <Select value={detailLevel} onValueChange={v => setDetailLevel(v as DetailLevel)}>
+                <SelectTrigger className="h-8 w-[150px] text-xs">
+                  <SelectValue placeholder="Detail level" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="high-level">High-level (5–10)</SelectItem>
+                  <SelectItem value="medium">Medium (11–25)</SelectItem>
+                  <SelectItem value="detailed">Detailed (25–50)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {/* Display count filter */}
             <div className="flex items-center gap-1.5">
               <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
               <Select value={String(displayCount)} onValueChange={v => setDisplayCount(Number(v))}>
