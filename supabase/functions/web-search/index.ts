@@ -43,58 +43,55 @@ serve(async (req) => {
       );
     }
 
-    const apiKey = Deno.env.get("PERPLEXITY_API_KEY");
+    const apiKey = Deno.env.get("LOVABLE_API_KEY");
     if (!apiKey) {
-      console.error("PERPLEXITY_API_KEY not configured");
+      console.error("LOVABLE_API_KEY not configured");
       return new Response(
-        JSON.stringify({ error: "Web search is not configured. Please connect Perplexity in settings." }),
+        JSON.stringify({ error: "AI gateway is not configured." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     console.log("Web search query:", query);
 
-    const model = options?.model || "sonar";
-    const systemPrompt = options?.systemPrompt || "Be precise and concise. Provide well-sourced answers with citations.";
+    const systemPrompt = options?.systemPrompt || 
+      "You are a research assistant. Provide detailed, factual, well-structured answers. When possible, mention specific sources, studies, or organizations. Format your response with clear sections and bullet points where appropriate.";
 
-    const messages = [];
+    const messages = [
+      { role: "system", content: systemPrompt },
+    ];
+
     if (options?.conversationHistory && Array.isArray(options.conversationHistory)) {
-      messages.push({ role: "system", content: systemPrompt });
       messages.push(...options.conversationHistory);
-      messages.push({ role: "user", content: query });
-    } else {
-      messages.push({ role: "system", content: systemPrompt });
-      messages.push({ role: "user", content: query });
     }
 
-    const body: Record<string, unknown> = {
-      model,
-      messages,
-    };
+    messages.push({ role: "user", content: query });
 
-    if (options?.search_recency_filter) {
-      body.search_recency_filter = options.search_recency_filter;
-    }
-    if (options?.search_domain_filter) {
-      body.search_domain_filter = options.search_domain_filter;
-    }
-
-    const response = await fetch("https://api.perplexity.ai/chat/completions", {
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages,
+      }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Perplexity API error:", response.status, errorText);
+      console.error("AI gateway error:", response.status, errorText);
       if (response.status === 429) {
         return new Response(
-          JSON.stringify({ error: "Search rate limit exceeded. Please try again shortly." }),
+          JSON.stringify({ error: "Rate limit exceeded. Please try again shortly." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (response.status === 402) {
+        return new Response(
+          JSON.stringify({ error: "AI credits exhausted. Please add funds in workspace settings." }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       return new Response(
@@ -105,12 +102,11 @@ serve(async (req) => {
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || "";
-    const citations = data.citations || [];
 
-    console.log("Web search successful, citations:", citations.length);
+    console.log("Web search successful via Lovable AI");
 
     return new Response(
-      JSON.stringify({ content, citations, model: data.model }),
+      JSON.stringify({ content, citations: [], model: data.model || "google/gemini-2.5-flash" }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
