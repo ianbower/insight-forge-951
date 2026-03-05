@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { Plus, Sparkles, Save, Download, FileText, Pencil, Trash2, X, ChevronDown, SlidersHorizontal } from "lucide-react";
+import { Plus, Sparkles, Save, Download, FileText, Pencil, Trash2, X, ChevronDown, SlidersHorizontal, FileSpreadsheet, Presentation } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -244,6 +245,127 @@ export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, d
     } catch { toast({ title: "Error", description: "Failed to export", variant: "destructive" }); }
   };
 
+  const handleExportExcel = async () => {
+    try {
+      const XLSX = await import("xlsx");
+      
+      // Summary sheet data
+      const summaryData = visibleItems.map(item => ({
+        "Priority": item.priorityScore ?? "",
+        "Title": item.title,
+        "Description": item.description || "",
+        "Category": item.category || "Uncategorised",
+        "Quadrant": getQuadrant(item),
+        "Impact (0-100)": Math.round(item.impact),
+        "Effort (0=High, 100=Low)": Math.round(item.effort),
+      }));
+
+      // Quadrant breakdown sheets
+      const quadrants = ["1. Quick Wins", "2. Strategic", "3. Opportunistic", "4. Deprioritise"];
+      
+      const wb = XLSX.utils.book_new();
+      
+      // All items sheet
+      const ws = XLSX.utils.json_to_sheet(summaryData);
+      ws["!cols"] = [
+        { wch: 8 }, { wch: 35 }, { wch: 60 }, { wch: 15 }, { wch: 20 }, { wch: 12 }, { wch: 20 },
+      ];
+      XLSX.utils.book_append_sheet(wb, ws, "All Initiatives");
+
+      // Per-quadrant sheets
+      quadrants.forEach(q => {
+        const qItems = visibleItems.filter(i => getQuadrant(i) === q);
+        if (qItems.length === 0) return;
+        const qData = qItems.map(item => ({
+          "Priority": item.priorityScore ?? "",
+          "Title": item.title,
+          "Description": item.description || "",
+          "Category": item.category || "",
+          "Impact": Math.round(item.impact),
+          "Effort": Math.round(item.effort),
+        }));
+        const qws = XLSX.utils.json_to_sheet(qData);
+        qws["!cols"] = [{ wch: 8 }, { wch: 35 }, { wch: 60 }, { wch: 15 }, { wch: 10 }, { wch: 10 }];
+        XLSX.utils.book_append_sheet(wb, qws, q.replace(/^\d+\.\s*/, ""));
+      });
+
+      XLSX.writeFile(wb, "Prioritisation_Matrix.xlsx");
+      toast({ title: "Exported", description: "Excel file downloaded" });
+    } catch (err) {
+      console.error("Excel export error:", err);
+      toast({ title: "Error", description: "Failed to export Excel", variant: "destructive" });
+    }
+  };
+
+  const handleExportPPT = async () => {
+    try {
+      const pptxgen = (await import("pptxgenjs")).default;
+      const pptx = new pptxgen();
+      pptx.title = "Prioritisation Matrix";
+      pptx.author = "Consulting Workbench";
+
+      // Title slide
+      const titleSlide = pptx.addSlide();
+      titleSlide.addText("Prioritisation Matrix", { x: 0.5, y: 2, w: "90%", h: 1.5, fontSize: 36, bold: true, color: "1a365d", align: "center" });
+      titleSlide.addText(`${visibleItems.length} initiatives · Generated ${new Date().toLocaleDateString()}`, { x: 0.5, y: 3.8, w: "90%", fontSize: 14, color: "666666", align: "center" });
+
+      // Matrix overview slide with quadrant summary
+      const overviewSlide = pptx.addSlide();
+      overviewSlide.addText("Matrix Overview", { x: 0.5, y: 0.3, w: "90%", fontSize: 24, bold: true, color: "1a365d" });
+
+      const quadrants = ["1. Quick Wins", "2. Strategic", "3. Opportunistic", "4. Deprioritise"];
+      const qColors: Record<string, string> = { "1. Quick Wins": "10B981", "2. Strategic": "F59E0B", "3. Opportunistic": "3B82F6", "4. Deprioritise": "EF4444" };
+      
+      quadrants.forEach((q, idx) => {
+        const qItems = visibleItems.filter(i => getQuadrant(i) === q);
+        const col = idx % 2;
+        const row = Math.floor(idx / 2);
+        overviewSlide.addText(q, { x: 0.5 + col * 4.5, y: 1.2 + row * 2.5, w: 4, fontSize: 14, bold: true, color: qColors[q] });
+        if (qItems.length > 0) {
+          overviewSlide.addText(
+            qItems.map(i => ({ text: `${i.title}${i.description ? ` – ${i.description.slice(0, 80)}` : ""}`, options: { bullet: true, indentLevel: 0 } })),
+            { x: 0.5 + col * 4.5, y: 1.6 + row * 2.5, w: 4, fontSize: 10, color: "333333", valign: "top" }
+          );
+        } else {
+          overviewSlide.addText("No items", { x: 0.5 + col * 4.5, y: 1.6 + row * 2.5, w: 4, fontSize: 10, color: "999999", italic: true });
+        }
+      });
+
+      // Detail slides per quadrant
+      quadrants.forEach(q => {
+        const qItems = visibleItems.filter(i => getQuadrant(i) === q);
+        if (qItems.length === 0) return;
+        const slide = pptx.addSlide();
+        slide.addText(q, { x: 0.5, y: 0.3, w: "90%", fontSize: 22, bold: true, color: qColors[q] });
+        
+        const rows: any[][] = [
+          [
+            { text: "#", options: { bold: true, fontSize: 9, fill: { color: "f3f4f6" } } },
+            { text: "Initiative", options: { bold: true, fontSize: 9, fill: { color: "f3f4f6" } } },
+            { text: "Description", options: { bold: true, fontSize: 9, fill: { color: "f3f4f6" } } },
+            { text: "Category", options: { bold: true, fontSize: 9, fill: { color: "f3f4f6" } } },
+          ],
+        ];
+        qItems.forEach(item => {
+          rows.push([
+            { text: String(item.priorityScore ?? ""), options: { fontSize: 9 } },
+            { text: item.title, options: { fontSize: 9 } },
+            { text: item.description || "", options: { fontSize: 8, color: "555555" } },
+            { text: item.category || "", options: { fontSize: 9 } },
+          ]);
+        });
+        
+        slide.addTable(rows, { x: 0.5, y: 1.0, w: 9, colW: [0.5, 2.5, 4.5, 1.5], border: { pt: 0.5, color: "cccccc" }, autoPage: true });
+      });
+
+      await pptx.writeFile({ fileName: "Prioritisation_Matrix.pptx" });
+      toast({ title: "Exported", description: "PowerPoint file downloaded" });
+    } catch (err) {
+      console.error("PPT export error:", err);
+      toast({ title: "Error", description: "Failed to export PowerPoint", variant: "destructive" });
+    }
+  };
+
   const getQuadrant = (item: MatrixItem) => {
     if (item.impact >= 50 && item.effort >= 50) return "1. Quick Wins";
     if (item.impact >= 50 && item.effort < 50) return "2. Strategic";
@@ -298,9 +420,24 @@ export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, d
                 <Button variant="outline" size="sm" onClick={handleSave} disabled={saving}>
                   <Save className="h-4 w-4 mr-1" /> {saving ? "Saving..." : "Save"}
                 </Button>
-                <Button variant="outline" size="sm" onClick={handleExportPDF}>
-                  <FileText className="h-4 w-4 mr-1" /> Export PDF
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <Download className="h-4 w-4 mr-1" /> Export
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={handleExportExcel}>
+                      <FileSpreadsheet className="h-4 w-4 mr-2" /> Export to Excel
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleExportPDF}>
+                      <FileText className="h-4 w-4 mr-2" /> Export to PDF
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleExportPPT}>
+                      <Presentation className="h-4 w-4 mr-2" /> Export to PowerPoint
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </>
             )}
           </div>
