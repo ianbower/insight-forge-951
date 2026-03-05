@@ -226,7 +226,22 @@ export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, d
         {/* Toolbar */}
         <div className="flex items-center justify-between flex-wrap gap-2">
           {!compact && <h2 className="text-xl font-display font-semibold">Prioritisation Matrix</h2>}
-          <div className="flex gap-2 flex-wrap ml-auto">
+          <div className="flex gap-2 flex-wrap ml-auto items-center">
+            {/* Level of detail selector */}
+            <div className="flex items-center gap-1.5">
+              <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+              <Select value={String(displayCount)} onValueChange={v => setDisplayCount(Number(v))}>
+                <SelectTrigger className="h-8 w-[130px] text-xs">
+                  <SelectValue placeholder="Show items" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">All items ({items.length})</SelectItem>
+                  {[5, 10, 15, 20, 25].filter(n => n < items.length).map(n => (
+                    <SelectItem key={n} value={String(n)}>Top {n} items</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <Button variant="outline" size="sm" onClick={() => setShowAddDialog(true)} className="transition-transform duration-200 hover:scale-105">
               <Plus className="h-4 w-4 mr-1" /> Add Item
             </Button>
@@ -302,7 +317,7 @@ export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, d
               <div className={cn("absolute top-1/2 left-0 right-0 h-px bg-border transition-all duration-700", mounted ? "scale-x-100" : "scale-x-0")} style={{ transformOrigin: "left" }} />
 
               {/* Items with staggered entrance animation */}
-              {items.map((item, idx) => (
+              {visibleItems.map((item, idx) => (
                 <Tooltip key={item.id}>
                   <TooltipTrigger asChild>
                     <div
@@ -341,7 +356,7 @@ export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, d
                 </Tooltip>
               ))}
 
-              {items.length === 0 && (
+              {visibleItems.length === 0 && (
                 <div className="absolute inset-0 flex items-center justify-center animate-fade-in">
                   <div className="text-center text-muted-foreground">
                     <p className="text-sm font-medium">No items yet</p>
