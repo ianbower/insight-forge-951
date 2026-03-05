@@ -40,6 +40,8 @@ interface PrioritisationMatrixProps {
   defaultItems?: MatrixItem[];
   /** Hide toolbar actions not relevant in embedded contexts */
   compact?: boolean;
+  /** Maximum number of items to show (controls level of detail). All items kept, but only top N displayed on matrix. */
+  maxItems?: number;
 }
 
 const QUADRANT_META = [
@@ -66,7 +68,7 @@ function getCategoryStyle(category?: string) {
   return CATEGORY_COLORS[category] || CATEGORY_COLORS["default"];
 }
 
-export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, defaultItems, compact }: PrioritisationMatrixProps) {
+export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, defaultItems, compact, maxItems }: PrioritisationMatrixProps) {
   const { toast } = useToast();
   const [items, setItems] = useState<MatrixItem[]>(initialData?.items || defaultItems || []);
   const [axisLabels, setAxisLabels] = useState(initialData?.axisLabels || { xLabel: "Implementation Effort", yLabel: "Business Impact / Value" });
