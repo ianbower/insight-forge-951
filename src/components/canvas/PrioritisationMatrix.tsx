@@ -373,33 +373,55 @@ export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, d
           </div>
         </div>
 
-        {/* Item list below matrix */}
-        {items.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {items.map((item, idx) => (
-              <div
-                key={item.id}
-                className={cn(
-                  "flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all duration-300 hover:shadow-md hover:scale-[1.02]",
-                  getCategoryStyle(item.category),
-                  mounted ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4"
-                )}
-                style={{ transitionDelay: mounted ? `${500 + idx * 60}ms` : "0ms" }}
-              >
-                {item.priorityScore != null && (
-                  <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-background/80 border text-xs font-bold shrink-0">
-                    {item.priorityScore}
-                  </span>
-                )}
-                <span className="font-medium flex-1 truncate">{item.title}</span>
-                <Badge variant="outline" className="text-[10px] shrink-0">{getQuadrant(item)}</Badge>
-                <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 transition-transform hover:scale-110" onClick={() => setEditingItem(item)}>
-                  <Pencil className="h-3 w-3" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-destructive transition-transform hover:scale-110" onClick={() => deleteItem(item.id)}>
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </div>
+        {/* Collapsible categorised item list */}
+        {visibleItems.length > 0 && (
+          <div className="space-y-2">
+            {Object.entries(groupedItems).map(([category, catItems], catIdx) => (
+              <Collapsible key={category} defaultOpen>
+                <CollapsibleTrigger className={cn(
+                  "flex items-center gap-2 w-full px-3 py-2 rounded-lg border text-sm font-semibold transition-all duration-300 hover:shadow-sm group",
+                  getCategoryStyle(category),
+                  mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
+                )} style={{ transitionDelay: mounted ? `${500 + catIdx * 100}ms` : "0ms" }}>
+                  <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 group-data-[state=closed]:-rotate-90" />
+                  <span>{category}</span>
+                  <Badge variant="secondary" className="text-[10px] ml-auto">{catItems.length}</Badge>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="ml-4 mt-1 space-y-1">
+                    {catItems.map((item, idx) => (
+                      <div
+                        key={item.id}
+                        className={cn(
+                          "flex items-start gap-2 px-3 py-2 rounded-lg border text-sm transition-all duration-300 hover:shadow-md hover:scale-[1.01]",
+                          "bg-card border-border/60",
+                          mounted ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4"
+                        )}
+                        style={{ transitionDelay: mounted ? `${600 + catIdx * 100 + idx * 40}ms` : "0ms" }}
+                      >
+                        {item.priorityScore != null && (
+                          <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-primary/10 border border-primary/20 text-xs font-bold shrink-0 mt-0.5">
+                            {item.priorityScore}
+                          </span>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <span className="font-medium block truncate">{item.title}</span>
+                          {item.description && (
+                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{item.description}</p>
+                          )}
+                        </div>
+                        <Badge variant="outline" className="text-[10px] shrink-0 mt-0.5">{getQuadrant(item)}</Badge>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 transition-transform hover:scale-110" onClick={() => setEditingItem(item)}>
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-destructive transition-transform hover:scale-110" onClick={() => deleteItem(item.id)}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
             ))}
           </div>
         )}
