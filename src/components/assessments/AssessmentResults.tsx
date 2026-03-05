@@ -396,7 +396,13 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="gap-2">
+          <Button variant="outline" className="gap-2" onClick={() => {
+            const tab = document.querySelector('[data-state="active"][role="tabpanel"]');
+            const tabValue = tab?.getAttribute('data-value') || tab?.id;
+            // Scroll to prioritisation tab for export
+            const priTab = document.querySelector('[value="prioritisation"]') as HTMLButtonElement;
+            if (priTab) priTab.click();
+          }}>
             <Download className="h-4 w-4" />
             Export
           </Button>
