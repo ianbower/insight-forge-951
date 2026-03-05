@@ -26,7 +26,8 @@ import {
   BenchmarkComparison,
 } from "./AssessmentVisualizations";
 import { AssessmentInsights } from "./AssessmentInsights";
-import { Users, BarChart3, Target, TrendingUp, Sparkles, Download, Filter, Database } from "lucide-react";
+import { PrioritisationMatrix, type MatrixItem } from "@/components/canvas/PrioritisationMatrix";
+import { Users, BarChart3, Target, TrendingUp, Sparkles, Download, Filter, Database, LayoutGrid } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AssessmentResultsProps {
@@ -222,6 +223,24 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
   const overallScore = useMemo(() => {
     if (dimensionScores.length === 0) return 0;
     return dimensionScores.reduce((sum, d) => sum + d.score, 0) / dimensionScores.length;
+  }, [dimensionScores]);
+
+  // Generate matrix items from dimension scores for prioritisation
+  const matrixItems: MatrixItem[] = useMemo(() => {
+    return dimensionScores.map((dim, idx) => {
+      const gapFromTarget = dim.target - dim.score;
+      const category = dim.score >= 4 ? "Strength" : dim.score < 3 ? "Gap" : "Neutral";
+      return {
+        id: `dim-${idx}`,
+        title: dim.name,
+        description: `Score: ${dim.score.toFixed(2)}/5 | Gap: ${gapFromTarget.toFixed(2)}`,
+        // Initial spread: dimensions with bigger gaps go higher impact; effort is evenly distributed
+        effort: 30 + (idx % 3) * 25 + Math.random() * 10,
+        impact: Math.min(95, Math.max(5, (gapFromTarget / 4) * 80 + 20)),
+        category,
+        priorityScore: Math.round(Math.min(5, Math.max(1, gapFromTarget * 2 + 2))),
+      };
+    });
   }, [dimensionScores]);
 
   // Heat map data
@@ -432,6 +451,10 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
               <Target className="h-4 w-4" />
               Gap Analysis
             </TabsTrigger>
+            <TabsTrigger value="prioritisation" className="gap-2">
+              <LayoutGrid className="h-4 w-4" />
+              Prioritisation
+            </TabsTrigger>
           </TabsList>
 
           {/* Overview Tab */}
@@ -549,6 +572,27 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
           {/* Gap Analysis Tab */}
           <TabsContent value="gaps">
             <AssessmentGapAnalysis data={dimensionScores} />
+          </TabsContent>
+
+          {/* Prioritisation Matrix Tab */}
+          <TabsContent value="prioritisation">
+            <Card className="border-border">
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <LayoutGrid className="h-5 w-5 text-primary" />
+                  Prioritisation Matrix
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Dimensions are pre-plotted based on gap analysis. Drag items to reposition, or click "AI Recommend" for intelligent placement.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <PrioritisationMatrix
+                  defaultItems={matrixItems}
+                  compact
+                />
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       )}
