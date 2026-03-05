@@ -631,6 +631,7 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
                   defaultItems={matrixItems}
                   maxItems={10}
                   assessmentContext={assessmentCtx}
+                  storageKey={`matrix-${instanceId}`}
                   compact
                 />
               </CardContent>

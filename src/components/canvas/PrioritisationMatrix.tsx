@@ -61,6 +61,8 @@ interface PrioritisationMatrixProps {
   maxItems?: number;
   /** Rich assessment context for AI-powered recommendations */
   assessmentContext?: AssessmentContext;
+  /** Key for localStorage persistence when onSave is not provided */
+  storageKey?: string;
 }
 
 const QUADRANT_META = [
