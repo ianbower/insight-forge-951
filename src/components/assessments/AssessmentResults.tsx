@@ -139,10 +139,24 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
     const transformedResponses: ResponseData[] = (responsesData || []).map((r) => {
       const question = questionsData?.find((q) => q.id === r.question_id);
       const dimension = dimensionsData?.find((d) => d.id === question?.dimension_id);
+      
+      // Handle dual-score format { asIs, toBe } or legacy single number
+      const rawVal = r.response_value as any;
+      let asIsScore: number;
+      let toBeScore: number | null = null;
+      
+      if (rawVal && typeof rawVal === "object" && "asIs" in rawVal) {
+        asIsScore = typeof rawVal.asIs === "number" ? rawVal.asIs : Number(rawVal.asIs) || 0;
+        toBeScore = rawVal.toBe != null ? (typeof rawVal.toBe === "number" ? rawVal.toBe : Number(rawVal.toBe) || null) : null;
+      } else {
+        asIsScore = typeof rawVal === "number" ? rawVal : Number(rawVal) || 0;
+      }
+      
       return {
         dimension_name: dimension?.name || "General",
         question_text: question?.question_text || "",
-        response_value: typeof r.response_value === "number" ? r.response_value : Number(r.response_value) || 0,
+        response_value: asIsScore,
+        target_value: toBeScore,
         recipient_industry: r.recipient?.industry,
         recipient_organization: r.recipient?.organization,
       };
