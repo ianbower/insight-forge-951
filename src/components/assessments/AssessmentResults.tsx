@@ -225,6 +225,24 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
     return dimensionScores.reduce((sum, d) => sum + d.score, 0) / dimensionScores.length;
   }, [dimensionScores]);
 
+  // Generate matrix items from dimension scores for prioritisation
+  const matrixItems: MatrixItem[] = useMemo(() => {
+    return dimensionScores.map((dim, idx) => {
+      const gapFromTarget = dim.target - dim.score;
+      const category = dim.score >= 4 ? "Strength" : dim.score < 3 ? "Gap" : "Neutral";
+      return {
+        id: `dim-${idx}`,
+        title: dim.name,
+        description: `Score: ${dim.score.toFixed(2)}/5 | Gap: ${gapFromTarget.toFixed(2)}`,
+        // Initial spread: dimensions with bigger gaps go higher impact; effort is evenly distributed
+        effort: 30 + (idx % 3) * 25 + Math.random() * 10,
+        impact: Math.min(95, Math.max(5, (gapFromTarget / 4) * 80 + 20)),
+        category,
+        priorityScore: Math.round(Math.min(5, Math.max(1, gapFromTarget * 2 + 2))),
+      };
+    });
+  }, [dimensionScores]);
+
   // Heat map data
   const heatMapData = useMemo(() => {
     const byDimension: Record<string, Record<string, number[]>> = {};
