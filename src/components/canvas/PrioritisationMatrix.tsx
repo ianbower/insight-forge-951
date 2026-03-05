@@ -32,6 +32,21 @@ export interface PrioritisationMatrixData {
   };
 }
 
+export type DetailLevel = "high-level" | "medium" | "detailed";
+
+/** Rich context from assessment data to feed the AI */
+export interface AssessmentContext {
+  dimensions: Array<{
+    name: string;
+    score: number;
+    target: number;
+    questionScores: Array<{ question: string; score: number; target: number }>;
+  }>;
+  projectName?: string;
+  projectDescription?: string;
+  industry?: string;
+}
+
 interface PrioritisationMatrixProps {
   projectId?: string;
   toolId?: string;
@@ -43,6 +58,8 @@ interface PrioritisationMatrixProps {
   compact?: boolean;
   /** Maximum number of items to show (controls level of detail). All items kept, but only top N displayed on matrix. */
   maxItems?: number;
+  /** Rich assessment context for AI-powered recommendations */
+  assessmentContext?: AssessmentContext;
 }
 
 const QUADRANT_META = [
