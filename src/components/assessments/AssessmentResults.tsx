@@ -451,6 +451,10 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
               <Target className="h-4 w-4" />
               Gap Analysis
             </TabsTrigger>
+            <TabsTrigger value="prioritisation" className="gap-2">
+              <LayoutGrid className="h-4 w-4" />
+              Prioritisation
+            </TabsTrigger>
           </TabsList>
 
           {/* Overview Tab */}
