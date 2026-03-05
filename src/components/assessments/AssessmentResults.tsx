@@ -26,7 +26,7 @@ import {
   BenchmarkComparison,
 } from "./AssessmentVisualizations";
 import { AssessmentInsights } from "./AssessmentInsights";
-import { PrioritisationMatrix, type MatrixItem } from "@/components/canvas/PrioritisationMatrix";
+import { PrioritisationMatrix, type MatrixItem, type AssessmentContext } from "@/components/canvas/PrioritisationMatrix";
 import { Users, BarChart3, Target, TrendingUp, Sparkles, Download, Filter, Database, LayoutGrid } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -230,12 +230,10 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
     return dimensionScores.map((dim, idx) => {
       const gapFromTarget = dim.target - dim.score;
       const category = dim.score >= 4 ? "Strength" : dim.score < 3 ? "Gap" : "Neutral";
-      const statusLabel = dim.score >= 4 ? "performing well" : dim.score >= 3 ? "moderate maturity" : "significant gap identified";
       return {
         id: `dim-${idx}`,
         title: dim.name,
-        description: `Currently at ${dim.score.toFixed(1)}/5 (target ${dim.target.toFixed(1)}). ${statusLabel.charAt(0).toUpperCase() + statusLabel.slice(1)} with a gap of ${gapFromTarget.toFixed(1)} points requiring ${gapFromTarget > 1.5 ? "urgent" : gapFromTarget > 0.5 ? "moderate" : "minor"} attention.`,
-        // Initial spread: dimensions with bigger gaps go higher impact; effort is evenly distributed
+        description: `Initial dimension placeholder — click "AI Recommend" to generate specific, actionable initiatives.`,
         effort: 30 + (idx % 3) * 25 + Math.random() * 10,
         impact: Math.min(95, Math.max(5, (gapFromTarget / 4) * 80 + 20)),
         category,
@@ -243,6 +241,26 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
       };
     });
   }, [dimensionScores]);
+
+  // Build rich assessment context for AI
+  const assessmentCtx: AssessmentContext = useMemo(() => {
+    const dimContexts = dimensionScores.map(dim => {
+      const dimObj = dimensions.find(d => d.name === dim.name);
+      const dimQuestions = questions.filter(q => q.dimension_id === dimObj?.id);
+      const questionScores = dimQuestions.map(q => {
+        const qResponses = filteredResponses.filter(r => r.question_text === q.question_text);
+        const avgScore = qResponses.length > 0
+          ? qResponses.reduce((sum, r) => sum + r.response_value, 0) / qResponses.length
+          : 0;
+        return { question: q.question_text, score: avgScore, target: dim.target };
+      });
+      return { name: dim.name, score: dim.score, target: dim.target, questionScores };
+    });
+    return {
+      dimensions: dimContexts,
+      projectName: instanceName,
+    };
+  }, [dimensionScores, dimensions, questions, filteredResponses, instanceName]);
 
   // Heat map data
   const heatMapData = useMemo(() => {
@@ -584,13 +602,14 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
                   Prioritisation Matrix
                 </CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  Dimensions are pre-plotted based on gap analysis. Drag items to reposition, or click "AI Recommend" for intelligent placement.
+                  Dimensions are pre-plotted based on gap analysis. Select a detail level and click "AI Recommend" to generate specific, actionable initiatives informed by your assessment data.
                 </p>
               </CardHeader>
               <CardContent>
                 <PrioritisationMatrix
                   defaultItems={matrixItems}
                   maxItems={10}
+                  assessmentContext={assessmentCtx}
                   compact
                 />
               </CardContent>
