@@ -573,6 +573,27 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
           <TabsContent value="gaps">
             <AssessmentGapAnalysis data={dimensionScores} />
           </TabsContent>
+
+          {/* Prioritisation Matrix Tab */}
+          <TabsContent value="prioritisation">
+            <Card className="border-border">
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <LayoutGrid className="h-5 w-5 text-primary" />
+                  Prioritisation Matrix
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Dimensions are pre-plotted based on gap analysis. Drag items to reposition, or click "AI Recommend" for intelligent placement.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <PrioritisationMatrix
+                  defaultItems={matrixItems}
+                  compact
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
       )}
     </div>
