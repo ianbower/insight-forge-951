@@ -230,10 +230,11 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
     return dimensionScores.map((dim, idx) => {
       const gapFromTarget = dim.target - dim.score;
       const category = dim.score >= 4 ? "Strength" : dim.score < 3 ? "Gap" : "Neutral";
+      const statusLabel = dim.score >= 4 ? "performing well" : dim.score >= 3 ? "moderate maturity" : "significant gap identified";
       return {
         id: `dim-${idx}`,
         title: dim.name,
-        description: `Score: ${dim.score.toFixed(2)}/5 | Gap: ${gapFromTarget.toFixed(2)}`,
+        description: `Currently at ${dim.score.toFixed(1)}/5 (target ${dim.target.toFixed(1)}). ${statusLabel.charAt(0).toUpperCase() + statusLabel.slice(1)} with a gap of ${gapFromTarget.toFixed(1)} points requiring ${gapFromTarget > 1.5 ? "urgent" : gapFromTarget > 0.5 ? "moderate" : "minor"} attention.`,
         // Initial spread: dimensions with bigger gaps go higher impact; effort is evenly distributed
         effort: 30 + (idx % 3) * 25 + Math.random() * 10,
         impact: Math.min(95, Math.max(5, (gapFromTarget / 4) * 80 + 20)),
