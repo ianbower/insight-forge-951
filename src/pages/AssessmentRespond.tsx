@@ -58,7 +58,9 @@ export default function AssessmentRespond() {
   const [instance, setInstance] = useState<any>(null);
   const [dimensions, setDimensions] = useState<Dimension[]>([]);
   const [responses, setResponses] = useState<Record<string, any>>({});
+  const [notes, setNotes] = useState<Record<string, string>>({});
   const [currentDimensionIndex, setCurrentDimensionIndex] = useState(0);
+  const notesTimers = useRef<Record<string, NodeJS.Timeout>>({});
 
   useEffect(() => {
     if (token) {
@@ -118,10 +120,13 @@ export default function AssessmentRespond() {
       .eq("recipient_id", recipientData.id);
 
     const responsesMap: Record<string, any> = {};
+    const notesMap: Record<string, string> = {};
     (existingResponses || []).forEach((r) => {
       responsesMap[r.question_id] = r.response_value;
+      if (r.notes) notesMap[r.question_id] = r.notes;
     });
     setResponses(responsesMap);
+    setNotes(notesMap);
 
     const dims: Dimension[] = (dimensionsData || []).map((d) => ({
       id: d.id,
