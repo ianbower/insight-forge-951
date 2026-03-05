@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -10,6 +10,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   ChevronLeft,
   ChevronRight,
@@ -18,6 +19,8 @@ import {
   Send,
   ArrowLeft,
   Home,
+  MessageSquarePlus,
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -57,7 +60,9 @@ export default function AssessmentTake() {
   const [instance, setInstance] = useState<any>(null);
   const [dimensions, setDimensions] = useState<Dimension[]>([]);
   const [responses, setResponses] = useState<Record<string, any>>({});
+  const [notes, setNotes] = useState<Record<string, string>>({});
   const [currentDimensionIndex, setCurrentDimensionIndex] = useState(0);
+  const notesTimers = useRef<Record<string, NodeJS.Timeout>>({});
 
   useEffect(() => {
     if (token) {
@@ -117,10 +122,13 @@ export default function AssessmentTake() {
       .eq("recipient_id", recipientData.id);
 
     const responsesMap: Record<string, any> = {};
+    const notesMap: Record<string, string> = {};
     (existingResponses || []).forEach((r) => {
       responsesMap[r.question_id] = r.response_value;
+      if (r.notes) notesMap[r.question_id] = r.notes;
     });
     setResponses(responsesMap);
+    setNotes(notesMap);
 
     const dims: Dimension[] = (dimensionsData || []).map((d) => ({
       id: d.id,
@@ -191,6 +199,19 @@ export default function AssessmentTake() {
       [field]: value,
     };
     await handleResponse(questionId, updated);
+  };
+
+  const handleNotesChange = (questionId: string, value: string) => {
+    setNotes((prev) => ({ ...prev, [questionId]: value }));
+    if (notesTimers.current[questionId]) clearTimeout(notesTimers.current[questionId]);
+    notesTimers.current[questionId] = setTimeout(async () => {
+      await supabase
+        .from("assessment_responses")
+        .update({ notes: value })
+        .eq("assessment_instance_id", instance.id)
+        .eq("recipient_id", recipient.id)
+        .eq("question_id", questionId);
+    }, 800);
   };
 
   const handleSubmit = async () => {
@@ -380,6 +401,25 @@ export default function AssessmentTake() {
                     className="max-w-[200px]"
                   />
                 )}
+
+                {/* Optional notes */}
+                <Collapsible className="mt-4">
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-foreground p-0 h-auto">
+                      <MessageSquarePlus className="h-4 w-4" />
+                      <span className="text-sm">{notes[question.id] ? "Edit additional comments" : "Add additional comments"}</span>
+                      <ChevronDown className="h-3 w-3" />
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="mt-2">
+                    <Textarea
+                      value={notes[question.id] || ""}
+                      onChange={(e) => handleNotesChange(question.id, e.target.value)}
+                      placeholder="Share any additional thoughts, context, or insights about your answer..."
+                      className="min-h-[80px] text-sm"
+                    />
+                  </CollapsibleContent>
+                </Collapsible>
               </CardContent>
             </Card>
           ))}
