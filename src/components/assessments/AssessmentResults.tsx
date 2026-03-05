@@ -589,6 +589,7 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
               <CardContent>
                 <PrioritisationMatrix
                   defaultItems={matrixItems}
+                  maxItems={10}
                   compact
                 />
               </CardContent>
