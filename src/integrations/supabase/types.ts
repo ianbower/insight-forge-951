@@ -219,6 +219,44 @@ export type Database = {
           },
         ]
       }
+      assessment_items: {
+        Row: {
+          assessment_template_id: string
+          created_at: string
+          description: string | null
+          id: string
+          metadata_json: Json | null
+          order_index: number
+          title: string
+        }
+        Insert: {
+          assessment_template_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          metadata_json?: Json | null
+          order_index?: number
+          title: string
+        }
+        Update: {
+          assessment_template_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          metadata_json?: Json | null
+          order_index?: number
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_items_assessment_template_id_fkey"
+            columns: ["assessment_template_id"]
+            isOneToOne: false
+            referencedRelation: "assessment_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assessment_questions: {
         Row: {
           assessment_template_id: string
@@ -337,6 +375,7 @@ export type Database = {
           assessment_instance_id: string
           created_at: string
           id: string
+          item_id: string | null
           notes: string | null
           question_id: string
           recipient_id: string | null
@@ -347,6 +386,7 @@ export type Database = {
           assessment_instance_id: string
           created_at?: string
           id?: string
+          item_id?: string | null
           notes?: string | null
           question_id: string
           recipient_id?: string | null
@@ -357,6 +397,7 @@ export type Database = {
           assessment_instance_id?: string
           created_at?: string
           id?: string
+          item_id?: string | null
           notes?: string | null
           question_id?: string
           recipient_id?: string | null
@@ -369,6 +410,13 @@ export type Database = {
             columns: ["assessment_instance_id"]
             isOneToOne: false
             referencedRelation: "assessment_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assessment_responses_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "assessment_items"
             referencedColumns: ["id"]
           },
           {
@@ -389,6 +437,7 @@ export type Database = {
       }
       assessment_templates: {
         Row: {
+          assessment_type: string
           category: string
           created_at: string
           created_by: string | null
@@ -401,6 +450,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          assessment_type?: string
           category?: string
           created_at?: string
           created_by?: string | null
@@ -413,6 +463,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          assessment_type?: string
           category?: string
           created_at?: string
           created_by?: string | null
