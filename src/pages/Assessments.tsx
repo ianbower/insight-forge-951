@@ -57,6 +57,7 @@ interface AssessmentTemplate {
   industry: string | null;
   is_public: boolean;
   created_at: string;
+  assessment_type?: string;
 }
 
 interface AssessmentInstance {
@@ -82,6 +83,14 @@ const categoryColors: Record<string, string> = {
   capability: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
   culture: "bg-amber-500/10 text-amber-500 border-amber-500/20",
   general: "bg-slate-500/10 text-slate-500 border-slate-500/20",
+};
+
+const assessmentTypeLabels: Record<string, string> = {
+  standard: "Standard",
+  use_case: "Use Case",
+  comparative: "Comparative",
+  process: "Process",
+  checklist: "Checklist",
 };
 
 const statusColors: Record<string, string> = {
@@ -115,6 +124,7 @@ export default function Assessments() {
     category: "maturity",
     framework_type: "",
     industry: "",
+    assessment_type: "standard",
   });
 
   // Form state for launching assessment
@@ -171,14 +181,15 @@ export default function Assessments() {
       framework_type: newTemplate.framework_type || null,
       industry: newTemplate.industry || null,
       is_public: true,
-    });
+      assessment_type: newTemplate.assessment_type,
+    } as any);
 
     if (error) {
       toast({ title: "Error creating template", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Template created successfully" });
       setCreateDialogOpen(false);
-      setNewTemplate({ name: "", description: "", category: "maturity", framework_type: "", industry: "" });
+      setNewTemplate({ name: "", description: "", category: "maturity", framework_type: "", industry: "", assessment_type: "standard" });
       fetchData();
     }
   };
@@ -311,6 +322,11 @@ export default function Assessments() {
                     >
                       {template.category}
                     </Badge>
+                    {(template as any).assessment_type && (template as any).assessment_type !== "standard" && (
+                      <Badge variant="secondary" className="text-xs capitalize">
+                        {assessmentTypeLabels[(template as any).assessment_type] || (template as any).assessment_type}
+                      </Badge>
+                    )}
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button
                         variant="ghost"
@@ -548,6 +564,31 @@ export default function Assessments() {
                 onChange={(e) => setNewTemplate({ ...newTemplate, description: e.target.value })}
               />
             </div>
+            <div className="space-y-2">
+              <Label>Assessment Type</Label>
+              <Select
+                value={newTemplate.assessment_type}
+                onValueChange={(value) => setNewTemplate({ ...newTemplate, assessment_type: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="standard">Standard — Questions by dimension</SelectItem>
+                  <SelectItem value="use_case">Use Case — Evaluate items against criteria</SelectItem>
+                  <SelectItem value="comparative">Comparative — Compare options side-by-side</SelectItem>
+                  <SelectItem value="process">Process — Evaluate business processes</SelectItem>
+                  <SelectItem value="checklist">Checklist — Binary or RAG compliance</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {newTemplate.assessment_type === "standard" && "Traditional questionnaire grouped by dimensions with Likert scoring."}
+                {newTemplate.assessment_type === "use_case" && "Define a list of use cases evaluated against the same criteria. Results feed into a prioritisation matrix."}
+                {newTemplate.assessment_type === "comparative" && "Score vendors/solutions against weighted criteria. Results show ranked comparison."}
+                {newTemplate.assessment_type === "process" && "Evaluate business processes against standard criteria. Results show a transformation heat map."}
+                {newTemplate.assessment_type === "checklist" && "Binary or Red/Amber/Green responses against compliance requirements."}
+              </p>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="category">Category</Label>
@@ -676,6 +717,7 @@ export default function Assessments() {
             <AssessmentBuilder
               templateId={selectedTemplate.id}
               templateName={selectedTemplate.name}
+              assessmentType={(selectedTemplate as any).assessment_type || "standard"}
               onClose={() => {
                 setBuilderDialogOpen(false);
                 fetchData();

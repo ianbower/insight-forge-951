@@ -18,6 +18,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   AssessmentRadarChart,
   AssessmentHeatMap,
   AssessmentGapAnalysis,
@@ -27,14 +35,14 @@ import {
 } from "./AssessmentVisualizations";
 import { AssessmentInsights } from "./AssessmentInsights";
 import { PrioritisationMatrix, type MatrixItem, type AssessmentContext } from "@/components/canvas/PrioritisationMatrix";
-import { Users, BarChart3, Target, TrendingUp, Sparkles, Download, Filter, Database, LayoutGrid } from "lucide-react";
+import { Users, BarChart3, Target, TrendingUp, Sparkles, Download, Filter, Database, LayoutGrid, ListChecks } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AssessmentResultsProps {
   instanceId: string;
   instanceName: string;
   onClose?: () => void;
-  embedded?: boolean; // When true, shows a simplified inline view
+  embedded?: boolean;
 }
 
 interface ResponseData {
@@ -44,6 +52,8 @@ interface ResponseData {
   target_value: number | null;
   recipient_industry?: string;
   recipient_organization?: string;
+  item_id?: string | null;
+  item_title?: string | null;
 }
 
 interface BenchmarkData {
@@ -59,6 +69,13 @@ interface BenchmarkData {
   sample_size: number | null;
 }
 
+interface AssessmentItemData {
+  id: string;
+  title: string;
+  description: string | null;
+  order_index: number;
+}
+
 export function AssessmentResults({ instanceId, instanceName, onClose, embedded = false }: AssessmentResultsProps) {
   const [loading, setLoading] = useState(true);
   const [responses, setResponses] = useState<ResponseData[]>([]);
@@ -66,10 +83,14 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
   const [questions, setQuestions] = useState<any[]>([]);
   const [recipients, setRecipients] = useState<any[]>([]);
   const [benchmarks, setBenchmarks] = useState<BenchmarkData[]>([]);
+  const [assessmentItems, setAssessmentItems] = useState<AssessmentItemData[]>([]);
+  const [assessmentType, setAssessmentType] = useState("standard");
   const [filterIndustry, setFilterIndustry] = useState<string>("all");
   const [filterOrg, setFilterOrg] = useState<string>("all");
   const [benchmarkFilter, setBenchmarkFilter] = useState<string>("all");
   const [showInsights, setShowInsights] = useState(false);
+
+  const isItemBased = ["use_case", "comparative", "process"].includes(assessmentType);
 
   useEffect(() => {
     fetchResults();
@@ -78,7 +99,6 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
   const fetchResults = async () => {
     setLoading(true);
 
-    // Fetch instance details
     const { data: instanceData } = await supabase
       .from("assessment_instances")
       .select("*, assessment_template:assessment_templates(*)")
@@ -91,8 +111,20 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
     }
 
     const templateId = instanceData.assessment_template_id;
+    const template = instanceData.assessment_template as any;
+    const aType = template?.assessment_type || "standard";
+    setAssessmentType(aType);
 
-    // Fetch dimensions
+    // Fetch items for item-based assessments
+    if (["use_case", "comparative", "process"].includes(aType)) {
+      const { data: itemsData } = await supabase
+        .from("assessment_items" as any)
+        .select("*")
+        .eq("assessment_template_id", templateId)
+        .order("order_index");
+      setAssessmentItems((itemsData as any[]) || []);
+    }
+
     const { data: dimensionsData } = await supabase
       .from("assessment_dimensions")
       .select("*")
@@ -101,7 +133,6 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
 
     setDimensions(dimensionsData || []);
 
-    // Fetch questions
     const { data: questionsData } = await supabase
       .from("assessment_questions")
       .select("*")
@@ -110,7 +141,6 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
 
     setQuestions(questionsData || []);
 
-    // Fetch recipients
     const { data: recipientsData } = await supabase
       .from("assessment_recipients")
       .select("*")
@@ -118,7 +148,6 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
 
     setRecipients(recipientsData || []);
 
-    // Fetch benchmarks for this template
     const { data: benchmarksData } = await supabase
       .from("assessment_benchmarks")
       .select("*")
@@ -126,7 +155,6 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
 
     setBenchmarks(benchmarksData || []);
 
-    // Fetch responses with recipient info
     const { data: responsesData } = await supabase
       .from("assessment_responses")
       .select(`
@@ -135,12 +163,12 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
       `)
       .eq("assessment_instance_id", instanceId);
 
-    // Transform responses
     const transformedResponses: ResponseData[] = (responsesData || []).map((r) => {
       const question = questionsData?.find((q) => q.id === r.question_id);
       const dimension = dimensionsData?.find((d) => d.id === question?.dimension_id);
+      const itemId = (r as any).item_id;
+      const item = (itemsData as any)?.find?.((i: any) => i.id === itemId);
       
-      // Handle dual-score format { asIs, toBe } or legacy single number
       const rawVal = r.response_value as any;
       let asIsScore: number;
       let toBeScore: number | null = null;
@@ -159,10 +187,53 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
         target_value: toBeScore,
         recipient_industry: r.recipient?.industry,
         recipient_organization: r.recipient?.organization,
+        item_id: itemId || null,
+        item_title: item?.title || null,
       };
     });
 
-    setResponses(transformedResponses);
+    // We need items data in scope for the transform above
+    let itemsData: any[] = [];
+    if (["use_case", "comparative", "process"].includes(aType)) {
+      const { data } = await supabase
+        .from("assessment_items" as any)
+        .select("*")
+        .eq("assessment_template_id", templateId)
+        .order("order_index");
+      itemsData = (data as any[]) || [];
+    }
+
+    // Re-transform with items
+    const finalResponses: ResponseData[] = (responsesData || []).map((r) => {
+      const question = questionsData?.find((q) => q.id === r.question_id);
+      const dimension = dimensionsData?.find((d) => d.id === question?.dimension_id);
+      const itemId = (r as any).item_id;
+      const item = itemsData.find((i: any) => i.id === itemId);
+      
+      const rawVal = r.response_value as any;
+      let asIsScore: number;
+      let toBeScore: number | null = null;
+      
+      if (rawVal && typeof rawVal === "object" && "asIs" in rawVal) {
+        asIsScore = typeof rawVal.asIs === "number" ? rawVal.asIs : Number(rawVal.asIs) || 0;
+        toBeScore = rawVal.toBe != null ? (typeof rawVal.toBe === "number" ? rawVal.toBe : Number(rawVal.toBe) || null) : null;
+      } else {
+        asIsScore = typeof rawVal === "number" ? rawVal : Number(rawVal) || 0;
+      }
+      
+      return {
+        dimension_name: dimension?.name || "General",
+        question_text: question?.question_text || "",
+        response_value: asIsScore,
+        target_value: toBeScore,
+        recipient_industry: r.recipient?.industry,
+        recipient_organization: r.recipient?.organization,
+        item_id: itemId || null,
+        item_title: item?.title || null,
+      };
+    });
+
+    setResponses(finalResponses);
     setLoading(false);
   };
 
@@ -177,13 +248,11 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
     return ["all", ...Array.from(unique)];
   }, [recipients]);
 
-  // Benchmark type options
   const benchmarkTypes = useMemo(() => {
     const unique = new Set(benchmarks.map((b) => b.benchmark_type));
     return ["all", ...Array.from(unique)];
   }, [benchmarks]);
 
-  // Filtered responses
   const filteredResponses = useMemo(() => {
     return responses.filter((r) => {
       if (filterIndustry !== "all" && r.recipient_industry !== filterIndustry) return false;
@@ -192,19 +261,18 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
     });
   }, [responses, filterIndustry, filterOrg]);
 
-  // Get benchmark for a dimension
   const getBenchmarkForDimension = (dimensionId: string | null) => {
     const filtered = benchmarks.filter((b) => {
       if (benchmarkFilter !== "all" && b.benchmark_type !== benchmarkFilter) return false;
       return b.dimension_id === dimensionId || b.dimension_id === null;
     });
-    // Prefer dimension-specific benchmark
     const specific = filtered.find((b) => b.dimension_id === dimensionId);
     return specific || filtered[0];
   };
 
-  // Calculate dimension scores with benchmarks
+  // ===== STANDARD assessment scores =====
   const dimensionScores = useMemo(() => {
+    if (isItemBased) return [];
     const scoresByDimension: Record<string, { scores: number[]; targets: number[]; id: string }> = {};
 
     filteredResponses.forEach((r) => {
@@ -225,7 +293,7 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
       const benchmark = getBenchmarkForDimension(data.id);
       const avgTarget = data.targets.length > 0
         ? data.targets.reduce((a, b) => a + b, 0) / data.targets.length
-        : 4; // Fallback to 4 if no to-be scores provided
+        : 4;
       return {
         name,
         score: data.scores.length > 0 ? data.scores.reduce((a, b) => a + b, 0) / data.scores.length : 0,
@@ -238,16 +306,74 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
         responseCount: data.scores.length,
       };
     });
-  }, [filteredResponses, dimensions, benchmarks, benchmarkFilter]);
+  }, [filteredResponses, dimensions, benchmarks, benchmarkFilter, isItemBased]);
 
-  // Calculate overall score
+  // ===== ITEM-BASED assessment scores =====
+  const itemScores = useMemo(() => {
+    if (!isItemBased) return [];
+    
+    return assessmentItems.map((item) => {
+      const itemResponses = filteredResponses.filter((r) => r.item_id === item.id);
+      const scores = itemResponses.filter((r) => !isNaN(r.response_value)).map((r) => r.response_value);
+      const targets = itemResponses.filter((r) => r.target_value != null && !isNaN(r.target_value!)).map((r) => r.target_value!);
+      
+      // Per-question breakdown
+      const questionBreakdown = questions.map((q) => {
+        const qResponses = itemResponses.filter((r) => r.question_text === q.question_text);
+        const qScores = qResponses.filter((r) => !isNaN(r.response_value)).map((r) => r.response_value);
+        return {
+          question: q.question_text,
+          score: qScores.length > 0 ? qScores.reduce((a, b) => a + b, 0) / qScores.length : 0,
+          weight: Number(q.weight) || 1,
+        };
+      });
+
+      const avgScore = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
+      const avgTarget = targets.length > 0 ? targets.reduce((a, b) => a + b, 0) / targets.length : 4;
+
+      return {
+        id: item.id,
+        title: item.title,
+        description: item.description,
+        score: avgScore,
+        target: avgTarget,
+        gap: avgTarget - avgScore,
+        responseCount: scores.length,
+        questionBreakdown,
+      };
+    });
+  }, [filteredResponses, assessmentItems, questions, isItemBased]);
+
+  // Overall score (works for both types)
   const overallScore = useMemo(() => {
+    if (isItemBased) {
+      if (itemScores.length === 0) return 0;
+      return itemScores.reduce((sum, i) => sum + i.score, 0) / itemScores.length;
+    }
     if (dimensionScores.length === 0) return 0;
     return dimensionScores.reduce((sum, d) => sum + d.score, 0) / dimensionScores.length;
-  }, [dimensionScores]);
+  }, [dimensionScores, itemScores, isItemBased]);
 
-  // Generate matrix items from dimension scores for prioritisation
+  // Matrix items for item-based assessments (use cases become initiatives)
   const matrixItems: MatrixItem[] = useMemo(() => {
+    if (isItemBased) {
+      return itemScores.map((item) => {
+        // Map score to "value" (impact) and inverse-score to "effort"
+        const maxScale = 5;
+        const valueScore = (item.score / maxScale) * 100;
+        const effortScore = 100 - valueScore; // Higher score = lower effort needed
+        return {
+          id: item.id,
+          title: item.title,
+          description: item.description || `Score: ${item.score.toFixed(1)} / Gap: ${item.gap.toFixed(1)}`,
+          effort: Math.max(5, Math.min(95, effortScore)),
+          impact: Math.max(5, Math.min(95, valueScore)),
+          category: item.score >= 4 ? "High Value" : item.score >= 3 ? "Medium" : "Needs Attention",
+          priorityScore: Math.round(item.score),
+        };
+      });
+    }
+    // Standard assessment matrix items
     return dimensionScores.map((dim, idx) => {
       const gapFromTarget = dim.target - dim.score;
       const category = dim.score >= 4 ? "Strength" : dim.score < 3 ? "Gap" : "Neutral";
@@ -261,10 +387,23 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
         priorityScore: Math.round(Math.min(5, Math.max(1, gapFromTarget * 2 + 2))),
       };
     });
-  }, [dimensionScores]);
+  }, [dimensionScores, itemScores, isItemBased]);
 
-  // Build rich assessment context for AI
+  // Build assessment context for AI
   const assessmentCtx: AssessmentContext = useMemo(() => {
+    if (isItemBased) {
+      const dimContexts = itemScores.map(item => ({
+        name: item.title,
+        score: item.score,
+        target: item.target,
+        questionScores: item.questionBreakdown.map(q => ({
+          question: q.question,
+          score: q.score,
+          target: item.target,
+        })),
+      }));
+      return { dimensions: dimContexts, projectName: instanceName };
+    }
     const dimContexts = dimensionScores.map(dim => {
       const dimObj = dimensions.find(d => d.name === dim.name);
       const dimQuestions = questions.filter(q => q.dimension_id === dimObj?.id);
@@ -277,11 +416,8 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
       });
       return { name: dim.name, score: dim.score, target: dim.target, questionScores };
     });
-    return {
-      dimensions: dimContexts,
-      projectName: instanceName,
-    };
-  }, [dimensionScores, dimensions, questions, filteredResponses, instanceName]);
+    return { dimensions: dimContexts, projectName: instanceName };
+  }, [dimensionScores, itemScores, dimensions, questions, filteredResponses, instanceName, isItemBased]);
 
   // Heat map data
   const heatMapData = useMemo(() => {
@@ -308,7 +444,6 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
     }));
   }, [filteredResponses]);
 
-  // Mock trend data (would come from historical assessments)
   const trendData = [
     { period: "Q1 2024", score: 2.8 },
     { period: "Q2 2024", score: 3.1 },
@@ -327,7 +462,7 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
     );
   }
 
-  // Embedded mode - simplified inline view
+  // Embedded mode
   if (embedded) {
     if (responses.length === 0) {
       return (
@@ -340,7 +475,6 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
 
     return (
       <div className="space-y-4">
-        {/* Summary stats */}
         <div className="grid grid-cols-3 gap-3">
           <div className="text-center p-3 bg-muted/30 rounded-lg">
             <p className="text-2xl font-bold text-primary">{overallScore.toFixed(1)}</p>
@@ -351,17 +485,15 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
             <p className="text-xs text-muted-foreground">Responses</p>
           </div>
           <div className="text-center p-3 bg-muted/30 rounded-lg">
-            <p className="text-2xl font-bold">{dimensionScores.length}</p>
-            <p className="text-xs text-muted-foreground">Dimensions</p>
+            <p className="text-2xl font-bold">{isItemBased ? assessmentItems.length : dimensionScores.length}</p>
+            <p className="text-xs text-muted-foreground">{isItemBased ? "Items" : "Dimensions"}</p>
           </div>
         </div>
 
-        {/* Radar chart */}
-        <AssessmentRadarChart data={dimensionScores} />
+        {!isItemBased && <AssessmentRadarChart data={dimensionScores} />}
 
-        {/* Quick dimension breakdown */}
         <div className="space-y-2">
-          {dimensionScores.slice(0, 5).map((dim) => (
+          {(isItemBased ? itemScores.slice(0, 5).map(i => ({ name: i.title, score: i.score })) : dimensionScores.slice(0, 5)).map((dim) => (
             <div key={dim.name} className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground truncate flex-1">{dim.name}</span>
               <div className="flex items-center gap-2">
@@ -375,11 +507,6 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
               </div>
             </div>
           ))}
-          {dimensionScores.length > 5 && (
-            <p className="text-xs text-muted-foreground text-center">
-              +{dimensionScores.length - 5} more dimensions
-            </p>
-          )}
         </div>
       </div>
     );
@@ -390,16 +517,20 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold">{instanceName}</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-semibold">{instanceName}</h2>
+            {isItemBased && (
+              <Badge variant="secondary" className="capitalize">
+                {assessmentType.replace("_", " ")}
+              </Badge>
+            )}
+          </div>
           <p className="text-sm text-muted-foreground">
             {completedCount} of {recipients.length} responses ({responseRate.toFixed(0)}% completion)
           </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" className="gap-2" onClick={() => {
-            const tab = document.querySelector('[data-state="active"][role="tabpanel"]');
-            const tabValue = tab?.getAttribute('data-value') || tab?.id;
-            // Scroll to prioritisation tab for export
             const priTab = document.querySelector('[value="prioritisation"]') as HTMLButtonElement;
             if (priTab) priTab.click();
           }}>
@@ -481,22 +612,32 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
               <Target className="h-4 w-4" />
               Overview
             </TabsTrigger>
+            {isItemBased && (
+              <TabsTrigger value="items" className="gap-2">
+                <ListChecks className="h-4 w-4" />
+                {assessmentType === "use_case" ? "Use Cases" : assessmentType === "comparative" ? "Comparison" : "Processes"}
+              </TabsTrigger>
+            )}
             <TabsTrigger value="details" className="gap-2">
               <BarChart3 className="h-4 w-4" />
               Details
             </TabsTrigger>
-            <TabsTrigger value="benchmarks" className="gap-2">
-              <Database className="h-4 w-4" />
-              Benchmarks
-            </TabsTrigger>
-            <TabsTrigger value="trends" className="gap-2">
-              <TrendingUp className="h-4 w-4" />
-              Trends
-            </TabsTrigger>
-            <TabsTrigger value="gaps" className="gap-2">
-              <Target className="h-4 w-4" />
-              Gap Analysis
-            </TabsTrigger>
+            {!isItemBased && (
+              <>
+                <TabsTrigger value="benchmarks" className="gap-2">
+                  <Database className="h-4 w-4" />
+                  Benchmarks
+                </TabsTrigger>
+                <TabsTrigger value="trends" className="gap-2">
+                  <TrendingUp className="h-4 w-4" />
+                  Trends
+                </TabsTrigger>
+                <TabsTrigger value="gaps" className="gap-2">
+                  <Target className="h-4 w-4" />
+                  Gap Analysis
+                </TabsTrigger>
+              </>
+            )}
             <TabsTrigger value="prioritisation" className="gap-2">
               <LayoutGrid className="h-4 w-4" />
               Prioritisation
@@ -508,8 +649,8 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <AssessmentScoreCard
                 score={overallScore}
-                label="Overall Maturity"
-                sublabel="Weighted average across dimensions"
+                label="Overall Score"
+                sublabel={isItemBased ? "Average across all items" : "Weighted average across dimensions"}
               />
               <Card className="border-border">
                 <CardContent className="pt-6 text-center">
@@ -520,105 +661,213 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
               </Card>
               <Card className="border-border">
                 <CardContent className="pt-6 text-center">
-                  <BarChart3 className="h-8 w-8 mx-auto mb-2 text-primary" />
-                  <p className="text-3xl font-bold">{dimensionScores.length}</p>
-                  <p className="text-sm text-muted-foreground">Dimensions</p>
+                  {isItemBased ? (
+                    <ListChecks className="h-8 w-8 mx-auto mb-2 text-primary" />
+                  ) : (
+                    <BarChart3 className="h-8 w-8 mx-auto mb-2 text-primary" />
+                  )}
+                  <p className="text-3xl font-bold">{isItemBased ? assessmentItems.length : dimensionScores.length}</p>
+                  <p className="text-sm text-muted-foreground">{isItemBased ? "Items" : "Dimensions"}</p>
                 </CardContent>
               </Card>
               <Card className="border-border">
                 <CardContent className="pt-6 text-center">
                   <Target className="h-8 w-8 mx-auto mb-2 text-primary" />
                   <p className="text-3xl font-bold">{questions.length}</p>
-                  <p className="text-sm text-muted-foreground">Questions</p>
+                  <p className="text-sm text-muted-foreground">{isItemBased ? "Criteria" : "Questions"}</p>
                 </CardContent>
               </Card>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <AssessmentRadarChart data={dimensionScores} />
+              {isItemBased ? (
+                // Item scores ranking
+                <Card className="border-border">
+                  <CardHeader>
+                    <CardTitle className="text-base">
+                      {assessmentType === "use_case" ? "Use Case Ranking" : assessmentType === "comparative" ? "Option Ranking" : "Process Ranking"}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {itemScores
+                        .sort((a, b) => b.score - a.score)
+                        .map((item, idx) => (
+                          <div key={item.id} className="space-y-1">
+                            <div className="flex justify-between text-sm">
+                              <span className="flex items-center gap-2">
+                                <span className="text-muted-foreground">{idx + 1}.</span>
+                                {item.title}
+                              </span>
+                              <span className="font-medium">{item.score.toFixed(2)}</span>
+                            </div>
+                            <div className="h-2 rounded-full bg-muted overflow-hidden">
+                              <div
+                                className={cn(
+                                  "h-full rounded-full transition-all",
+                                  item.score >= 4 ? "bg-emerald-500" :
+                                  item.score >= 3 ? "bg-amber-500" : "bg-red-500"
+                                )}
+                                style={{ width: `${(item.score / 5) * 100}%` }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <AssessmentRadarChart data={dimensionScores} />
+              )}
               <AssessmentTrendChart data={trendData} />
             </div>
           </TabsContent>
+
+          {/* Items Tab (item-based only) */}
+          {isItemBased && (
+            <TabsContent value="items" className="space-y-6">
+              <Card className="border-border">
+                <CardHeader>
+                  <CardTitle className="text-base">Detailed Comparison</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="min-w-[200px]">
+                            {assessmentType === "use_case" ? "Use Case" : assessmentType === "comparative" ? "Option" : "Process"}
+                          </TableHead>
+                          {questions.slice(0, 6).map((q) => (
+                            <TableHead key={q.id} className="min-w-[120px] text-center">
+                              <span className="line-clamp-2 text-xs">{q.question_text}</span>
+                            </TableHead>
+                          ))}
+                          <TableHead className="text-center font-bold">Average</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {itemScores
+                          .sort((a, b) => b.score - a.score)
+                          .map((item) => (
+                            <TableRow key={item.id}>
+                              <TableCell className="font-medium">{item.title}</TableCell>
+                              {item.questionBreakdown.slice(0, 6).map((q, idx) => (
+                                <TableCell key={idx} className="text-center">
+                                  <span
+                                    className={cn(
+                                      "inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium",
+                                      q.score >= 4 ? "bg-emerald-500/10 text-emerald-600" :
+                                      q.score >= 3 ? "bg-amber-500/10 text-amber-600" :
+                                      "bg-red-500/10 text-red-600"
+                                    )}
+                                  >
+                                    {q.score.toFixed(1)}
+                                  </span>
+                                </TableCell>
+                              ))}
+                              <TableCell className="text-center">
+                                <Badge
+                                  variant={item.score >= 4 ? "default" : item.score >= 3 ? "secondary" : "destructive"}
+                                >
+                                  {item.score.toFixed(2)}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
 
           {/* Details Tab */}
           <TabsContent value="details">
             <AssessmentHeatMap dimensions={heatMapData} />
           </TabsContent>
 
-          {/* Benchmarks Tab */}
-          <TabsContent value="benchmarks" className="space-y-6">
-            <div className="flex items-center gap-4 mb-4">
-              <span className="text-sm text-muted-foreground">Compare against:</span>
-              <Select value={benchmarkFilter} onValueChange={setBenchmarkFilter}>
-                <SelectTrigger className="w-[200px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {benchmarkTypes.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {type === "all" ? "All Benchmarks" : type.charAt(0).toUpperCase() + type.slice(1).replace("_", " ")}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {benchmarks.length === 0 ? (
-              <Card className="border-dashed">
-                <CardContent className="py-12 text-center">
-                  <Database className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-                  <p className="text-lg font-medium text-muted-foreground">No benchmark data available</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Add benchmarks to compare your results against industry standards
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              <BenchmarkComparison 
-                data={dimensionScores} 
-                benchmarkLabel={benchmarkFilter === "all" ? "Combined Benchmark" : benchmarkFilter}
-              />
-            )}
-          </TabsContent>
-
-          {/* Trends Tab */}
-          <TabsContent value="trends">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <AssessmentTrendChart data={trendData} title="Overall Maturity Trend" />
-              <Card className="border-border">
-                <CardHeader>
-                  <CardTitle className="text-base">Dimension Scores</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {dimensionScores.map((dim) => (
-                      <div key={dim.name} className="space-y-1">
-                        <div className="flex justify-between text-sm">
-                          <span>{dim.name}</span>
-                          <span className="font-medium">{dim.score.toFixed(2)}</span>
-                        </div>
-                        <div className="h-2 rounded-full bg-muted overflow-hidden">
-                          <div
-                            className={cn(
-                              "h-full rounded-full transition-all",
-                              dim.score >= 4 ? "bg-emerald-500" :
-                              dim.score >= 3 ? "bg-amber-500" : "bg-red-500"
-                            )}
-                            style={{ width: `${(dim.score / 5) * 100}%` }}
-                          />
-                        </div>
-                      </div>
+          {/* Benchmarks Tab (standard only) */}
+          {!isItemBased && (
+            <TabsContent value="benchmarks" className="space-y-6">
+              <div className="flex items-center gap-4 mb-4">
+                <span className="text-sm text-muted-foreground">Compare against:</span>
+                <Select value={benchmarkFilter} onValueChange={setBenchmarkFilter}>
+                  <SelectTrigger className="w-[200px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {benchmarkTypes.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {type === "all" ? "All Benchmarks" : type.charAt(0).toUpperCase() + type.slice(1).replace("_", " ")}
+                      </SelectItem>
                     ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
+                  </SelectContent>
+                </Select>
+              </div>
 
-          {/* Gap Analysis Tab */}
-          <TabsContent value="gaps">
-            <AssessmentGapAnalysis data={dimensionScores} />
-          </TabsContent>
+              {benchmarks.length === 0 ? (
+                <Card className="border-dashed">
+                  <CardContent className="py-12 text-center">
+                    <Database className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+                    <p className="text-lg font-medium text-muted-foreground">No benchmark data available</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Add benchmarks to compare your results against industry standards
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <BenchmarkComparison 
+                  data={dimensionScores} 
+                  benchmarkLabel={benchmarkFilter === "all" ? "Combined Benchmark" : benchmarkFilter}
+                />
+              )}
+            </TabsContent>
+          )}
+
+          {/* Trends Tab (standard only) */}
+          {!isItemBased && (
+            <TabsContent value="trends">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <AssessmentTrendChart data={trendData} title="Overall Maturity Trend" />
+                <Card className="border-border">
+                  <CardHeader>
+                    <CardTitle className="text-base">Dimension Scores</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {dimensionScores.map((dim) => (
+                        <div key={dim.name} className="space-y-1">
+                          <div className="flex justify-between text-sm">
+                            <span>{dim.name}</span>
+                            <span className="font-medium">{dim.score.toFixed(2)}</span>
+                          </div>
+                          <div className="h-2 rounded-full bg-muted overflow-hidden">
+                            <div
+                              className={cn(
+                                "h-full rounded-full transition-all",
+                                dim.score >= 4 ? "bg-emerald-500" :
+                                dim.score >= 3 ? "bg-amber-500" : "bg-red-500"
+                              )}
+                              style={{ width: `${(dim.score / 5) * 100}%` }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+          )}
+
+          {/* Gap Analysis Tab (standard only) */}
+          {!isItemBased && (
+            <TabsContent value="gaps">
+              <AssessmentGapAnalysis data={dimensionScores} />
+            </TabsContent>
+          )}
 
           {/* Prioritisation Matrix Tab */}
           <TabsContent value="prioritisation">
@@ -629,13 +878,16 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
                   Prioritisation Matrix
                 </CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  Dimensions are pre-plotted based on gap analysis. Select a detail level and click "AI Recommend" to generate specific, actionable initiatives informed by your assessment data.
+                  {isItemBased
+                    ? `${assessmentType === "use_case" ? "Use cases" : "Items"} are plotted based on their composite evaluation scores. Click "AI Recommend" for actionable insights.`
+                    : 'Dimensions are pre-plotted based on gap analysis. Select a detail level and click "AI Recommend" to generate specific, actionable initiatives informed by your assessment data.'
+                  }
                 </p>
               </CardHeader>
               <CardContent>
                 <PrioritisationMatrix
                   defaultItems={matrixItems}
-                  maxItems={10}
+                  maxItems={isItemBased ? assessmentItems.length + 10 : 10}
                   assessmentContext={assessmentCtx}
                   storageKey={`matrix-${instanceId}`}
                   compact
