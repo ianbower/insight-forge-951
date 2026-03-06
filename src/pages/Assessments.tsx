@@ -57,6 +57,7 @@ interface AssessmentTemplate {
   industry: string | null;
   is_public: boolean;
   created_at: string;
+  assessment_type?: string;
 }
 
 interface AssessmentInstance {
@@ -82,6 +83,14 @@ const categoryColors: Record<string, string> = {
   capability: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
   culture: "bg-amber-500/10 text-amber-500 border-amber-500/20",
   general: "bg-slate-500/10 text-slate-500 border-slate-500/20",
+};
+
+const assessmentTypeLabels: Record<string, string> = {
+  standard: "Standard",
+  use_case: "Use Case",
+  comparative: "Comparative",
+  process: "Process",
+  checklist: "Checklist",
 };
 
 const statusColors: Record<string, string> = {
@@ -115,6 +124,7 @@ export default function Assessments() {
     category: "maturity",
     framework_type: "",
     industry: "",
+    assessment_type: "standard",
   });
 
   // Form state for launching assessment
@@ -171,14 +181,15 @@ export default function Assessments() {
       framework_type: newTemplate.framework_type || null,
       industry: newTemplate.industry || null,
       is_public: true,
-    });
+      assessment_type: newTemplate.assessment_type,
+    } as any);
 
     if (error) {
       toast({ title: "Error creating template", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Template created successfully" });
       setCreateDialogOpen(false);
-      setNewTemplate({ name: "", description: "", category: "maturity", framework_type: "", industry: "" });
+      setNewTemplate({ name: "", description: "", category: "maturity", framework_type: "", industry: "", assessment_type: "standard" });
       fetchData();
     }
   };
