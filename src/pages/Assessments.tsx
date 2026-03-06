@@ -322,6 +322,11 @@ export default function Assessments() {
                     >
                       {template.category}
                     </Badge>
+                    {(template as any).assessment_type && (template as any).assessment_type !== "standard" && (
+                      <Badge variant="secondary" className="text-xs capitalize">
+                        {assessmentTypeLabels[(template as any).assessment_type] || (template as any).assessment_type}
+                      </Badge>
+                    )}
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button
                         variant="ghost"
@@ -558,6 +563,31 @@ export default function Assessments() {
                 value={newTemplate.description}
                 onChange={(e) => setNewTemplate({ ...newTemplate, description: e.target.value })}
               />
+            </div>
+            <div className="space-y-2">
+              <Label>Assessment Type</Label>
+              <Select
+                value={newTemplate.assessment_type}
+                onValueChange={(value) => setNewTemplate({ ...newTemplate, assessment_type: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="standard">Standard — Questions by dimension</SelectItem>
+                  <SelectItem value="use_case">Use Case — Evaluate items against criteria</SelectItem>
+                  <SelectItem value="comparative">Comparative — Compare options side-by-side</SelectItem>
+                  <SelectItem value="process">Process — Evaluate business processes</SelectItem>
+                  <SelectItem value="checklist">Checklist — Binary or RAG compliance</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {newTemplate.assessment_type === "standard" && "Traditional questionnaire grouped by dimensions with Likert scoring."}
+                {newTemplate.assessment_type === "use_case" && "Define a list of use cases evaluated against the same criteria. Results feed into a prioritisation matrix."}
+                {newTemplate.assessment_type === "comparative" && "Score vendors/solutions against weighted criteria. Results show ranked comparison."}
+                {newTemplate.assessment_type === "process" && "Evaluate business processes against standard criteria. Results show a transformation heat map."}
+                {newTemplate.assessment_type === "checklist" && "Binary or Red/Amber/Green responses against compliance requirements."}
+              </p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
