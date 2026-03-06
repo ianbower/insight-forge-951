@@ -19,6 +19,7 @@ import {
   Send,
   MessageSquarePlus,
   ChevronDown,
+  ListChecks,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -46,6 +47,13 @@ interface Dimension {
   questions: Question[];
 }
 
+interface AssessmentItem {
+  id: string;
+  title: string;
+  description: string | null;
+  order_index: number;
+}
+
 export default function AssessmentRespond() {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
@@ -57,10 +65,15 @@ export default function AssessmentRespond() {
   const [recipient, setRecipient] = useState<any>(null);
   const [instance, setInstance] = useState<any>(null);
   const [dimensions, setDimensions] = useState<Dimension[]>([]);
+  const [items, setItems] = useState<AssessmentItem[]>([]);
+  const [assessmentType, setAssessmentType] = useState("standard");
   const [responses, setResponses] = useState<Record<string, any>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [currentDimensionIndex, setCurrentDimensionIndex] = useState(0);
+  const [currentItemIndex, setCurrentItemIndex] = useState(0);
   const notesTimers = useRef<Record<string, NodeJS.Timeout>>({});
+
+  const isItemBased = ["use_case", "comparative", "process"].includes(assessmentType);
 
   useEffect(() => {
     if (token) {
@@ -94,11 +107,31 @@ export default function AssessmentRespond() {
 
     const templateId = recipientData.assessment_instance.assessment_template_id;
 
+    // Fetch template to get assessment_type
+    const { data: templateData } = await supabase
+      .from("assessment_templates")
+      .select("*")
+      .eq("id", templateId)
+      .single();
+    
+    const aType = (templateData as any)?.assessment_type || "standard";
+    setAssessmentType(aType);
+
     if (recipientData.status === "pending") {
       await supabase
         .from("assessment_recipients")
         .update({ status: "started", started_at: new Date().toISOString() })
         .eq("id", recipientData.id);
+    }
+
+    // Fetch items for item-based assessments
+    if (["use_case", "comparative", "process"].includes(aType)) {
+      const { data: itemsData } = await supabase
+        .from("assessment_items" as any)
+        .select("*")
+        .eq("assessment_template_id", templateId)
+        .order("order_index");
+      setItems((itemsData as any[]) || []);
     }
 
     const { data: dimensionsData } = await supabase
@@ -122,8 +155,10 @@ export default function AssessmentRespond() {
     const responsesMap: Record<string, any> = {};
     const notesMap: Record<string, string> = {};
     (existingResponses || []).forEach((r) => {
-      responsesMap[r.question_id] = r.response_value;
-      if (r.notes) notesMap[r.question_id] = r.notes;
+      const itemId = (r as any).item_id;
+      const key = itemId ? `${itemId}:${r.question_id}` : r.question_id;
+      responsesMap[key] = r.response_value;
+      if (r.notes) notesMap[key] = r.notes;
     });
     setResponses(responsesMap);
     setNotes(notesMap);
@@ -170,16 +205,29 @@ export default function AssessmentRespond() {
     setLoading(false);
   };
 
+  const getResponseKey = (questionId: string) => {
+    if (isItemBased && items.length > 0) {
+      return `${items[currentItemIndex]?.id}:${questionId}`;
+    }
+    return questionId;
+  };
+
   const handleResponse = async (questionId: string, value: any) => {
-    setResponses((prev) => ({ ...prev, [questionId]: value }));
+    const key = getResponseKey(questionId);
+    setResponses((prev) => ({ ...prev, [key]: value }));
+
+    const itemId = isItemBased && items.length > 0 ? items[currentItemIndex]?.id : null;
+
+    const insertData: any = {
+      assessment_instance_id: instance.id,
+      recipient_id: recipient.id,
+      question_id: questionId,
+      response_value: value,
+    };
+    if (itemId) insertData.item_id = itemId;
 
     const { error } = await supabase.from("assessment_responses").upsert(
-      {
-        assessment_instance_id: instance.id,
-        recipient_id: recipient.id,
-        question_id: questionId,
-        response_value: value,
-      },
+      insertData,
       { onConflict: "assessment_instance_id,recipient_id,question_id" }
     );
 
@@ -188,9 +236,9 @@ export default function AssessmentRespond() {
     }
   };
 
-  /** Update just the as-is or to-be part of a dual-score response */
   const handleDualResponse = async (questionId: string, field: "asIs" | "toBe", value: number) => {
-    const current = responses[questionId];
+    const key = getResponseKey(questionId);
+    const current = responses[key];
     const updated = {
       asIs: current?.asIs ?? null,
       toBe: current?.toBe ?? null,
@@ -200,9 +248,10 @@ export default function AssessmentRespond() {
   };
 
   const handleNotesChange = (questionId: string, value: string) => {
-    setNotes((prev) => ({ ...prev, [questionId]: value }));
-    if (notesTimers.current[questionId]) clearTimeout(notesTimers.current[questionId]);
-    notesTimers.current[questionId] = setTimeout(async () => {
+    const key = getResponseKey(questionId);
+    setNotes((prev) => ({ ...prev, [key]: value }));
+    if (notesTimers.current[key]) clearTimeout(notesTimers.current[key]);
+    notesTimers.current[key] = setTimeout(async () => {
       await supabase
         .from("assessment_responses")
         .update({ notes: value })
@@ -231,24 +280,48 @@ export default function AssessmentRespond() {
   };
 
   const currentDimension = dimensions[currentDimensionIndex];
-  const totalQuestions = dimensions.reduce((sum, d) => sum + d.questions.length, 0);
-  const answeredQuestions = Object.keys(responses).filter((qId) => {
-    const val = responses[qId];
+  const currentItem = isItemBased ? items[currentItemIndex] : null;
+  const allQuestions = dimensions.reduce((acc, d) => acc.concat(d.questions), [] as Question[]);
+  const totalSlots = isItemBased ? items.length * allQuestions.length : allQuestions.length;
+  const answeredSlots = Object.keys(responses).filter((key) => {
+    const val = responses[key];
     if (val && typeof val === "object" && "asIs" in val) {
       return val.asIs != null && val.toBe != null;
     }
     return val !== undefined;
   }).length;
-  const progress = totalQuestions > 0 ? (answeredQuestions / totalQuestions) * 100 : 0;
+  const progress = totalSlots > 0 ? (answeredSlots / totalSlots) * 100 : 0;
 
   const canGoNext = currentDimension?.questions.every((q) => {
     if (!q.required) return true;
-    const val = responses[q.id];
+    const key = getResponseKey(q.id);
+    const val = responses[key];
     if (val && typeof val === "object" && "asIs" in val) {
       return val.asIs != null && val.toBe != null;
     }
     return val !== undefined;
   });
+
+  const handleNext = () => {
+    if (currentDimensionIndex < dimensions.length - 1) {
+      setCurrentDimensionIndex((prev) => prev + 1);
+    } else if (isItemBased && currentItemIndex < items.length - 1) {
+      setCurrentItemIndex((prev) => prev + 1);
+      setCurrentDimensionIndex(0);
+    }
+  };
+
+  const handlePrev = () => {
+    if (currentDimensionIndex > 0) {
+      setCurrentDimensionIndex((prev) => prev - 1);
+    } else if (isItemBased && currentItemIndex > 0) {
+      setCurrentItemIndex((prev) => prev - 1);
+      setCurrentDimensionIndex(dimensions.length - 1);
+    }
+  };
+
+  const isFirstPage = currentDimensionIndex === 0 && (!isItemBased || currentItemIndex === 0);
+  const isLastPage = currentDimensionIndex === dimensions.length - 1 && (!isItemBased || currentItemIndex === items.length - 1);
 
   if (loading) {
     return (
@@ -311,6 +384,28 @@ export default function AssessmentRespond() {
 
       {/* Content */}
       <div className="max-w-3xl mx-auto px-4 py-8">
+        {/* Item indicator */}
+        {isItemBased && currentItem && (
+          <Card className="mb-6 border-primary/30 bg-primary/5">
+            <CardContent className="py-4">
+              <div className="flex items-center gap-3">
+                <ListChecks className="h-5 w-5 text-primary" />
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-xs">
+                      {currentItemIndex + 1} of {items.length}
+                    </Badge>
+                    <span className="font-medium">{currentItem.title}</span>
+                  </div>
+                  {currentItem.description && (
+                    <p className="text-sm text-muted-foreground mt-1">{currentItem.description}</p>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Dimension Header */}
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-2">
@@ -326,98 +421,101 @@ export default function AssessmentRespond() {
 
         {/* Questions */}
         <div className="space-y-6">
-          {currentDimension.questions.map((question, qIndex) => (
-            <Card key={question.id} className="border-border">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-start gap-2">
-                  <span className="text-muted-foreground font-normal">{qIndex + 1}.</span>
-                  <span>{question.question_text}</span>
-                  {question.required && <span className="text-destructive">*</span>}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {question.question_type === "likert" && question.scale_config && (
-                  <LikertDualScore
-                    question={question}
-                    value={responses[question.id]}
-                    onChange={(field, val) => handleDualResponse(question.id, field, val)}
-                  />
-                )}
-
-                {question.question_type === "multiple_choice" && question.options && (
-                  <RadioGroup
-                    value={responses[question.id] || ""}
-                    onValueChange={(value) => handleResponse(question.id, value)}
-                    className="space-y-2"
-                  >
-                    {question.options.map((option, oIndex) => (
-                      <div key={oIndex} className="flex items-center space-x-3">
-                        <RadioGroupItem value={option} id={`${question.id}-${oIndex}`} />
-                        <Label htmlFor={`${question.id}-${oIndex}`} className="cursor-pointer">
-                          {option}
-                        </Label>
-                      </div>
-                    ))}
-                  </RadioGroup>
-                )}
-
-                {question.question_type === "text" && (
-                  <Textarea
-                    value={responses[question.id] || ""}
-                    onChange={(e) => handleResponse(question.id, e.target.value)}
-                    placeholder="Enter your response..."
-                    className="min-h-[100px]"
-                  />
-                )}
-
-                {question.question_type === "numeric" && (
-                  <Input
-                    type="number"
-                    value={responses[question.id] || ""}
-                    onChange={(e) => handleResponse(question.id, Number(e.target.value))}
-                    placeholder="Enter a number..."
-                    className="max-w-[200px]"
-                  />
-                )}
-
-                {/* Optional notes */}
-                <Collapsible className="mt-4">
-                  <CollapsibleTrigger asChild>
-                    <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-foreground p-0 h-auto">
-                      <MessageSquarePlus className="h-4 w-4" />
-                      <span className="text-sm">{notes[question.id] ? "Edit additional comments" : "Add additional comments"}</span>
-                      <ChevronDown className="h-3 w-3" />
-                    </Button>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="mt-2">
-                    <Textarea
-                      value={notes[question.id] || ""}
-                      onChange={(e) => handleNotesChange(question.id, e.target.value)}
-                      placeholder="Share any additional thoughts, context, or insights about your answer..."
-                      className="min-h-[80px] text-sm"
+          {currentDimension.questions.map((question, qIndex) => {
+            const responseKey = getResponseKey(question.id);
+            return (
+              <Card key={`${responseKey}-${qIndex}`} className="border-border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-start gap-2">
+                    <span className="text-muted-foreground font-normal">{qIndex + 1}.</span>
+                    <span>{question.question_text}</span>
+                    {question.required && <span className="text-destructive">*</span>}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {question.question_type === "likert" && question.scale_config && (
+                    <LikertDualScore
+                      question={question}
+                      value={responses[responseKey]}
+                      onChange={(field, val) => handleDualResponse(question.id, field, val)}
                     />
-                  </CollapsibleContent>
-                </Collapsible>
-              </CardContent>
-            </Card>
-          ))}
+                  )}
+
+                  {question.question_type === "multiple_choice" && question.options && (
+                    <RadioGroup
+                      value={responses[responseKey] || ""}
+                      onValueChange={(value) => handleResponse(question.id, value)}
+                      className="space-y-2"
+                    >
+                      {question.options.map((option, oIndex) => (
+                        <div key={oIndex} className="flex items-center space-x-3">
+                          <RadioGroupItem value={option} id={`${responseKey}-${oIndex}`} />
+                          <Label htmlFor={`${responseKey}-${oIndex}`} className="cursor-pointer">
+                            {option}
+                          </Label>
+                        </div>
+                      ))}
+                    </RadioGroup>
+                  )}
+
+                  {question.question_type === "text" && (
+                    <Textarea
+                      value={responses[responseKey] || ""}
+                      onChange={(e) => handleResponse(question.id, e.target.value)}
+                      placeholder="Enter your response..."
+                      className="min-h-[100px]"
+                    />
+                  )}
+
+                  {question.question_type === "numeric" && (
+                    <Input
+                      type="number"
+                      value={responses[responseKey] || ""}
+                      onChange={(e) => handleResponse(question.id, Number(e.target.value))}
+                      placeholder="Enter a number..."
+                      className="max-w-[200px]"
+                    />
+                  )}
+
+                  {/* Optional notes */}
+                  <Collapsible className="mt-4">
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-foreground p-0 h-auto">
+                        <MessageSquarePlus className="h-4 w-4" />
+                        <span className="text-sm">{notes[responseKey] ? "Edit additional comments" : "Add additional comments"}</span>
+                        <ChevronDown className="h-3 w-3" />
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="mt-2">
+                      <Textarea
+                        value={notes[responseKey] || ""}
+                        onChange={(e) => handleNotesChange(question.id, e.target.value)}
+                        placeholder="Share any additional thoughts, context, or insights about your answer..."
+                        className="min-h-[80px] text-sm"
+                      />
+                    </CollapsibleContent>
+                  </Collapsible>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
 
         {/* Navigation */}
         <div className="flex items-center justify-between mt-8 pt-6 border-t">
           <Button
             variant="outline"
-            onClick={() => setCurrentDimensionIndex((prev) => prev - 1)}
-            disabled={currentDimensionIndex === 0}
+            onClick={handlePrev}
+            disabled={isFirstPage}
             className="gap-2"
           >
             <ChevronLeft className="h-4 w-4" />
             Previous
           </Button>
 
-          {currentDimensionIndex < dimensions.length - 1 ? (
+          {!isLastPage ? (
             <Button
-              onClick={() => setCurrentDimensionIndex((prev) => prev + 1)}
+              onClick={handleNext}
               disabled={!canGoNext}
               className="gap-2"
             >
@@ -506,11 +604,6 @@ function LikertDualScore({
                 <Label htmlFor={`${question.id}-tobe-${level}`} className="font-medium cursor-pointer">
                   {level} - {config.labels?.[level] || `Level ${level}`}
                 </Label>
-                {config.descriptions?.[level] && (
-                  <p className="text-sm text-muted-foreground mt-0.5">
-                    {config.descriptions[level]}
-                  </p>
-                )}
               </div>
             </div>
           ))}
