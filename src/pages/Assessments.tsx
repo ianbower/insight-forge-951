@@ -717,6 +717,7 @@ export default function Assessments() {
             <AssessmentBuilder
               templateId={selectedTemplate.id}
               templateName={selectedTemplate.name}
+              assessmentType={(selectedTemplate as any).assessment_type || "standard"}
               onClose={() => {
                 setBuilderDialogOpen(false);
                 fetchData();
