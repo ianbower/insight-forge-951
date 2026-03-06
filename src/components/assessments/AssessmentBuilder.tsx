@@ -36,6 +36,7 @@ import {
   Save,
   Layers,
   HelpCircle,
+  ListChecks,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -67,9 +68,18 @@ interface Dimension {
   questions: Question[];
 }
 
+interface AssessmentItem {
+  id?: string;
+  title: string;
+  description: string;
+  order_index: number;
+  metadata_json?: any;
+}
+
 interface AssessmentBuilderProps {
   templateId: string;
   templateName: string;
+  assessmentType?: string;
   onClose: () => void;
 }
 
@@ -92,17 +102,28 @@ const defaultScaleConfig: ScaleConfig = {
   },
 };
 
-export function AssessmentBuilder({ templateId, templateName, onClose }: AssessmentBuilderProps) {
+const assessmentTypeInfo: Record<string, { itemLabel: string; itemLabelPlural: string; description: string }> = {
+  use_case: { itemLabel: "Use Case", itemLabelPlural: "Use Cases", description: "Each use case will be evaluated against all questions/criteria defined below." },
+  comparative: { itemLabel: "Option", itemLabelPlural: "Options", description: "Each option (vendor/solution) will be scored against the evaluation criteria below." },
+  process: { itemLabel: "Process", itemLabelPlural: "Processes", description: "Each business process will be evaluated against the assessment criteria below." },
+};
+
+export function AssessmentBuilder({ templateId, templateName, assessmentType = "standard", onClose }: AssessmentBuilderProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dimensions, setDimensions] = useState<Dimension[]>([]);
+  const [items, setItems] = useState<AssessmentItem[]>([]);
   const [questionDialogOpen, setQuestionDialogOpen] = useState(false);
   const [dimensionDialogOpen, setDimensionDialogOpen] = useState(false);
   const [scaleDialogOpen, setScaleDialogOpen] = useState(false);
+  const [itemDialogOpen, setItemDialogOpen] = useState(false);
   const [selectedDimensionIndex, setSelectedDimensionIndex] = useState<number | null>(null);
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
   const [editingDimension, setEditingDimension] = useState<Dimension | null>(null);
+
+  const isItemBased = ["use_case", "comparative", "process"].includes(assessmentType);
+  const typeInfo = assessmentTypeInfo[assessmentType];
 
   // New question form state
   const [newQuestion, setNewQuestion] = useState<Question>({
@@ -121,21 +142,32 @@ export function AssessmentBuilder({ templateId, templateName, onClose }: Assessm
     weight: 1,
   });
 
+  // New item form state
+  const [newItem, setNewItem] = useState({ title: "", description: "" });
+
   useEffect(() => {
     fetchDimensions();
+    if (isItemBased) fetchItems();
   }, [templateId]);
+
+  const fetchItems = async () => {
+    const { data } = await supabase
+      .from("assessment_items" as any)
+      .select("*")
+      .eq("assessment_template_id", templateId)
+      .order("order_index");
+    setItems((data as any[]) || []);
+  };
 
   const fetchDimensions = async () => {
     setLoading(true);
 
-    // Fetch dimensions
     const { data: dimensionsData } = await supabase
       .from("assessment_dimensions")
       .select("*")
       .eq("assessment_template_id", templateId)
       .order("order_index");
 
-    // Fetch questions
     const { data: questionsData } = await supabase
       .from("assessment_questions")
       .select("*")
@@ -163,7 +195,6 @@ export function AssessmentBuilder({ templateId, templateName, onClose }: Assessm
         })),
     }));
 
-    // Add uncategorized questions
     const uncategorizedQuestions = (questionsData || [])
       .filter((q) => !q.dimension_id)
       .map((q) => ({
@@ -274,6 +305,38 @@ export function AssessmentBuilder({ templateId, templateName, onClose }: Assessm
     }
   };
 
+  const handleAddItem = async () => {
+    const { error } = await supabase
+      .from("assessment_items" as any)
+      .insert({
+        assessment_template_id: templateId,
+        title: newItem.title,
+        description: newItem.description || null,
+        order_index: items.length,
+      } as any);
+
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: `${typeInfo?.itemLabel || "Item"} added` });
+      setItemDialogOpen(false);
+      setNewItem({ title: "", description: "" });
+      fetchItems();
+    }
+  };
+
+  const handleDeleteItem = async (itemId: string) => {
+    const { error } = await supabase
+      .from("assessment_items" as any)
+      .delete()
+      .eq("id", itemId);
+
+    if (!error) {
+      toast({ title: `${typeInfo?.itemLabel || "Item"} deleted` });
+      fetchItems();
+    }
+  };
+
   const updateScaleLabel = (level: number, value: string) => {
     setNewQuestion((prev) => ({
       ...prev,
@@ -307,13 +370,32 @@ export function AssessmentBuilder({ templateId, templateName, onClose }: Assessm
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold">{templateName}</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-semibold">{templateName}</h2>
+            {assessmentType !== "standard" && (
+              <Badge variant="secondary" className="capitalize">
+                {assessmentType.replace("_", " ")}
+              </Badge>
+            )}
+          </div>
           <p className="text-sm text-muted-foreground">
-            {dimensions.reduce((sum, d) => sum + d.questions.length, 0)} questions across{" "}
-            {dimensions.filter((d) => d.id).length} dimensions
+            {isItemBased
+              ? `${items.length} ${typeInfo?.itemLabelPlural?.toLowerCase() || "items"} • ${dimensions.reduce((sum, d) => sum + d.questions.length, 0)} evaluation criteria across ${dimensions.filter((d) => d.id).length} dimensions`
+              : `${dimensions.reduce((sum, d) => sum + d.questions.length, 0)} questions across ${dimensions.filter((d) => d.id).length} dimensions`
+            }
           </p>
         </div>
         <div className="flex gap-2">
+          {isItemBased && (
+            <Button
+              variant="outline"
+              onClick={() => setItemDialogOpen(true)}
+              className="gap-2"
+            >
+              <ListChecks className="h-4 w-4" />
+              Add {typeInfo?.itemLabel || "Item"}
+            </Button>
+          )}
           <Button
             variant="outline"
             onClick={() => setDimensionDialogOpen(true)}
@@ -327,6 +409,77 @@ export function AssessmentBuilder({ templateId, templateName, onClose }: Assessm
           </Button>
         </div>
       </div>
+
+      {/* Items Section (for item-based assessments) */}
+      {isItemBased && (
+        <Card className="border-border">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <ListChecks className="h-5 w-5 text-primary" />
+              {typeInfo?.itemLabelPlural || "Items"} to Evaluate
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              {typeInfo?.description || "Each item will be evaluated against the criteria below."}
+            </p>
+          </CardHeader>
+          <CardContent>
+            {items.length > 0 ? (
+              <div className="space-y-2">
+                {items.map((item, idx) => (
+                  <div
+                    key={item.id || idx}
+                    className="flex items-center justify-between p-3 rounded-lg border bg-background"
+                  >
+                    <div className="flex items-center gap-3">
+                      <GripVertical className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium text-sm">{item.title}</p>
+                        {item.description && (
+                          <p className="text-xs text-muted-foreground">{item.description}</p>
+                        )}
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-destructive hover:text-destructive"
+                      onClick={() => item.id && handleDeleteItem(item.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-8 text-center border border-dashed rounded-lg">
+                <ListChecks className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
+                <p className="text-sm text-muted-foreground">
+                  No {typeInfo?.itemLabelPlural?.toLowerCase() || "items"} defined yet
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-3 gap-2"
+                  onClick={() => setItemDialogOpen(true)}
+                >
+                  <Plus className="h-4 w-4" />
+                  Add First {typeInfo?.itemLabel || "Item"}
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Section Title for Criteria */}
+      {isItemBased && dimensions.length > 0 && (
+        <div>
+          <h3 className="text-base font-medium">Evaluation Criteria</h3>
+          <p className="text-sm text-muted-foreground">
+            These questions will be asked for each {typeInfo?.itemLabel?.toLowerCase() || "item"} above
+          </p>
+        </div>
+      )}
 
       {/* Dimensions */}
       <Accordion type="multiple" className="space-y-4">
@@ -343,7 +496,7 @@ export function AssessmentBuilder({ templateId, templateName, onClose }: Assessm
                   <div className="flex items-center gap-2">
                     <span className="font-medium">{dimension.name}</span>
                     <Badge variant="secondary" className="text-xs">
-                      {dimension.questions.length} questions
+                      {dimension.questions.length} {isItemBased ? "criteria" : "questions"}
                     </Badge>
                     {dimension.weight !== 1 && (
                       <Badge variant="outline" className="text-xs">
@@ -425,7 +578,7 @@ export function AssessmentBuilder({ templateId, templateName, onClose }: Assessm
                   }}
                 >
                   <Plus className="h-4 w-4" />
-                  Add Question
+                  Add {isItemBased ? "Criterion" : "Question"}
                 </Button>
               </div>
 
@@ -452,7 +605,7 @@ export function AssessmentBuilder({ templateId, templateName, onClose }: Assessm
               <Layers className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
               <p className="text-lg font-medium text-muted-foreground">No dimensions yet</p>
               <p className="text-sm text-muted-foreground mt-1">
-                Add dimensions to organize your assessment questions
+                Add dimensions to organize your {isItemBased ? "evaluation criteria" : "assessment questions"}
               </p>
               <Button
                 onClick={() => setDimensionDialogOpen(true)}
@@ -516,17 +669,54 @@ export function AssessmentBuilder({ templateId, templateName, onClose }: Assessm
         </DialogContent>
       </Dialog>
 
+      {/* Add Item Dialog */}
+      {isItemBased && (
+        <Dialog open={itemDialogOpen} onOpenChange={setItemDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add {typeInfo?.itemLabel || "Item"}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>{typeInfo?.itemLabel || "Item"} Name</Label>
+                <Input
+                  placeholder={assessmentType === "use_case" ? "e.g., Automated Invoice Processing" : assessmentType === "comparative" ? "e.g., Vendor A" : "e.g., Order Management"}
+                  value={newItem.title}
+                  onChange={(e) => setNewItem({ ...newItem, title: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Description (Optional)</Label>
+                <Textarea
+                  placeholder={`Describe this ${typeInfo?.itemLabel?.toLowerCase() || "item"}...`}
+                  value={newItem.description}
+                  onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setItemDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleAddItem} disabled={!newItem.title}>
+                Add {typeInfo?.itemLabel || "Item"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
       {/* Add Question Dialog */}
       <Dialog open={questionDialogOpen} onOpenChange={setQuestionDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Add Question</DialogTitle>
+            <DialogTitle>Add {isItemBased ? "Evaluation Criterion" : "Question"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Question Text</Label>
+              <Label>{isItemBased ? "Criterion" : "Question"} Text</Label>
               <Textarea
-                placeholder="Enter your question..."
+                placeholder={isItemBased ? "e.g., Business value potential" : "Enter your question..."}
                 value={newQuestion.question_text}
                 onChange={(e) =>
                   setNewQuestion({ ...newQuestion, question_text: e.target.value })
@@ -536,7 +726,7 @@ export function AssessmentBuilder({ templateId, templateName, onClose }: Assessm
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Question Type</Label>
+                <Label>Response Type</Label>
                 <Select
                   value={newQuestion.question_type}
                   onValueChange={(value: Question["question_type"]) =>
@@ -669,7 +859,7 @@ export function AssessmentBuilder({ templateId, templateName, onClose }: Assessm
               Cancel
             </Button>
             <Button onClick={handleAddQuestion} disabled={!newQuestion.question_text}>
-              Add Question
+              Add {isItemBased ? "Criterion" : "Question"}
             </Button>
           </DialogFooter>
         </DialogContent>
