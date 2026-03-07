@@ -325,11 +325,29 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
           question: q.question_text,
           score: qScores.length > 0 ? qScores.reduce((a, b) => a + b, 0) / qScores.length : 0,
           weight: Number(q.weight) || 1,
+          dimension_id: q.dimension_id,
         };
+      });
+
+      // Per-dimension scores
+      const dimensionScoresMap: Record<string, number> = {};
+      dimensions.forEach((dim) => {
+        const dimQuestions = questionBreakdown.filter((q) => q.dimension_id === dim.id);
+        if (dimQuestions.length > 0) {
+          const totalWeight = dimQuestions.reduce((s, q) => s + q.weight, 0);
+          const weightedSum = dimQuestions.reduce((s, q) => s + q.score * q.weight, 0);
+          dimensionScoresMap[dim.id] = totalWeight > 0 ? weightedSum / totalWeight : 0;
+        }
       });
 
       const avgScore = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
       const avgTarget = targets.length > 0 ? targets.reduce((a, b) => a + b, 0) / targets.length : 4;
+
+      // Weighted composite score
+      const totalWeight = questionBreakdown.reduce((s, q) => s + q.weight, 0);
+      const weightedComposite = totalWeight > 0
+        ? questionBreakdown.reduce((s, q) => s + q.score * q.weight, 0) / totalWeight
+        : avgScore;
 
       return {
         id: item.id,
@@ -340,9 +358,11 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
         gap: avgTarget - avgScore,
         responseCount: scores.length,
         questionBreakdown,
+        dimensionScores: dimensionScoresMap,
+        weightedComposite,
       };
     });
-  }, [filteredResponses, assessmentItems, questions, isItemBased]);
+  }, [filteredResponses, assessmentItems, questions, dimensions, isItemBased]);
 
   // Overall score (works for both types)
   const overallScore = useMemo(() => {
