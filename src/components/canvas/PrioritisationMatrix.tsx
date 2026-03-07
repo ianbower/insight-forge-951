@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { Plus, Sparkles, Save, Download, FileText, Pencil, Trash2, X, ChevronDown, SlidersHorizontal, FileSpreadsheet, Presentation, RotateCcw } from "lucide-react";
+import { Plus, Sparkles, Save, Download, FileText, Pencil, Trash2, X, ChevronDown, SlidersHorizontal, FileSpreadsheet, Presentation, RotateCcw, Eye, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
