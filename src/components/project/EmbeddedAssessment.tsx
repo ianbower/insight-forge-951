@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ClipboardList, Plus, BarChart3, Users, Send, Eye, Settings2, Link2, Maximize2 } from "lucide-react";
+import { ClipboardList, Plus, BarChart3, Users, Send, Eye, Settings2, Link2, Maximize2, Trash2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { AssessmentResults } from "@/components/assessments/AssessmentResults";
