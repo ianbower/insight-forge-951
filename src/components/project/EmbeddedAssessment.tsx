@@ -234,7 +234,23 @@ export function EmbeddedAssessment({ projectId, stepId, compact = false, display
     fetchData();
   };
 
-  const statusColors: Record<string, string> = {
+  const handleRemoveAssessment = async (projectAssessmentId: string, assessmentName: string) => {
+    if (!confirm(`Remove "${assessmentName}" from this project? This will unlink the assessment but won't delete the assessment itself.`)) return;
+
+    const { error } = await supabase
+      .from("project_assessments")
+      .delete()
+      .eq("id", projectAssessmentId);
+
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Assessment removed from project" });
+      fetchData();
+    }
+  };
+
+
     draft: "bg-slate-500/10 text-slate-500",
     active: "bg-emerald-500/10 text-emerald-500",
     closed: "bg-blue-500/10 text-blue-500",
