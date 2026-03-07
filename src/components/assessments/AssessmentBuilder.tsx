@@ -390,14 +390,24 @@ export function AssessmentBuilder({ templateId, templateName, assessmentType = "
         </div>
         <div className="flex gap-2">
           {isItemBased && (
-            <Button
-              variant="outline"
-              onClick={() => setItemDialogOpen(true)}
-              className="gap-2"
-            >
-              <ListChecks className="h-4 w-4" />
-              Add {typeInfo?.itemLabel || "Item"}
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                onClick={() => setImportDialogOpen(true)}
+                className="gap-2"
+              >
+                <Upload className="h-4 w-4" />
+                Import CSV
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setItemDialogOpen(true)}
+                className="gap-2"
+              >
+                <ListChecks className="h-4 w-4" />
+                Add {typeInfo?.itemLabel || "Item"}
+              </Button>
+            </>
           )}
           <Button
             variant="outline"
