@@ -89,6 +89,8 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
   const [filterOrg, setFilterOrg] = useState<string>("all");
   const [benchmarkFilter, setBenchmarkFilter] = useState<string>("all");
   const [showInsights, setShowInsights] = useState(false);
+  const [matrixXAxis, setMatrixXAxis] = useState<string>("");
+  const [matrixYAxis, setMatrixYAxis] = useState<string>("");
 
   const isItemBased = ["use_case", "comparative", "process"].includes(assessmentType);
 
