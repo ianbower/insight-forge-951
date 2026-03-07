@@ -1159,6 +1159,91 @@ export function AssessmentBuilder({ templateId, templateName, assessmentType = "
         </DialogContent>
       </Dialog>
 
+      {/* Edit Dimension Dialog */}
+      <Dialog open={editDimensionDialogOpen} onOpenChange={setEditDimensionDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Dimension</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Dimension Name</Label>
+              <Input
+                placeholder="e.g., Business Value"
+                value={editDimensionData.name}
+                onChange={(e) => setEditDimensionData({ ...editDimensionData, name: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Textarea
+                placeholder="Describe what this dimension measures..."
+                value={editDimensionData.description}
+                onChange={(e) => setEditDimensionData({ ...editDimensionData, description: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Weight (for scoring)</Label>
+              <div className="flex items-center gap-4">
+                <Slider
+                  value={[editDimensionData.weight]}
+                  onValueChange={([value]) => setEditDimensionData({ ...editDimensionData, weight: value })}
+                  min={0.5}
+                  max={3}
+                  step={0.25}
+                  className="flex-1"
+                />
+                <span className="text-sm font-medium w-12">{editDimensionData.weight}x</span>
+              </div>
+            </div>
+
+            {/* Scale config */}
+            <div className="space-y-4 p-4 rounded-lg border bg-muted/30">
+              <Label className="text-base font-medium">Rating Scale</Label>
+              <p className="text-sm text-muted-foreground">
+                Configure the scale respondents will use to rate on this dimension.
+              </p>
+              <div className="space-y-3">
+                {Array.from(
+                  { length: editDimensionScaleConfig.max - editDimensionScaleConfig.min + 1 },
+                  (_, i) => editDimensionScaleConfig.min + i
+                ).map((level) => (
+                  <div key={level} className="grid grid-cols-12 gap-2 items-start">
+                    <div className="col-span-1 flex items-center justify-center h-9 rounded bg-primary/10 text-primary font-medium">
+                      {level}
+                    </div>
+                    <div className="col-span-3">
+                      <Input
+                        placeholder="Label"
+                        value={editDimensionScaleConfig.labels?.[level] || ""}
+                        onChange={(e) => updateEditScaleLabel(level, e.target.value)}
+                        className="h-9"
+                      />
+                    </div>
+                    <div className="col-span-8">
+                      <Input
+                        placeholder="Description for this level..."
+                        value={editDimensionScaleConfig.descriptions?.[level] || ""}
+                        onChange={(e) => updateEditScaleDescription(level, e.target.value)}
+                        className="h-9"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDimensionDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateDimension} disabled={!editDimensionData.name}>
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Add Item Dialog */}
       {isItemBased && (
         <Dialog open={itemDialogOpen} onOpenChange={setItemDialogOpen}>
