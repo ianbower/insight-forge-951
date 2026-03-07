@@ -414,6 +414,44 @@ export function AssessmentBuilder({ templateId, templateName, assessmentType = "
     }
   };
 
+  const handleToggleItemScope = async (itemId: string, inScope: boolean) => {
+    const item = items.find((i) => i.id === itemId);
+    const currentMeta = (item?.metadata_json as Record<string, any>) || {};
+    const { error } = await supabase
+      .from("assessment_items" as any)
+      .update({ metadata_json: { ...currentMeta, in_scope: inScope } } as any)
+      .eq("id", itemId);
+
+    if (!error) {
+      setItems((prev) =>
+        prev.map((i) =>
+          i.id === itemId
+            ? { ...i, metadata_json: { ...((i.metadata_json as Record<string, any>) || {}), in_scope: inScope } }
+            : i
+        )
+      );
+    }
+  };
+
+  const handleSelectAllItems = async (inScope: boolean) => {
+    const ids = items.map((i) => i.id).filter(Boolean) as string[];
+    if (ids.length === 0) return;
+    for (const item of items) {
+      if (!item.id) continue;
+      const currentMeta = (item.metadata_json as Record<string, any>) || {};
+      await supabase
+        .from("assessment_items" as any)
+        .update({ metadata_json: { ...currentMeta, in_scope: inScope } } as any)
+        .eq("id", item.id);
+    }
+    setItems((prev) =>
+      prev.map((i) => ({
+        ...i,
+        metadata_json: { ...((i.metadata_json as Record<string, any>) || {}), in_scope: inScope },
+      }))
+    );
+  };
+
   const updateScaleLabel = (level: number, value: string) => {
     setNewQuestion((prev) => ({
       ...prev,
