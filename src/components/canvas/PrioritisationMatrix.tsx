@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { Plus, Sparkles, Save, Download, FileText, Pencil, Trash2, X, ChevronDown, SlidersHorizontal, FileSpreadsheet, Presentation } from "lucide-react";
+import { Plus, Sparkles, Save, Download, FileText, Pencil, Trash2, X, ChevronDown, SlidersHorizontal, FileSpreadsheet, Presentation, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -257,6 +257,17 @@ export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, d
     }
   };
 
+  // Reset: wipe AI items and localStorage, restore clean survey data
+  const handleReset = useCallback(() => {
+    if (storageKey) {
+      try { localStorage.removeItem(`pmatrix-${storageKey}`); } catch { /* ignore */ }
+    }
+    const cleanItems = defaultItems || [];
+    setItems(cleanItems);
+    setDisplayCount(0);
+    toast({ title: "Matrix Reset", description: "AI recommendations cleared. Showing clean survey data." });
+  }, [storageKey, defaultItems, toast]);
+
   const handleExportPDF = async () => {
     try {
       await exportToPDF("prioritisation-matrix", "Prioritisation Matrix");
@@ -433,6 +444,9 @@ export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, d
             </Button>
             <Button variant="outline" size="sm" onClick={handleAIRecommend} disabled={aiLoading} className="transition-transform duration-200 hover:scale-105">
               <Sparkles className={cn("h-4 w-4 mr-1", aiLoading && "animate-spin")} /> {aiLoading ? "Analysing..." : "AI Recommend"}
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleReset} className="transition-transform duration-200 hover:scale-105">
+              <RotateCcw className="h-4 w-4 mr-1" /> Reset
             </Button>
             {!compact && (
               <Button variant="outline" size="sm" onClick={handleSave} disabled={saving}>
