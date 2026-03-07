@@ -63,6 +63,8 @@ interface PrioritisationMatrixProps {
   assessmentContext?: AssessmentContext;
   /** Key for localStorage persistence when onSave is not provided */
   storageKey?: string;
+  /** Render items as sized bubbles instead of pills. priorityScore controls bubble diameter. */
+  bubbleMode?: boolean;
 }
 
 const QUADRANT_META = [
