@@ -376,14 +376,31 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
     return dimensionScores.reduce((sum, d) => sum + d.score, 0) / dimensionScores.length;
   }, [dimensionScores, itemScores, isItemBased]);
 
-  // Matrix items for item-based assessments (use cases become initiatives)
+  // Matrix items for item-based assessments with configurable axes
   const matrixItems: MatrixItem[] = useMemo(() => {
     if (isItemBased) {
+      const hasCustomAxes = matrixXAxis && matrixYAxis && matrixXAxis !== matrixYAxis;
+      const maxScale = 5;
+
       return itemScores.map((item) => {
-        // Map score to "value" (impact) and inverse-score to "effort"
-        const maxScale = 5;
+        if (hasCustomAxes) {
+          const xScore = item.dimensionScores[matrixXAxis] || 0;
+          const yScore = item.dimensionScores[matrixYAxis] || 0;
+          // Bubble size from weighted composite (normalised 0-100)
+          const bubbleSize = (item.weightedComposite / maxScale) * 100;
+          return {
+            id: item.id,
+            title: item.title,
+            description: item.description || `Composite: ${item.weightedComposite.toFixed(1)}`,
+            effort: Math.max(5, Math.min(95, (xScore / maxScale) * 100)),
+            impact: Math.max(5, Math.min(95, (yScore / maxScale) * 100)),
+            category: item.weightedComposite >= 4 ? "High Value" : item.weightedComposite >= 3 ? "Medium" : "Needs Attention",
+            priorityScore: Math.round(bubbleSize),
+          };
+        }
+        // Default: score → impact, inverse → effort
         const valueScore = (item.score / maxScale) * 100;
-        const effortScore = 100 - valueScore; // Higher score = lower effort needed
+        const effortScore = 100 - valueScore;
         return {
           id: item.id,
           title: item.title,
@@ -409,7 +426,20 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
         priorityScore: Math.round(Math.min(5, Math.max(1, gapFromTarget * 2 + 2))),
       };
     });
-  }, [dimensionScores, itemScores, isItemBased]);
+  }, [dimensionScores, itemScores, isItemBased, matrixXAxis, matrixYAxis]);
+
+  // Axis labels based on selected dimensions
+  const matrixAxisLabels = useMemo(() => {
+    if (!isItemBased || !matrixXAxis || !matrixYAxis || matrixXAxis === matrixYAxis) {
+      return { xLabel: "Implementation Effort", yLabel: "Business Impact / Value" };
+    }
+    const xDim = dimensions.find((d) => d.id === matrixXAxis);
+    const yDim = dimensions.find((d) => d.id === matrixYAxis);
+    return {
+      xLabel: xDim?.name || "X Axis",
+      yLabel: yDim?.name || "Y Axis",
+    };
+  }, [dimensions, matrixXAxis, matrixYAxis, isItemBased]);
 
   // Build assessment context for AI
   const assessmentCtx: AssessmentContext = useMemo(() => {
