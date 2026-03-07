@@ -877,6 +877,29 @@ export function AssessmentBuilder({ templateId, templateName, assessmentType = "
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Import Items Dialog */}
+      {isItemBased && (
+        <ImportItemsDialog
+          open={importDialogOpen}
+          onOpenChange={setImportDialogOpen}
+          itemLabel={typeInfo?.itemLabel || "Item"}
+          itemLabelPlural={typeInfo?.itemLabelPlural || "Items"}
+          onImport={async (importedItems) => {
+            const inserts = importedItems.map((item, idx) => ({
+              assessment_template_id: templateId,
+              title: item.title,
+              description: item.description || null,
+              order_index: items.length + idx,
+            }));
+            const { error } = await supabase
+              .from("assessment_items" as any)
+              .insert(inserts as any);
+            if (error) throw error;
+            fetchItems();
+          }}
+        />
+      )}
     </div>
   );
 }
