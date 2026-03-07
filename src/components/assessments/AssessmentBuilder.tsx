@@ -40,6 +40,7 @@ import {
   Save,
   Layers,
   HelpCircle,
+  Pencil,
   ListChecks,
   Upload,
   CheckSquare,
