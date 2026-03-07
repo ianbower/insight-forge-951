@@ -387,6 +387,65 @@ export function AssessmentBuilder({ templateId, templateName, assessmentType = "
     }
   };
 
+  const openEditDimension = (dimension: Dimension) => {
+    setEditDimensionId(dimension.id || null);
+    setEditDimensionData({
+      name: dimension.name,
+      description: dimension.description,
+      weight: dimension.weight,
+    });
+    const scaleConfig = dimension.questions[0]?.scale_config;
+    setEditDimensionScaleConfig(scaleConfig ? { ...scaleConfig } : { ...defaultScaleConfig });
+    setEditDimensionDialogOpen(true);
+  };
+
+  const handleUpdateDimension = async () => {
+    if (!editDimensionId) return;
+
+    const { error: dimError } = await supabase
+      .from("assessment_dimensions")
+      .update({
+        name: editDimensionData.name,
+        description: editDimensionData.description || null,
+        weight: editDimensionData.weight,
+      })
+      .eq("id", editDimensionId);
+
+    if (dimError) {
+      toast({ title: "Error", description: dimError.message, variant: "destructive" });
+      return;
+    }
+
+    // Update the question's scale_config and question_text for item-based
+    if (isItemBased) {
+      await supabase
+        .from("assessment_questions")
+        .update({
+          scale_config: JSON.parse(JSON.stringify(editDimensionScaleConfig)),
+          question_text: `Rate this item on: ${editDimensionData.name}`,
+        })
+        .eq("dimension_id", editDimensionId);
+    }
+
+    toast({ title: "Dimension updated" });
+    setEditDimensionDialogOpen(false);
+    fetchDimensions();
+  };
+
+  const updateEditScaleLabel = (level: number, value: string) => {
+    setEditDimensionScaleConfig((prev) => ({
+      ...prev,
+      labels: { ...prev.labels, [level]: value },
+    }));
+  };
+
+  const updateEditScaleDescription = (level: number, value: string) => {
+    setEditDimensionScaleConfig((prev) => ({
+      ...prev,
+      descriptions: { ...prev.descriptions, [level]: value },
+    }));
+  };
+
   const handleAddItem = async () => {
     const { error } = await supabase
       .from("assessment_items" as any)
