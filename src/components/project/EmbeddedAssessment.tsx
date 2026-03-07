@@ -315,41 +315,11 @@ export function EmbeddedAssessment({ projectId, stepId, compact = false, display
         </div>
 
         {/* Inline Results */}
-        {(primaryAssessment.responseCount || 0) > 0 ? (
-          <AssessmentResults
-            instanceId={primaryAssessment.assessment_instance.id}
-            instanceName={primaryAssessment.assessment_instance.name}
-            embedded
-          />
-        ) : (
-          <Card className="border-dashed">
-            <CardContent className="py-6 text-center">
-              <BarChart3 className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
-              <p className="text-muted-foreground text-sm">No responses yet</p>
-              <div className="flex items-center justify-center gap-4 mt-2 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <Users className="h-3 w-3" />
-                  {primaryAssessment.recipientCount} recipients
-                </span>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setSelectedInstance({
-                    id: primaryAssessment.assessment_instance.id,
-                    name: primaryAssessment.assessment_instance.name,
-                  });
-                  setLaunchDialogOpen(true);
-                }}
-                className="mt-3 gap-2"
-              >
-                <Send className="h-4 w-4" />
-                Send to Recipients
-              </Button>
-            </CardContent>
-          </Card>
-        )}
+        <AssessmentResults
+          instanceId={primaryAssessment.assessment_instance.id}
+          instanceName={primaryAssessment.assessment_instance.name}
+          embedded
+        />
 
         {/* Dialogs for results mode */}
         <Dialog open={launchDialogOpen} onOpenChange={setLaunchDialogOpen}>
