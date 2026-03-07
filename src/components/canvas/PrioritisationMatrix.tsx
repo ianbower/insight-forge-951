@@ -35,6 +35,7 @@ export interface PrioritisationMatrixData {
 }
 
 export type DetailLevel = "high-level" | "medium" | "detailed";
+export type GroupByOption = "category" | "quadrant" | "priority";
 
 /** Rich context from assessment data to feed the AI */
 export interface AssessmentContext {
