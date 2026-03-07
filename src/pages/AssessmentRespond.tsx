@@ -408,8 +408,8 @@ export default function AssessmentRespond() {
       </div>
 
       {/* Content */}
-      <div className="max-w-3xl mx-auto px-4 py-8">
-        {/* Item indicator */}
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        {/* Item indicator for item-based */}
         {isItemBased && currentItem && (
           <Card className="mb-6 border-primary/30 bg-primary/5">
             <CardContent className="py-4">
@@ -431,100 +431,190 @@ export default function AssessmentRespond() {
           </Card>
         )}
 
-        {/* Dimension Header */}
-        <div className="mb-6">
-          <div className="flex items-center gap-2 mb-2">
-            <Badge variant="outline">
-              Section {currentDimensionIndex + 1} of {dimensions.length}
-            </Badge>
+        {isItemBased ? (
+          /* Item-based: show ALL dimensions on one page */
+          <div className="space-y-6">
+            {dimensions.map((dimension) => (
+              <div key={dimension.id}>
+                {dimension.questions.map((question, qIndex) => {
+                  const responseKey = getResponseKey(question.id);
+                  return (
+                    <Card key={`${responseKey}-${qIndex}`} className="border-border">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base flex items-start gap-2">
+                          <span>{dimension.name}</span>
+                          {question.required && <span className="text-destructive">*</span>}
+                        </CardTitle>
+                        {dimension.description && (
+                          <CardDescription className="text-sm">{dimension.description}</CardDescription>
+                        )}
+                      </CardHeader>
+                      <CardContent>
+                        {question.question_type === "likert" && question.scale_config && (
+                          <LikertDualScore
+                            question={question}
+                            value={responses[responseKey]}
+                            onChange={(field, val) => handleDualResponse(question.id, field, val)}
+                          />
+                        )}
+
+                        {question.question_type === "multiple_choice" && question.options && (
+                          <RadioGroup
+                            value={responses[responseKey] || ""}
+                            onValueChange={(value) => handleResponse(question.id, value)}
+                            className="space-y-2"
+                          >
+                            {question.options.map((option, oIndex) => (
+                              <div key={oIndex} className="flex items-center space-x-3">
+                                <RadioGroupItem value={option} id={`${responseKey}-${oIndex}`} />
+                                <Label htmlFor={`${responseKey}-${oIndex}`} className="cursor-pointer">
+                                  {option}
+                                </Label>
+                              </div>
+                            ))}
+                          </RadioGroup>
+                        )}
+
+                        {question.question_type === "text" && (
+                          <Textarea
+                            value={responses[responseKey] || ""}
+                            onChange={(e) => handleResponse(question.id, e.target.value)}
+                            placeholder="Enter your response..."
+                            className="min-h-[100px]"
+                          />
+                        )}
+
+                        {question.question_type === "numeric" && (
+                          <Input
+                            type="number"
+                            value={responses[responseKey] || ""}
+                            onChange={(e) => handleResponse(question.id, Number(e.target.value))}
+                            placeholder="Enter a number..."
+                            className="max-w-[200px]"
+                          />
+                        )}
+
+                        {/* Optional notes per dimension */}
+                        <Collapsible className="mt-4">
+                          <CollapsibleTrigger asChild>
+                            <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-foreground p-0 h-auto">
+                              <MessageSquarePlus className="h-4 w-4" />
+                              <span className="text-sm">{notes[responseKey] ? "Edit additional comments" : "Add additional comments"}</span>
+                              <ChevronDown className="h-3 w-3" />
+                            </Button>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent className="mt-2">
+                            <Textarea
+                              value={notes[responseKey] || ""}
+                              onChange={(e) => handleNotesChange(question.id, e.target.value)}
+                              placeholder="Share any additional thoughts, context, or insights..."
+                              className="min-h-[80px] text-sm"
+                            />
+                          </CollapsibleContent>
+                        </Collapsible>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            ))}
           </div>
-          <h2 className="text-lg font-semibold">{currentDimension.name}</h2>
-          {currentDimension.description && (
-            <p className="text-sm text-muted-foreground mt-1">{currentDimension.description}</p>
-          )}
-        </div>
+        ) : (
+          /* Standard: paginated by dimension */
+          <>
+            <div className="mb-6">
+              <div className="flex items-center gap-2 mb-2">
+                <Badge variant="outline">
+                  Section {currentDimensionIndex + 1} of {dimensions.length}
+                </Badge>
+              </div>
+              <h2 className="text-lg font-semibold">{currentDimension.name}</h2>
+              {currentDimension.description && (
+                <p className="text-sm text-muted-foreground mt-1">{currentDimension.description}</p>
+              )}
+            </div>
 
-        {/* Questions */}
-        <div className="space-y-6">
-          {currentDimension.questions.map((question, qIndex) => {
-            const responseKey = getResponseKey(question.id);
-            return (
-              <Card key={`${responseKey}-${qIndex}`} className="border-border">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-start gap-2">
-                    <span className="text-muted-foreground font-normal">{qIndex + 1}.</span>
-                    <span>{question.question_text}</span>
-                    {question.required && <span className="text-destructive">*</span>}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {question.question_type === "likert" && question.scale_config && (
-                    <LikertDualScore
-                      question={question}
-                      value={responses[responseKey]}
-                      onChange={(field, val) => handleDualResponse(question.id, field, val)}
-                    />
-                  )}
+            <div className="space-y-6">
+              {currentDimension.questions.map((question, qIndex) => {
+                const responseKey = getResponseKey(question.id);
+                return (
+                  <Card key={`${responseKey}-${qIndex}`} className="border-border">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base flex items-start gap-2">
+                        <span className="text-muted-foreground font-normal">{qIndex + 1}.</span>
+                        <span>{question.question_text}</span>
+                        {question.required && <span className="text-destructive">*</span>}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {question.question_type === "likert" && question.scale_config && (
+                        <LikertDualScore
+                          question={question}
+                          value={responses[responseKey]}
+                          onChange={(field, val) => handleDualResponse(question.id, field, val)}
+                        />
+                      )}
 
-                  {question.question_type === "multiple_choice" && question.options && (
-                    <RadioGroup
-                      value={responses[responseKey] || ""}
-                      onValueChange={(value) => handleResponse(question.id, value)}
-                      className="space-y-2"
-                    >
-                      {question.options.map((option, oIndex) => (
-                        <div key={oIndex} className="flex items-center space-x-3">
-                          <RadioGroupItem value={option} id={`${responseKey}-${oIndex}`} />
-                          <Label htmlFor={`${responseKey}-${oIndex}`} className="cursor-pointer">
-                            {option}
-                          </Label>
-                        </div>
-                      ))}
-                    </RadioGroup>
-                  )}
+                      {question.question_type === "multiple_choice" && question.options && (
+                        <RadioGroup
+                          value={responses[responseKey] || ""}
+                          onValueChange={(value) => handleResponse(question.id, value)}
+                          className="space-y-2"
+                        >
+                          {question.options.map((option, oIndex) => (
+                            <div key={oIndex} className="flex items-center space-x-3">
+                              <RadioGroupItem value={option} id={`${responseKey}-${oIndex}`} />
+                              <Label htmlFor={`${responseKey}-${oIndex}`} className="cursor-pointer">
+                                {option}
+                              </Label>
+                            </div>
+                          ))}
+                        </RadioGroup>
+                      )}
 
-                  {question.question_type === "text" && (
-                    <Textarea
-                      value={responses[responseKey] || ""}
-                      onChange={(e) => handleResponse(question.id, e.target.value)}
-                      placeholder="Enter your response..."
-                      className="min-h-[100px]"
-                    />
-                  )}
+                      {question.question_type === "text" && (
+                        <Textarea
+                          value={responses[responseKey] || ""}
+                          onChange={(e) => handleResponse(question.id, e.target.value)}
+                          placeholder="Enter your response..."
+                          className="min-h-[100px]"
+                        />
+                      )}
 
-                  {question.question_type === "numeric" && (
-                    <Input
-                      type="number"
-                      value={responses[responseKey] || ""}
-                      onChange={(e) => handleResponse(question.id, Number(e.target.value))}
-                      placeholder="Enter a number..."
-                      className="max-w-[200px]"
-                    />
-                  )}
+                      {question.question_type === "numeric" && (
+                        <Input
+                          type="number"
+                          value={responses[responseKey] || ""}
+                          onChange={(e) => handleResponse(question.id, Number(e.target.value))}
+                          placeholder="Enter a number..."
+                          className="max-w-[200px]"
+                        />
+                      )}
 
-                  {/* Optional notes */}
-                  <Collapsible className="mt-4">
-                    <CollapsibleTrigger asChild>
-                      <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-foreground p-0 h-auto">
-                        <MessageSquarePlus className="h-4 w-4" />
-                        <span className="text-sm">{notes[responseKey] ? "Edit additional comments" : "Add additional comments"}</span>
-                        <ChevronDown className="h-3 w-3" />
-                      </Button>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="mt-2">
-                      <Textarea
-                        value={notes[responseKey] || ""}
-                        onChange={(e) => handleNotesChange(question.id, e.target.value)}
-                        placeholder="Share any additional thoughts, context, or insights about your answer..."
-                        className="min-h-[80px] text-sm"
-                      />
-                    </CollapsibleContent>
-                  </Collapsible>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                      <Collapsible className="mt-4">
+                        <CollapsibleTrigger asChild>
+                          <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-foreground p-0 h-auto">
+                            <MessageSquarePlus className="h-4 w-4" />
+                            <span className="text-sm">{notes[responseKey] ? "Edit additional comments" : "Add additional comments"}</span>
+                            <ChevronDown className="h-3 w-3" />
+                          </Button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="mt-2">
+                          <Textarea
+                            value={notes[responseKey] || ""}
+                            onChange={(e) => handleNotesChange(question.id, e.target.value)}
+                            placeholder="Share any additional thoughts, context, or insights about your answer..."
+                            className="min-h-[80px] text-sm"
+                          />
+                        </CollapsibleContent>
+                      </Collapsible>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </>
+        )}
 
         {/* Navigation */}
         <div className="flex items-center justify-between mt-8 pt-6 border-t">
@@ -563,7 +653,7 @@ export default function AssessmentRespond() {
   );
 }
 
-/** Dual Likert scale: As-Is and To-Be side by side */
+/** Dual Likert scale: As-Is and To-Be side by side in columns */
 function LikertDualScore({
   question,
   value,
@@ -583,57 +673,54 @@ function LikertDualScore({
   const toBeValue = value?.toBe ?? null;
 
   return (
-    <div className="space-y-6">
-      {/* As-Is Score */}
-      <div>
-        <div className="flex items-center gap-2 mb-3">
-          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">As-Is (Current State)</Badge>
-        </div>
-        <RadioGroup
-          value={asIsValue?.toString() || ""}
-          onValueChange={(val) => onChange("asIs", Number(val))}
-          className="space-y-2"
-        >
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b">
+            <th className="text-left py-2 pr-4 font-medium text-muted-foreground w-1/2">Level</th>
+            <th className="text-center py-2 px-3 font-medium w-1/4">
+              <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20">As-Is</Badge>
+            </th>
+            <th className="text-center py-2 px-3 font-medium w-1/4">
+              <Badge variant="outline" className="bg-accent/50 text-accent-foreground border-accent">To-Be</Badge>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
           {levels.map((level) => (
-            <div key={`asis-${level}`} className="flex items-start space-x-3">
-              <RadioGroupItem value={level.toString()} id={`${question.id}-asis-${level}`} />
-              <div className="flex-1">
-                <Label htmlFor={`${question.id}-asis-${level}`} className="font-medium cursor-pointer">
-                  {level} - {config.labels?.[level] || `Level ${level}`}
-                </Label>
+            <tr key={level} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
+              <td className="py-3 pr-4">
+                <div className="font-medium">{level} - {config.labels?.[level] || `Level ${level}`}</div>
                 {config.descriptions?.[level] && (
-                  <p className="text-sm text-muted-foreground mt-0.5">
-                    {config.descriptions[level]}
-                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{config.descriptions[level]}</p>
                 )}
-              </div>
-            </div>
+              </td>
+              <td className="text-center py-3 px-3">
+                <div className="flex justify-center">
+                  <RadioGroupItem
+                    value={level.toString()}
+                    id={`${question.id}-asis-${level}`}
+                    checked={asIsValue === level}
+                    onClick={() => onChange("asIs", level)}
+                    className="cursor-pointer"
+                  />
+                </div>
+              </td>
+              <td className="text-center py-3 px-3">
+                <div className="flex justify-center">
+                  <RadioGroupItem
+                    value={level.toString()}
+                    id={`${question.id}-tobe-${level}`}
+                    checked={toBeValue === level}
+                    onClick={() => onChange("toBe", level)}
+                    className="cursor-pointer"
+                  />
+                </div>
+              </td>
+            </tr>
           ))}
-        </RadioGroup>
-      </div>
-
-      {/* To-Be Score */}
-      <div>
-        <div className="flex items-center gap-2 mb-3">
-          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">To-Be (Target State)</Badge>
-        </div>
-        <RadioGroup
-          value={toBeValue?.toString() || ""}
-          onValueChange={(val) => onChange("toBe", Number(val))}
-          className="space-y-2"
-        >
-          {levels.map((level) => (
-            <div key={`tobe-${level}`} className="flex items-start space-x-3">
-              <RadioGroupItem value={level.toString()} id={`${question.id}-tobe-${level}`} />
-              <div className="flex-1">
-                <Label htmlFor={`${question.id}-tobe-${level}`} className="font-medium cursor-pointer">
-                  {level} - {config.labels?.[level] || `Level ${level}`}
-                </Label>
-              </div>
-            </div>
-          ))}
-        </RadioGroup>
-      </div>
+        </tbody>
+      </table>
     </div>
   );
 }
