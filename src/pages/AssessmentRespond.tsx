@@ -223,18 +223,54 @@ export default function AssessmentRespond() {
 
     const itemId = isItemBased && items.length > 0 ? items[currentItemIndex]?.id : null;
 
-    const insertData: any = {
+    // For item-based assessments, check if a response already exists for this item+question combo
+    const matchFilters: any = {
       assessment_instance_id: instance.id,
       recipient_id: recipient.id,
       question_id: questionId,
-      response_value: value,
     };
-    if (itemId) insertData.item_id = itemId;
 
-    const { error } = await supabase.from("assessment_responses").upsert(
-      insertData,
-      { onConflict: "assessment_instance_id,recipient_id,question_id" }
-    );
+    let existingId: string | null = null;
+    if (itemId) {
+      const { data: existing } = await supabase
+        .from("assessment_responses")
+        .select("id")
+        .eq("assessment_instance_id", instance.id)
+        .eq("recipient_id", recipient.id)
+        .eq("question_id", questionId)
+        .eq("item_id", itemId)
+        .maybeSingle();
+      existingId = existing?.id || null;
+    } else {
+      const { data: existing } = await supabase
+        .from("assessment_responses")
+        .select("id")
+        .eq("assessment_instance_id", instance.id)
+        .eq("recipient_id", recipient.id)
+        .eq("question_id", questionId)
+        .is("item_id", null)
+        .maybeSingle();
+      existingId = existing?.id || null;
+    }
+
+    let error: any;
+    if (existingId) {
+      const result = await supabase
+        .from("assessment_responses")
+        .update({ response_value: value })
+        .eq("id", existingId);
+      error = result.error;
+    } else {
+      const insertData: any = {
+        assessment_instance_id: instance.id,
+        recipient_id: recipient.id,
+        question_id: questionId,
+        response_value: value,
+      };
+      if (itemId) insertData.item_id = itemId;
+      const result = await supabase.from("assessment_responses").insert(insertData);
+      error = result.error;
+    }
 
     if (error) {
       console.error("Error saving response:", error);
