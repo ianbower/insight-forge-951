@@ -521,7 +521,7 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
       return (
         <div className="py-6 text-center">
           <BarChart3 className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
-          <p className="text-sm text-muted-foreground">No responses yet</p>
+          <p className="text-sm text-muted-foreground">No responses yet — results will appear here once recipients complete the assessment</p>
         </div>
       );
     }
@@ -648,17 +648,19 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
         </Select>
       </div>
 
-      {responses.length === 0 ? (
+      {responses.length === 0 && (
         <Card className="border-dashed">
-          <CardContent className="py-12 text-center">
-            <BarChart3 className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-            <p className="text-lg font-medium text-muted-foreground">No responses yet</p>
+          <CardContent className="py-8 text-center">
+            <BarChart3 className="h-10 w-10 mx-auto mb-3 text-muted-foreground/50" />
+            <p className="text-base font-medium text-muted-foreground">No responses yet</p>
             <p className="text-sm text-muted-foreground mt-1">
-              Results will appear here once recipients complete the assessment
+              Results will populate once recipients complete the assessment
             </p>
           </CardContent>
         </Card>
-      ) : (
+      )}
+
+      {(
         <Tabs defaultValue="overview" className="space-y-6">
           <TabsList>
             <TabsTrigger value="overview" className="gap-2">
