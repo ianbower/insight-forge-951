@@ -488,7 +488,7 @@ export function EmbeddedAssessment({ projectId, stepId, compact = false, display
                       <Send className="h-4 w-4" />
                       Manage
                     </Button>
-                    {(pa.responseCount || 0) > 0 && (
+                    {
                       <Button
                         variant="outline"
                         size="sm"
@@ -504,7 +504,7 @@ export function EmbeddedAssessment({ projectId, stepId, compact = false, display
                         <Eye className="h-4 w-4" />
                         Results
                       </Button>
-                    )}
+                    }
                     <Button
                       variant="ghost"
                       size="sm"
