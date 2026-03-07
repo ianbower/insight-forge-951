@@ -36,6 +36,7 @@ import {
 import { AssessmentInsights } from "./AssessmentInsights";
 import { PrioritisationMatrix, type MatrixItem, type AssessmentContext } from "@/components/canvas/PrioritisationMatrix";
 import { Users, BarChart3, Target, TrendingUp, Sparkles, Download, Filter, Database, LayoutGrid, ListChecks } from "lucide-react";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 interface AssessmentResultsProps {
