@@ -659,14 +659,30 @@ function LikertDualScore({
   value,
   onChange,
 }: {
-  question: { id: string; scale_config?: { min: number; max: number; labels: Record<number, string>; descriptions: Record<number, string> } };
+  question: { id: string; scale_config?: { min?: number; max?: number; labels?: Record<number, string>; descriptions?: Record<number, string> } };
   value: any;
   onChange: (field: "asIs" | "toBe", val: number) => void;
 }) {
-  const config = question.scale_config!;
+  const rawConfig = question.scale_config;
+  const min = Number(rawConfig?.min);
+  const max = Number(rawConfig?.max);
+
+  const hasValidRange = Number.isFinite(min) && Number.isFinite(max) && max >= min && max - min <= 20;
+
+  if (!hasValidRange) {
+    return (
+      <div className="rounded-md border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+        This question's scoring scale is temporarily unavailable.
+      </div>
+    );
+  }
+
+  const labels = (rawConfig?.labels ?? {}) as Record<number, string>;
+  const descriptions = (rawConfig?.descriptions ?? {}) as Record<number, string>;
+
   const levels = Array.from(
-    { length: config.max - config.min + 1 },
-    (_, i) => config.min + i
+    { length: max - min + 1 },
+    (_, i) => min + i
   );
 
   const asIsValue = value?.asIs ?? null;
@@ -690,9 +706,9 @@ function LikertDualScore({
           {levels.map((level) => (
             <tr key={level} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
               <td className="py-3 pr-4">
-                <div className="font-medium">{level} - {config.labels?.[level] || `Level ${level}`}</div>
-                {config.descriptions?.[level] && (
-                  <p className="text-xs text-muted-foreground mt-0.5">{config.descriptions[level]}</p>
+                <div className="font-medium">{level} - {labels?.[level] || `Level ${level}`}</div>
+                {descriptions?.[level] && (
+                  <p className="text-xs text-muted-foreground mt-0.5">{descriptions[level]}</p>
                 )}
               </td>
               <td className="text-center py-3 px-3">
