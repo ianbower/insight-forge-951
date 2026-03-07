@@ -102,142 +102,121 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
   const fetchResults = async () => {
     setLoading(true);
 
-    const { data: instanceData } = await supabase
-      .from("assessment_instances")
-      .select("*, assessment_template:assessment_templates(*)")
-      .eq("id", instanceId)
-      .single();
+    try {
+      const { data: instanceData } = await supabase
+        .from("assessment_instances")
+        .select("*, assessment_template:assessment_templates(*)")
+        .eq("id", instanceId)
+        .single();
 
-    if (!instanceData) {
+      if (!instanceData) {
+        setResponses([]);
+        setDimensions([]);
+        setQuestions([]);
+        setRecipients([]);
+        setBenchmarks([]);
+        setAssessmentItems([]);
+        return;
+      }
+
+      const templateId = instanceData.assessment_template_id;
+      const template = instanceData.assessment_template as any;
+      const aType = template?.assessment_type || "standard";
+      setAssessmentType(aType);
+
+      const isItemAssessment = ["use_case", "comparative", "process"].includes(aType);
+
+      const [
+        itemsResult,
+        dimensionsResult,
+        questionsResult,
+        recipientsResult,
+        benchmarksResult,
+        responsesResult,
+      ] = await Promise.all([
+        isItemAssessment
+          ? supabase
+              .from("assessment_items" as any)
+              .select("*")
+              .eq("assessment_template_id", templateId)
+              .order("order_index")
+          : Promise.resolve({ data: [] as any[] }),
+        supabase
+          .from("assessment_dimensions")
+          .select("*")
+          .eq("assessment_template_id", templateId)
+          .order("order_index"),
+        supabase
+          .from("assessment_questions")
+          .select("*")
+          .eq("assessment_template_id", templateId)
+          .order("order_index"),
+        supabase
+          .from("assessment_recipients")
+          .select("*")
+          .eq("assessment_instance_id", instanceId),
+        supabase
+          .from("assessment_benchmarks")
+          .select("*")
+          .eq("assessment_template_id", templateId),
+        supabase
+          .from("assessment_responses")
+          .select(`
+            *,
+            recipient:assessment_recipients(industry, organization)
+          `)
+          .eq("assessment_instance_id", instanceId),
+      ]);
+
+      const itemsData = (itemsResult.data as any[]) || [];
+      const dimensionsData = dimensionsResult.data || [];
+      const questionsData = questionsResult.data || [];
+      const recipientsData = recipientsResult.data || [];
+      const benchmarksData = benchmarksResult.data || [];
+      const responsesData = responsesResult.data || [];
+
+      setAssessmentItems(itemsData);
+      setDimensions(dimensionsData);
+      setQuestions(questionsData);
+      setRecipients(recipientsData);
+      setBenchmarks(benchmarksData);
+
+      const finalResponses: ResponseData[] = responsesData.map((r) => {
+        const question = questionsData.find((q) => q.id === r.question_id);
+        const dimension = dimensionsData.find((d) => d.id === question?.dimension_id);
+        const itemId = (r as any).item_id;
+        const item = itemsData.find((i: any) => i.id === itemId);
+
+        const rawVal = r.response_value as any;
+        let asIsScore: number;
+        let toBeScore: number | null = null;
+
+        if (rawVal && typeof rawVal === "object" && "asIs" in rawVal) {
+          asIsScore = typeof rawVal.asIs === "number" ? rawVal.asIs : Number(rawVal.asIs) || 0;
+          toBeScore = rawVal.toBe != null ? (typeof rawVal.toBe === "number" ? rawVal.toBe : Number(rawVal.toBe) || null) : null;
+        } else {
+          asIsScore = typeof rawVal === "number" ? rawVal : Number(rawVal) || 0;
+        }
+
+        return {
+          dimension_name: dimension?.name || "General",
+          question_text: question?.question_text || "",
+          response_value: asIsScore,
+          target_value: toBeScore,
+          recipient_industry: r.recipient?.industry,
+          recipient_organization: r.recipient?.organization,
+          item_id: itemId || null,
+          item_title: item?.title || null,
+        };
+      });
+
+      setResponses(finalResponses);
+    } catch (error) {
+      console.error("Error loading assessment results:", error);
+      setResponses([]);
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const templateId = instanceData.assessment_template_id;
-    const template = instanceData.assessment_template as any;
-    const aType = template?.assessment_type || "standard";
-    setAssessmentType(aType);
-
-    // Fetch items for item-based assessments
-    if (["use_case", "comparative", "process"].includes(aType)) {
-      const { data: itemsData } = await supabase
-        .from("assessment_items" as any)
-        .select("*")
-        .eq("assessment_template_id", templateId)
-        .order("order_index");
-      setAssessmentItems((itemsData as any[]) || []);
-    }
-
-    const { data: dimensionsData } = await supabase
-      .from("assessment_dimensions")
-      .select("*")
-      .eq("assessment_template_id", templateId)
-      .order("order_index");
-
-    setDimensions(dimensionsData || []);
-
-    const { data: questionsData } = await supabase
-      .from("assessment_questions")
-      .select("*")
-      .eq("assessment_template_id", templateId)
-      .order("order_index");
-
-    setQuestions(questionsData || []);
-
-    const { data: recipientsData } = await supabase
-      .from("assessment_recipients")
-      .select("*")
-      .eq("assessment_instance_id", instanceId);
-
-    setRecipients(recipientsData || []);
-
-    const { data: benchmarksData } = await supabase
-      .from("assessment_benchmarks")
-      .select("*")
-      .eq("assessment_template_id", templateId);
-
-    setBenchmarks(benchmarksData || []);
-
-    const { data: responsesData } = await supabase
-      .from("assessment_responses")
-      .select(`
-        *,
-        recipient:assessment_recipients(industry, organization)
-      `)
-      .eq("assessment_instance_id", instanceId);
-
-    const transformedResponses: ResponseData[] = (responsesData || []).map((r) => {
-      const question = questionsData?.find((q) => q.id === r.question_id);
-      const dimension = dimensionsData?.find((d) => d.id === question?.dimension_id);
-      const itemId = (r as any).item_id;
-      const item = (itemsData as any)?.find?.((i: any) => i.id === itemId);
-      
-      const rawVal = r.response_value as any;
-      let asIsScore: number;
-      let toBeScore: number | null = null;
-      
-      if (rawVal && typeof rawVal === "object" && "asIs" in rawVal) {
-        asIsScore = typeof rawVal.asIs === "number" ? rawVal.asIs : Number(rawVal.asIs) || 0;
-        toBeScore = rawVal.toBe != null ? (typeof rawVal.toBe === "number" ? rawVal.toBe : Number(rawVal.toBe) || null) : null;
-      } else {
-        asIsScore = typeof rawVal === "number" ? rawVal : Number(rawVal) || 0;
-      }
-      
-      return {
-        dimension_name: dimension?.name || "General",
-        question_text: question?.question_text || "",
-        response_value: asIsScore,
-        target_value: toBeScore,
-        recipient_industry: r.recipient?.industry,
-        recipient_organization: r.recipient?.organization,
-        item_id: itemId || null,
-        item_title: item?.title || null,
-      };
-    });
-
-    // We need items data in scope for the transform above
-    let itemsData: any[] = [];
-    if (["use_case", "comparative", "process"].includes(aType)) {
-      const { data } = await supabase
-        .from("assessment_items" as any)
-        .select("*")
-        .eq("assessment_template_id", templateId)
-        .order("order_index");
-      itemsData = (data as any[]) || [];
-    }
-
-    // Re-transform with items
-    const finalResponses: ResponseData[] = (responsesData || []).map((r) => {
-      const question = questionsData?.find((q) => q.id === r.question_id);
-      const dimension = dimensionsData?.find((d) => d.id === question?.dimension_id);
-      const itemId = (r as any).item_id;
-      const item = itemsData.find((i: any) => i.id === itemId);
-      
-      const rawVal = r.response_value as any;
-      let asIsScore: number;
-      let toBeScore: number | null = null;
-      
-      if (rawVal && typeof rawVal === "object" && "asIs" in rawVal) {
-        asIsScore = typeof rawVal.asIs === "number" ? rawVal.asIs : Number(rawVal.asIs) || 0;
-        toBeScore = rawVal.toBe != null ? (typeof rawVal.toBe === "number" ? rawVal.toBe : Number(rawVal.toBe) || null) : null;
-      } else {
-        asIsScore = typeof rawVal === "number" ? rawVal : Number(rawVal) || 0;
-      }
-      
-      return {
-        dimension_name: dimension?.name || "General",
-        question_text: question?.question_text || "",
-        response_value: asIsScore,
-        target_value: toBeScore,
-        recipient_industry: r.recipient?.industry,
-        recipient_organization: r.recipient?.organization,
-        item_id: itemId || null,
-        item_title: item?.title || null,
-      };
-    });
-
-    setResponses(finalResponses);
-    setLoading(false);
   };
 
   // Filter options
