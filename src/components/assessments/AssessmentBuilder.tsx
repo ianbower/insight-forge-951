@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { ImportItemsDialog } from "./ImportItemsDialog";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,6 +38,7 @@ import {
   Layers,
   HelpCircle,
   ListChecks,
+  Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -118,6 +120,7 @@ export function AssessmentBuilder({ templateId, templateName, assessmentType = "
   const [dimensionDialogOpen, setDimensionDialogOpen] = useState(false);
   const [scaleDialogOpen, setScaleDialogOpen] = useState(false);
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [selectedDimensionIndex, setSelectedDimensionIndex] = useState<number | null>(null);
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
   const [editingDimension, setEditingDimension] = useState<Dimension | null>(null);
@@ -387,14 +390,24 @@ export function AssessmentBuilder({ templateId, templateName, assessmentType = "
         </div>
         <div className="flex gap-2">
           {isItemBased && (
-            <Button
-              variant="outline"
-              onClick={() => setItemDialogOpen(true)}
-              className="gap-2"
-            >
-              <ListChecks className="h-4 w-4" />
-              Add {typeInfo?.itemLabel || "Item"}
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                onClick={() => setImportDialogOpen(true)}
+                className="gap-2"
+              >
+                <Upload className="h-4 w-4" />
+                Import CSV
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setItemDialogOpen(true)}
+                className="gap-2"
+              >
+                <ListChecks className="h-4 w-4" />
+                Add {typeInfo?.itemLabel || "Item"}
+              </Button>
+            </>
           )}
           <Button
             variant="outline"
@@ -864,6 +877,29 @@ export function AssessmentBuilder({ templateId, templateName, assessmentType = "
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Import Items Dialog */}
+      {isItemBased && (
+        <ImportItemsDialog
+          open={importDialogOpen}
+          onOpenChange={setImportDialogOpen}
+          itemLabel={typeInfo?.itemLabel || "Item"}
+          itemLabelPlural={typeInfo?.itemLabelPlural || "Items"}
+          onImport={async (importedItems) => {
+            const inserts = importedItems.map((item, idx) => ({
+              assessment_template_id: templateId,
+              title: item.title,
+              description: item.description || null,
+              order_index: items.length + idx,
+            }));
+            const { error } = await supabase
+              .from("assessment_items" as any)
+              .insert(inserts as any);
+            if (error) throw error;
+            fetchItems();
+          }}
+        />
+      )}
     </div>
   );
 }
