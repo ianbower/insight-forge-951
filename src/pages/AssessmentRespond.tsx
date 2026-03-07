@@ -297,15 +297,25 @@ export default function AssessmentRespond() {
   }).length;
   const progress = totalSlots > 0 ? (answeredSlots / totalSlots) * 100 : 0;
 
-  const canGoNext = currentDimension?.questions.every((q) => {
-    if (!q.required) return true;
-    const key = getResponseKey(q.id);
-    const val = responses[key];
-    if (val && typeof val === "object" && "asIs" in val) {
-      return val.asIs != null && val.toBe != null;
-    }
-    return val !== undefined;
-  });
+  const canGoNext = isItemBased
+    ? allQuestions.every((q) => {
+        if (!q.required) return true;
+        const key = getResponseKey(q.id);
+        const val = responses[key];
+        if (val && typeof val === "object" && "asIs" in val) {
+          return val.asIs != null && val.toBe != null;
+        }
+        return val !== undefined;
+      })
+    : currentDimension?.questions.every((q) => {
+        if (!q.required) return true;
+        const key = getResponseKey(q.id);
+        const val = responses[key];
+        if (val && typeof val === "object" && "asIs" in val) {
+          return val.asIs != null && val.toBe != null;
+        }
+        return val !== undefined;
+      });
 
   const handleNext = () => {
     if (isItemBased) {
