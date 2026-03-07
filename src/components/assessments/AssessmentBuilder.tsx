@@ -1033,7 +1033,16 @@ export function AssessmentBuilder({ templateId, templateName, assessmentType = "
                   </div>
 
                   {dimension.id && (
-                    <div className="flex justify-end mt-4 pt-4 border-t">
+                    <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="gap-2"
+                        onClick={() => openEditDimension(dimension)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                        Edit Dimension
+                      </Button>
                       <Button
                         variant="ghost"
                         size="sm"
