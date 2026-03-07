@@ -308,25 +308,35 @@ export default function AssessmentRespond() {
   });
 
   const handleNext = () => {
-    if (currentDimensionIndex < dimensions.length - 1) {
-      setCurrentDimensionIndex((prev) => prev + 1);
-    } else if (isItemBased && currentItemIndex < items.length - 1) {
-      setCurrentItemIndex((prev) => prev + 1);
-      setCurrentDimensionIndex(0);
+    if (isItemBased) {
+      // For item-based: navigate between items (all dimensions shown on one page)
+      if (currentItemIndex < items.length - 1) {
+        setCurrentItemIndex((prev) => prev + 1);
+      }
+    } else {
+      // For standard: navigate between dimensions
+      if (currentDimensionIndex < dimensions.length - 1) {
+        setCurrentDimensionIndex((prev) => prev + 1);
+      }
     }
   };
 
   const handlePrev = () => {
-    if (currentDimensionIndex > 0) {
-      setCurrentDimensionIndex((prev) => prev - 1);
-    } else if (isItemBased && currentItemIndex > 0) {
-      setCurrentItemIndex((prev) => prev - 1);
-      setCurrentDimensionIndex(dimensions.length - 1);
+    if (isItemBased) {
+      if (currentItemIndex > 0) {
+        setCurrentItemIndex((prev) => prev - 1);
+      }
+    } else {
+      if (currentDimensionIndex > 0) {
+        setCurrentDimensionIndex((prev) => prev - 1);
+      }
     }
   };
 
-  const isFirstPage = currentDimensionIndex === 0 && (!isItemBased || currentItemIndex === 0);
-  const isLastPage = currentDimensionIndex === dimensions.length - 1 && (!isItemBased || currentItemIndex === items.length - 1);
+  const isFirstPage = isItemBased ? currentItemIndex === 0 : currentDimensionIndex === 0;
+  const isLastPage = isItemBased
+    ? currentItemIndex === items.length - 1
+    : currentDimensionIndex === dimensions.length - 1;
 
   if (loading) {
     return (
