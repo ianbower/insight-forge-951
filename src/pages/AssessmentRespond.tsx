@@ -450,7 +450,7 @@ export default function AssessmentRespond() {
                         )}
                       </CardHeader>
                       <CardContent>
-                        {question.question_type === "likert" && question.scale_config && (
+                        {question.question_type === "likert" && (
                           <LikertDualScore
                             question={question}
                             value={responses[responseKey]}
@@ -547,7 +547,7 @@ export default function AssessmentRespond() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      {question.question_type === "likert" && question.scale_config && (
+                      {question.question_type === "likert" && (
                         <LikertDualScore
                           question={question}
                           value={responses[responseKey]}
