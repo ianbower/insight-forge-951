@@ -136,16 +136,42 @@ export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, d
       .slice(0, displayCount);
   }, [items, displayCount]);
 
-  // Group visible items by category for the collapsible list
+  // Group visible items by selected grouping
   const groupedItems = useMemo(() => {
     const groups: Record<string, MatrixItem[]> = {};
+    const getGroupKey = (item: MatrixItem) => {
+      switch (groupBy) {
+        case "quadrant":
+          return getQuadrant(item);
+        case "priority": {
+          const p = item.priorityScore ?? 0;
+          if (p >= 4) return "High Priority (4-5)";
+          if (p >= 2) return "Medium Priority (2-3)";
+          return "Low Priority (0-1)";
+        }
+        case "category":
+        default:
+          return item.category || "Uncategorised";
+      }
+    };
     visibleItems.forEach(item => {
-      const cat = item.category || "Uncategorised";
-      if (!groups[cat]) groups[cat] = [];
-      groups[cat].push(item);
+      const key = getGroupKey(item);
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(item);
     });
-    return groups;
-  }, [visibleItems]);
+    // Sort groups
+    const sorted = Object.entries(groups).sort(([a], [b]) => {
+      if (groupBy === "quadrant") {
+        return a.localeCompare(b); // 1. Quick Wins, 2. Strategic, etc.
+      }
+      if (groupBy === "priority") {
+        const order = ["High Priority (4-5)", "Medium Priority (2-3)", "Low Priority (0-1)"];
+        return order.indexOf(a) - order.indexOf(b);
+      }
+      return a.localeCompare(b);
+    });
+    return Object.fromEntries(sorted);
+  }, [visibleItems, groupBy]);
 
   // New item form state
   const [newItem, setNewItem] = useState<Partial<MatrixItem>>({ title: "", description: "", effort: 50, impact: 50, category: "" });
