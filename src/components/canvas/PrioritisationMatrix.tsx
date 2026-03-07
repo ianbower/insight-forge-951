@@ -602,10 +602,12 @@ export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, d
               )}
             </div>
 
-            {/* X-axis label */}
-            <div className="text-center text-xs text-muted-foreground font-semibold mt-2 tracking-wider uppercase">
-              {axisLabels.xLabel}
-            </div>
+            {/* X-axis label - only show when no inline label */}
+            {!bubbleMode && (
+              <div className="text-center text-xs text-muted-foreground font-semibold mt-2 tracking-wider uppercase">
+                {axisLabels.xLabel}
+              </div>
+            )}
           </div>
         </div>
 
