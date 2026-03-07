@@ -250,7 +250,7 @@ export function EmbeddedAssessment({ projectId, stepId, compact = false, display
     }
   };
 
-
+  const statusColors: Record<string, string> = {
     draft: "bg-slate-500/10 text-slate-500",
     active: "bg-emerald-500/10 text-emerald-500",
     closed: "bg-blue-500/10 text-blue-500",
