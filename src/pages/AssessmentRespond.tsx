@@ -124,14 +124,19 @@ export default function AssessmentRespond() {
         .eq("id", recipientData.id);
     }
 
-    // Fetch items for item-based assessments
+    // Fetch items for item-based assessments (only in-scope)
     if (["use_case", "comparative", "process"].includes(aType)) {
       const { data: itemsData } = await supabase
         .from("assessment_items" as any)
         .select("*")
         .eq("assessment_template_id", templateId)
         .order("order_index");
-      setItems((itemsData as any[]) || []);
+      const allItems = (itemsData as any[]) || [];
+      const inScopeItems = allItems.filter((i: any) => {
+        const meta = i.metadata_json as Record<string, any> | null;
+        return meta?.in_scope !== false; // default to in-scope
+      });
+      setItems(inScopeItems);
     }
 
     const { data: dimensionsData } = await supabase
