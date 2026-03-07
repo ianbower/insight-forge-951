@@ -40,6 +40,7 @@ import {
   Save,
   Layers,
   HelpCircle,
+  Pencil,
   ListChecks,
   Upload,
   CheckSquare,
@@ -126,9 +127,13 @@ export function AssessmentBuilder({ templateId, templateName, assessmentType = "
   const [scaleDialogOpen, setScaleDialogOpen] = useState(false);
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [editDimensionDialogOpen, setEditDimensionDialogOpen] = useState(false);
   const [selectedDimensionIndex, setSelectedDimensionIndex] = useState<number | null>(null);
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
   const [editingDimension, setEditingDimension] = useState<Dimension | null>(null);
+  const [editDimensionData, setEditDimensionData] = useState({ name: "", description: "", weight: 1 });
+  const [editDimensionScaleConfig, setEditDimensionScaleConfig] = useState<ScaleConfig>({ ...defaultScaleConfig });
+  const [editDimensionId, setEditDimensionId] = useState<string | null>(null);
 
   const isItemBased = ["use_case", "comparative", "process"].includes(assessmentType);
   const typeInfo = assessmentTypeInfo[assessmentType];
@@ -380,6 +385,65 @@ export function AssessmentBuilder({ templateId, templateName, assessmentType = "
       toast({ title: "Dimension deleted" });
       fetchDimensions();
     }
+  };
+
+  const openEditDimension = (dimension: Dimension) => {
+    setEditDimensionId(dimension.id || null);
+    setEditDimensionData({
+      name: dimension.name,
+      description: dimension.description,
+      weight: dimension.weight,
+    });
+    const scaleConfig = dimension.questions[0]?.scale_config;
+    setEditDimensionScaleConfig(scaleConfig ? { ...scaleConfig } : { ...defaultScaleConfig });
+    setEditDimensionDialogOpen(true);
+  };
+
+  const handleUpdateDimension = async () => {
+    if (!editDimensionId) return;
+
+    const { error: dimError } = await supabase
+      .from("assessment_dimensions")
+      .update({
+        name: editDimensionData.name,
+        description: editDimensionData.description || null,
+        weight: editDimensionData.weight,
+      })
+      .eq("id", editDimensionId);
+
+    if (dimError) {
+      toast({ title: "Error", description: dimError.message, variant: "destructive" });
+      return;
+    }
+
+    // Update the question's scale_config and question_text for item-based
+    if (isItemBased) {
+      await supabase
+        .from("assessment_questions")
+        .update({
+          scale_config: JSON.parse(JSON.stringify(editDimensionScaleConfig)),
+          question_text: `Rate this item on: ${editDimensionData.name}`,
+        })
+        .eq("dimension_id", editDimensionId);
+    }
+
+    toast({ title: "Dimension updated" });
+    setEditDimensionDialogOpen(false);
+    fetchDimensions();
+  };
+
+  const updateEditScaleLabel = (level: number, value: string) => {
+    setEditDimensionScaleConfig((prev) => ({
+      ...prev,
+      labels: { ...prev.labels, [level]: value },
+    }));
+  };
+
+  const updateEditScaleDescription = (level: number, value: string) => {
+    setEditDimensionScaleConfig((prev) => ({
+      ...prev,
+      descriptions: { ...prev.descriptions, [level]: value },
+    }));
   };
 
   const handleAddItem = async () => {
@@ -803,14 +867,24 @@ export function AssessmentBuilder({ templateId, templateName, assessmentType = "
                             )}
                           </div>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive"
-                          onClick={() => dimension.id && handleDeleteDimension(dimension.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                            onClick={() => openEditDimension(dimension)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={() => dimension.id && handleDeleteDimension(dimension.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -959,7 +1033,16 @@ export function AssessmentBuilder({ templateId, templateName, assessmentType = "
                   </div>
 
                   {dimension.id && (
-                    <div className="flex justify-end mt-4 pt-4 border-t">
+                    <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="gap-2"
+                        onClick={() => openEditDimension(dimension)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                        Edit Dimension
+                      </Button>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -1080,6 +1163,91 @@ export function AssessmentBuilder({ templateId, templateName, assessmentType = "
             </Button>
             <Button onClick={handleAddDimension} disabled={!newDimension.name}>
               Add Dimension
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Dimension Dialog */}
+      <Dialog open={editDimensionDialogOpen} onOpenChange={setEditDimensionDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Dimension</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Dimension Name</Label>
+              <Input
+                placeholder="e.g., Business Value"
+                value={editDimensionData.name}
+                onChange={(e) => setEditDimensionData({ ...editDimensionData, name: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Textarea
+                placeholder="Describe what this dimension measures..."
+                value={editDimensionData.description}
+                onChange={(e) => setEditDimensionData({ ...editDimensionData, description: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Weight (for scoring)</Label>
+              <div className="flex items-center gap-4">
+                <Slider
+                  value={[editDimensionData.weight]}
+                  onValueChange={([value]) => setEditDimensionData({ ...editDimensionData, weight: value })}
+                  min={0.5}
+                  max={3}
+                  step={0.25}
+                  className="flex-1"
+                />
+                <span className="text-sm font-medium w-12">{editDimensionData.weight}x</span>
+              </div>
+            </div>
+
+            {/* Scale config */}
+            <div className="space-y-4 p-4 rounded-lg border bg-muted/30">
+              <Label className="text-base font-medium">Rating Scale</Label>
+              <p className="text-sm text-muted-foreground">
+                Configure the scale respondents will use to rate on this dimension.
+              </p>
+              <div className="space-y-3">
+                {Array.from(
+                  { length: editDimensionScaleConfig.max - editDimensionScaleConfig.min + 1 },
+                  (_, i) => editDimensionScaleConfig.min + i
+                ).map((level) => (
+                  <div key={level} className="grid grid-cols-12 gap-2 items-start">
+                    <div className="col-span-1 flex items-center justify-center h-9 rounded bg-primary/10 text-primary font-medium">
+                      {level}
+                    </div>
+                    <div className="col-span-3">
+                      <Input
+                        placeholder="Label"
+                        value={editDimensionScaleConfig.labels?.[level] || ""}
+                        onChange={(e) => updateEditScaleLabel(level, e.target.value)}
+                        className="h-9"
+                      />
+                    </div>
+                    <div className="col-span-8">
+                      <Input
+                        placeholder="Description for this level..."
+                        value={editDimensionScaleConfig.descriptions?.[level] || ""}
+                        onChange={(e) => updateEditScaleDescription(level, e.target.value)}
+                        className="h-9"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDimensionDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateDimension} disabled={!editDimensionData.name}>
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>
