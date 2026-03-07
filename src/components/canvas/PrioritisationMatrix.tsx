@@ -588,7 +588,8 @@ export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, d
                     <p className="text-xs text-muted-foreground">Double-click to edit · Drag to reposition</p>
                   </TooltipContent>
                 </Tooltip>
-              ))}
+                );
+              })}
 
               {visibleItems.length === 0 && (
                 <div className="absolute inset-0 flex items-center justify-center animate-fade-in">
