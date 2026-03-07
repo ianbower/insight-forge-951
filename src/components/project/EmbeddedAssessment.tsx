@@ -505,6 +505,14 @@ export function EmbeddedAssessment({ projectId, stepId, compact = false, display
                         Results
                       </Button>
                     )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRemoveAssessment(pa.id, pa.assessment_instance.name)}
+                      className="gap-2 text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               </CardContent>
