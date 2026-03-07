@@ -655,31 +655,55 @@ export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, d
           </div>
         </div>
 
-        {/* Collapsible categorised item list */}
+        {/* Collapsible item list with group-by selector */}
         {visibleItems.length > 0 && (
-          <div className="space-y-2">
-            {Object.entries(groupedItems).map(([category, catItems], catIdx) => (
-              <Collapsible key={category} defaultOpen>
+          <div className="space-y-3">
+            {/* Group-by selector */}
+            <div className="flex items-center gap-2">
+              <Layers className="h-4 w-4 text-muted-foreground" />
+              <span className="text-xs font-medium text-muted-foreground">Group by:</span>
+              <div className="flex gap-1">
+                {([
+                  { value: "category", label: "Category" },
+                  { value: "quadrant", label: "Quadrant" },
+                  { value: "priority", label: "Priority" },
+                ] as const).map((opt) => (
+                  <Button
+                    key={opt.value}
+                    variant={groupBy === opt.value ? "default" : "outline"}
+                    size="sm"
+                    className="h-7 text-xs px-3"
+                    onClick={() => setGroupBy(opt.value)}
+                  >
+                    {opt.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {Object.entries(groupedItems).map(([group, grpItems], catIdx) => (
+              <Collapsible key={group} defaultOpen>
                 <CollapsibleTrigger className={cn(
                   "flex items-center gap-2 w-full px-3 py-2 rounded-lg border text-sm font-semibold transition-all duration-300 hover:shadow-sm group",
-                  getCategoryStyle(category),
+                  groupBy === "category" ? getCategoryStyle(group) : "bg-muted/50 border-border text-foreground",
                   mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
                 )} style={{ transitionDelay: mounted ? `${500 + catIdx * 100}ms` : "0ms" }}>
                   <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 group-data-[state=closed]:-rotate-90" />
-                  <span>{category}</span>
-                  <Badge variant="secondary" className="text-[10px] ml-auto">{catItems.length}</Badge>
+                  <span>{group}</span>
+                  <Badge variant="secondary" className="text-[10px] ml-auto">{grpItems.length}</Badge>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <div className="ml-4 mt-1 space-y-1">
-                    {catItems.map((item, idx) => (
+                    {grpItems.map((item, idx) => (
                       <div
                         key={item.id}
                         className={cn(
-                          "flex items-start gap-2 px-3 py-2 rounded-lg border text-sm transition-all duration-300 hover:shadow-md hover:scale-[1.01]",
+                          "flex items-start gap-2 px-3 py-2 rounded-lg border text-sm transition-all duration-300 hover:shadow-md hover:scale-[1.01] cursor-pointer",
                           "bg-card border-border/60",
                           mounted ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4"
                         )}
                         style={{ transitionDelay: mounted ? `${600 + catIdx * 100 + idx * 40}ms` : "0ms" }}
+                        onClick={() => setDetailItem(item)}
                       >
                         {item.priorityScore != null && (
                           <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-primary/10 border border-primary/20 text-xs font-bold shrink-0 mt-0.5">
@@ -693,10 +717,10 @@ export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, d
                           )}
                         </div>
                         <Badge variant="outline" className="text-[10px] shrink-0 mt-0.5">{getQuadrant(item)}</Badge>
-                        <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 transition-transform hover:scale-110" onClick={() => setEditingItem(item)}>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 transition-transform hover:scale-110" onClick={(e) => { e.stopPropagation(); setEditingItem(item); }}>
                           <Pencil className="h-3 w-3" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-destructive transition-transform hover:scale-110" onClick={() => deleteItem(item.id)}>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-destructive transition-transform hover:scale-110" onClick={(e) => { e.stopPropagation(); deleteItem(item.id); }}>
                           <Trash2 className="h-3 w-3" />
                         </Button>
                       </div>
@@ -707,6 +731,83 @@ export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, d
             ))}
           </div>
         )}
+
+        {/* Item Detail Sheet */}
+        <Sheet open={!!detailItem} onOpenChange={(open) => { if (!open) setDetailItem(null); }}>
+          <SheetContent className="sm:max-w-md overflow-y-auto">
+            {detailItem && (
+              <>
+                <SheetHeader>
+                  <SheetTitle className="text-lg">{detailItem.title}</SheetTitle>
+                </SheetHeader>
+                <div className="space-y-5 mt-6">
+                  {/* Category & Quadrant */}
+                  <div className="flex gap-2 flex-wrap">
+                    {detailItem.category && (
+                      <Badge className={cn("text-xs", getCategoryStyle(detailItem.category))}>{detailItem.category}</Badge>
+                    )}
+                    <Badge variant="outline" className="text-xs">{getQuadrant(detailItem)}</Badge>
+                  </div>
+
+                  {/* Description */}
+                  {detailItem.description && (
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Description</Label>
+                      <p className="text-sm leading-relaxed">{detailItem.description}</p>
+                    </div>
+                  )}
+
+                  {/* Scores grid */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1 p-3 rounded-lg border bg-muted/30">
+                      <span className="text-xs text-muted-foreground">Priority Score</span>
+                      <p className="text-2xl font-bold">{detailItem.priorityScore ?? "—"}</p>
+                    </div>
+                    <div className="space-y-1 p-3 rounded-lg border bg-muted/30">
+                      <span className="text-xs text-muted-foreground">Quadrant</span>
+                      <p className="text-sm font-semibold mt-1">{getQuadrant(detailItem)}</p>
+                    </div>
+                  </div>
+
+                  {/* Position */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Matrix Position</Label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="p-3 rounded-lg border bg-muted/30">
+                        <span className="text-xs text-muted-foreground block">{axisLabels.xLabel || "Effort"}</span>
+                        <div className="flex items-center gap-2 mt-1">
+                          <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+                            <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${detailItem.effort}%` }} />
+                          </div>
+                          <span className="text-xs font-medium w-8 text-right">{Math.round(detailItem.effort)}</span>
+                        </div>
+                      </div>
+                      <div className="p-3 rounded-lg border bg-muted/30">
+                        <span className="text-xs text-muted-foreground block">{axisLabels.yLabel || "Impact"}</span>
+                        <div className="flex items-center gap-2 mt-1">
+                          <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+                            <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${detailItem.impact}%` }} />
+                          </div>
+                          <span className="text-xs font-medium w-8 text-right">{Math.round(detailItem.impact)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-2 pt-2 border-t">
+                    <Button variant="outline" size="sm" className="flex-1" onClick={() => { setEditingItem(detailItem); setDetailItem(null); }}>
+                      <Pencil className="h-4 w-4 mr-1" /> Edit
+                    </Button>
+                    <Button variant="destructive" size="sm" onClick={() => { deleteItem(detailItem.id); setDetailItem(null); }}>
+                      <Trash2 className="h-4 w-4 mr-1" /> Delete
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
+          </SheetContent>
+        </Sheet>
 
         {/* Category legend */}
         {!compact && (
