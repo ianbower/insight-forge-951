@@ -931,18 +931,72 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
                 </CardTitle>
                 <p className="text-sm text-muted-foreground">
                   {isItemBased
-                    ? `${assessmentType === "use_case" ? "Use cases" : "Items"} are plotted based on their composite evaluation scores. Click "AI Recommend" for actionable insights.`
+                    ? `${assessmentType === "use_case" ? "Use cases" : "Items"} are plotted based on their evaluation scores. Configure the axes below to map dimensions, with bubble size reflecting the weighted composite score.`
                     : 'Dimensions are pre-plotted based on gap analysis. Select a detail level and click "AI Recommend" to generate specific, actionable initiatives informed by your assessment data.'
                   }
                 </p>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
+                {/* Axis Configuration for item-based assessments */}
+                {isItemBased && dimensions.length >= 2 && (
+                  <div className="flex flex-wrap items-end gap-4 p-4 rounded-lg border bg-muted/30">
+                    <div className="space-y-1.5 flex-1 min-w-[180px]">
+                      <Label className="text-xs font-medium text-muted-foreground">X Axis (Horizontal)</Label>
+                      <Select value={matrixXAxis} onValueChange={setMatrixXAxis}>
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Select dimension..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {dimensions.map((d) => (
+                            <SelectItem key={d.id} value={d.id} disabled={d.id === matrixYAxis}>
+                              {d.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5 flex-1 min-w-[180px]">
+                      <Label className="text-xs font-medium text-muted-foreground">Y Axis (Vertical)</Label>
+                      <Select value={matrixYAxis} onValueChange={setMatrixYAxis}>
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Select dimension..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {dimensions.map((d) => (
+                            <SelectItem key={d.id} value={d.id} disabled={d.id === matrixXAxis}>
+                              {d.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium text-muted-foreground">Bubble Size</Label>
+                      <div className="h-9 px-3 flex items-center rounded-md border bg-background text-sm text-muted-foreground">
+                        Weighted Composite Score
+                      </div>
+                    </div>
+                    {matrixXAxis && matrixYAxis && matrixXAxis !== matrixYAxis && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-9 text-xs"
+                        onClick={() => { setMatrixXAxis(""); setMatrixYAxis(""); }}
+                      >
+                        Reset
+                      </Button>
+                    )}
+                  </div>
+                )}
+
                 <PrioritisationMatrix
+                  key={`${matrixXAxis}-${matrixYAxis}`}
                   defaultItems={matrixItems}
                   maxItems={isItemBased ? assessmentItems.length + 10 : 10}
                   assessmentContext={assessmentCtx}
-                  storageKey={`matrix-${instanceId}`}
+                  storageKey={`matrix-${instanceId}-${matrixXAxis}-${matrixYAxis}`}
                   compact
+                  initialData={{ items: matrixItems, axisLabels: matrixAxisLabels }}
                 />
               </CardContent>
             </Card>
