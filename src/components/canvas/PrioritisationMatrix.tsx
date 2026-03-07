@@ -118,6 +118,7 @@ export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, d
   const [detailLevel, setDetailLevel] = useState<DetailLevel>("medium");
   const [groupBy, setGroupBy] = useState<GroupByOption>("category");
   const [detailItem, setDetailItem] = useState<MatrixItem | null>(null);
+  const matrixRef = useRef<HTMLDivElement>(null);
   const autosaveTimerRef = useRef<number | null>(null);
 
   // Entrance animation trigger
