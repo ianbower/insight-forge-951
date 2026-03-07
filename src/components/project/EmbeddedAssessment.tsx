@@ -51,6 +51,7 @@ interface ProjectAssessment {
       id: string;
       name: string;
       category: string;
+      assessment_type?: string;
     };
   };
   recipientCount?: number;
@@ -73,7 +74,7 @@ export function EmbeddedAssessment({ projectId, stepId, compact = false, display
   const [resultsDialogOpen, setResultsDialogOpen] = useState(false);
   const [builderDialogOpen, setBuilderDialogOpen] = useState(false);
   const [selectedInstance, setSelectedInstance] = useState<{ id: string; name: string } | null>(null);
-  const [selectedTemplate, setSelectedTemplate] = useState<{ id: string; name: string } | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<{ id: string; name: string; assessment_type?: string } | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -94,7 +95,7 @@ export function EmbeddedAssessment({ projectId, stepId, compact = false, display
           status,
           created_at,
           assessment_template_id,
-          assessment_template:assessment_templates(id, name, category)
+          assessment_template:assessment_templates(id, name, category, assessment_type)
         )
       `)
       .eq("project_id", projectId)
@@ -136,7 +137,7 @@ export function EmbeddedAssessment({ projectId, stepId, compact = false, display
     // Fetch templates for adding new
     const { data: templatesData } = await supabase
       .from("assessment_templates")
-      .select("id, name, category")
+      .select("id, name, category, assessment_type")
       .order("name");
 
     setTemplates(templatesData || []);
@@ -147,7 +148,7 @@ export function EmbeddedAssessment({ projectId, stepId, compact = false, display
     // Fetch existing assessment instances that are NOT yet linked to this project
     const { data: instancesData } = await supabase
       .from("assessment_instances")
-      .select("id, name, status, assessment_template:assessment_templates(id, name, category)")
+      .select("id, name, status, assessment_template:assessment_templates(id, name, category, assessment_type)")
       .not("id", "in", linkedInstanceIds.length > 0 ? `(${linkedInstanceIds.join(",")})` : "(00000000-0000-0000-0000-000000000000)")
       .order("created_at", { ascending: false });
 
@@ -447,6 +448,7 @@ export function EmbeddedAssessment({ projectId, stepId, compact = false, display
                         setSelectedTemplate({
                           id: pa.assessment_instance.assessment_template?.id || pa.assessment_instance.assessment_template_id,
                           name: pa.assessment_instance.assessment_template?.name || "Assessment",
+                          assessment_type: (pa.assessment_instance.assessment_template as any)?.assessment_type || "standard",
                         });
                         setBuilderDialogOpen(true);
                       }}
@@ -669,6 +671,7 @@ export function EmbeddedAssessment({ projectId, stepId, compact = false, display
             <AssessmentBuilder
               templateId={selectedTemplate.id}
               templateName={selectedTemplate.name}
+              assessmentType={selectedTemplate.assessment_type || "standard"}
               onClose={() => {
                 setBuilderDialogOpen(false);
                 setSelectedTemplate(null);
