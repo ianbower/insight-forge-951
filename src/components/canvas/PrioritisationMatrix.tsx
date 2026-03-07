@@ -257,7 +257,17 @@ export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, d
     }
   };
 
-  const handleExportPDF = async () => {
+  // Reset: wipe AI items and localStorage, restore clean survey data
+  const handleReset = useCallback(() => {
+    if (storageKey) {
+      try { localStorage.removeItem(`pmatrix-${storageKey}`); } catch { /* ignore */ }
+    }
+    const cleanItems = defaultItems || [];
+    setItems(cleanItems);
+    setDisplayCount(0);
+    toast({ title: "Matrix Reset", description: "AI recommendations cleared. Showing clean survey data." });
+  }, [storageKey, defaultItems, toast]);
+
     try {
       await exportToPDF("prioritisation-matrix", "Prioritisation Matrix");
       toast({ title: "Exported", description: "PDF file downloaded" });
@@ -433,6 +443,9 @@ export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, d
             </Button>
             <Button variant="outline" size="sm" onClick={handleAIRecommend} disabled={aiLoading} className="transition-transform duration-200 hover:scale-105">
               <Sparkles className={cn("h-4 w-4 mr-1", aiLoading && "animate-spin")} /> {aiLoading ? "Analysing..." : "AI Recommend"}
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleReset} className="transition-transform duration-200 hover:scale-105">
+              <RotateCcw className="h-4 w-4 mr-1" /> Reset
             </Button>
             {!compact && (
               <Button variant="outline" size="sm" onClick={handleSave} disabled={saving}>
