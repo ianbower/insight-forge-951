@@ -497,6 +497,15 @@ export function AssessmentBuilder({ templateId, templateName, assessmentType = "
   const totalQuestions = dimensions.reduce((sum, d) => sum + d.questions.length, 0);
   const namedDimensions = dimensions.filter((d) => d.id);
 
+  const selectedItems = items.filter((i) => {
+    const meta = i.metadata_json as Record<string, any> | null;
+    return meta?.in_scope !== false; // default to selected
+  });
+  const outOfScopeItems = items.filter((i) => {
+    const meta = i.metadata_json as Record<string, any> | null;
+    return meta?.in_scope === false;
+  });
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -512,354 +521,481 @@ export function AssessmentBuilder({ templateId, templateName, assessmentType = "
           </div>
           <p className="text-sm text-muted-foreground">
             {isItemBased
-              ? `${items.length} ${typeInfo?.itemLabelPlural?.toLowerCase() || "items"} • ${namedDimensions.length} evaluation dimensions`
+              ? `${selectedItems.length}/${items.length} ${typeInfo?.itemLabelPlural?.toLowerCase() || "items"} selected • ${namedDimensions.length} evaluation dimensions`
               : `${totalQuestions} questions across ${namedDimensions.length} dimensions`
             }
           </p>
         </div>
         <div className="flex gap-2">
-          {isItemBased && (
-            <>
-              <Button
-                variant="outline"
-                onClick={() => setImportDialogOpen(true)}
-                className="gap-2"
-              >
-                <Upload className="h-4 w-4" />
-                Import CSV
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setItemDialogOpen(true)}
-                className="gap-2"
-              >
-                <ListChecks className="h-4 w-4" />
-                Add {typeInfo?.itemLabel || "Item"}
-              </Button>
-            </>
-          )}
-          <Button
-            variant="outline"
-            onClick={() => {
-              setDimensionScaleConfig({ ...defaultScaleConfig });
-              setDimensionDialogOpen(true);
-            }}
-            className="gap-2"
-          >
-            <Layers className="h-4 w-4" />
-            Add Dimension
-          </Button>
           <Button variant="outline" onClick={onClose}>
             Close
           </Button>
         </div>
       </div>
 
-      {/* Items Section (for item-based assessments) */}
-      {isItemBased && (
-        <Card className="border-border">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <ListChecks className="h-5 w-5 text-primary" />
-              {typeInfo?.itemLabelPlural || "Items"} to Evaluate
-            </CardTitle>
-            <p className="text-sm text-muted-foreground">
-              {typeInfo?.description || "Each item will be evaluated against the dimensions below."}
-            </p>
-          </CardHeader>
-          <CardContent>
-            {items.length > 0 ? (
-              <div className="space-y-2">
-                {items.map((item, idx) => (
-                  <div
-                    key={item.id || idx}
-                    className="flex items-center justify-between p-3 rounded-lg border bg-background"
-                  >
-                    <div className="flex items-center gap-3">
-                      <GripVertical className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <p className="font-medium text-sm">{item.title}</p>
-                        {item.description && (
-                          <p className="text-xs text-muted-foreground">{item.description}</p>
-                        )}
-                      </div>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive hover:text-destructive"
-                      onClick={() => item.id && handleDeleteItem(item.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="py-8 text-center border border-dashed rounded-lg">
-                <ListChecks className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
-                <p className="text-sm text-muted-foreground">
-                  No {typeInfo?.itemLabelPlural?.toLowerCase() || "items"} defined yet
-                </p>
-                <div className="flex gap-2 justify-center mt-3">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-2"
-                    onClick={() => setItemDialogOpen(true)}
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add {typeInfo?.itemLabel || "Item"}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-2"
-                    onClick={() => setImportDialogOpen(true)}
-                  >
-                    <Upload className="h-4 w-4" />
-                    Import CSV
-                  </Button>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Dimensions Section Title */}
-      {isItemBased && (
-        <div>
-          <h3 className="text-base font-medium">Evaluation Dimensions</h3>
-          <p className="text-sm text-muted-foreground">
-            Each {typeInfo?.itemLabel?.toLowerCase() || "item"} will be scored against these dimensions using a maturity scale. All respondents will evaluate the same {typeInfo?.itemLabelPlural?.toLowerCase() || "items"} on the same dimensions.
-          </p>
-        </div>
-      )}
-
-      {/* Dimensions */}
       {isItemBased ? (
-        // Item-based: simplified dimension display (no individual question management)
-        <div className="space-y-3">
-          {namedDimensions.map((dimension) => {
-            const scaleConfig = dimension.questions[0]?.scale_config;
-            const scaleRange = scaleConfig
-              ? `${scaleConfig.min}–${scaleConfig.max} scale`
-              : "1–5 scale";
+        <Tabs defaultValue="use_cases" className="w-full">
+          <TabsList className="w-full justify-start">
+            <TabsTrigger value="use_cases" className="gap-2">
+              <ListChecks className="h-4 w-4" />
+              {typeInfo?.itemLabelPlural || "Items"}
+              <Badge variant="secondary" className="ml-1 text-xs">{selectedItems.length}/{items.length}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="dimensions" className="gap-2">
+              <Layers className="h-4 w-4" />
+              Dimensions
+              <Badge variant="secondary" className="ml-1 text-xs">{namedDimensions.length}</Badge>
+            </TabsTrigger>
+          </TabsList>
 
-            return (
-              <Card key={dimension.id} className="border-border">
-                <CardContent className="py-4 px-5">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-3 flex-1">
-                      <GripVertical className="h-4 w-4 text-muted-foreground mt-1" />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-medium">{dimension.name}</span>
-                          <Badge variant="secondary" className="text-xs">{scaleRange}</Badge>
-                          {dimension.weight !== 1 && (
-                            <Badge variant="outline" className="text-xs">
-                              Weight: {dimension.weight}x
-                            </Badge>
-                          )}
-                        </div>
-                        {dimension.description && (
-                          <p className="text-sm text-muted-foreground mt-1">{dimension.description}</p>
-                        )}
-                        {scaleConfig && (
-                          <div className="flex gap-1.5 mt-2 flex-wrap">
-                            {Array.from(
-                              { length: scaleConfig.max - scaleConfig.min + 1 },
-                              (_, i) => scaleConfig.min + i
-                            ).map((level) => (
-                              <div
-                                key={level}
-                                className="text-xs px-2 py-1 rounded bg-muted"
-                                title={scaleConfig.descriptions?.[level]}
-                              >
-                                {level}: {scaleConfig.labels?.[level] || `Level ${level}`}
+          {/* Use Cases Tab */}
+          <TabsContent value="use_cases" className="space-y-4 mt-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Select which {typeInfo?.itemLabelPlural?.toLowerCase() || "items"} respondents will evaluate. All respondents will assess the same selection.
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setImportDialogOpen(true)}
+                  className="gap-2"
+                >
+                  <Upload className="h-4 w-4" />
+                  Import CSV
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setItemDialogOpen(true)}
+                  className="gap-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add {typeInfo?.itemLabel || "Item"}
+                </Button>
+              </div>
+            </div>
+
+            {items.length > 0 ? (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Selected Use Cases */}
+                <Card className="border-primary/30 bg-primary/5">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <CheckSquare className="h-4 w-4 text-primary" />
+                        Selected {typeInfo?.itemLabelPlural || "Items"}
+                        <Badge className="ml-1">{selectedItems.length}</Badge>
+                      </CardTitle>
+                      {selectedItems.length > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-7"
+                          onClick={() => handleSelectAllItems(false)}
+                        >
+                          Deselect All
+                        </Button>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <ScrollArea className={selectedItems.length > 8 ? "h-[400px]" : ""}>
+                      <div className="space-y-1.5">
+                        {selectedItems.length > 0 ? (
+                          selectedItems.map((item) => (
+                            <div
+                              key={item.id}
+                              className="flex items-center gap-3 p-2.5 rounded-lg border bg-background hover:bg-muted/50 transition-colors group"
+                            >
+                              <Checkbox
+                                checked={true}
+                                onCheckedChange={() => item.id && handleToggleItemScope(item.id, false)}
+                              />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">{item.title}</p>
+                                {item.description && (
+                                  <p className="text-xs text-muted-foreground truncate">{item.description}</p>
+                                )}
                               </div>
-                            ))}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive"
+                                onClick={() => item.id && handleDeleteItem(item.id)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="py-8 text-center">
+                            <p className="text-sm text-muted-foreground">No {typeInfo?.itemLabelPlural?.toLowerCase() || "items"} selected</p>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="mt-2"
+                              onClick={() => handleSelectAllItems(true)}
+                            >
+                              Select All
+                            </Button>
                           </div>
                         )}
                       </div>
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
+
+                {/* Out of Scope */}
+                <Card className="border-muted bg-muted/20">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-sm flex items-center gap-2 text-muted-foreground">
+                        <XSquare className="h-4 w-4" />
+                        Out of Scope
+                        <Badge variant="outline" className="ml-1">{outOfScopeItems.length}</Badge>
+                      </CardTitle>
+                      {outOfScopeItems.length > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-7"
+                          onClick={() => handleSelectAllItems(true)}
+                        >
+                          Select All
+                        </Button>
+                      )}
                     </div>
+                  </CardHeader>
+                  <CardContent>
+                    <ScrollArea className={outOfScopeItems.length > 8 ? "h-[400px]" : ""}>
+                      <div className="space-y-1.5">
+                        {outOfScopeItems.length > 0 ? (
+                          outOfScopeItems.map((item) => (
+                            <div
+                              key={item.id}
+                              className="flex items-center gap-3 p-2.5 rounded-lg border bg-background/50 hover:bg-muted/50 transition-colors group opacity-70 hover:opacity-100"
+                            >
+                              <Checkbox
+                                checked={false}
+                                onCheckedChange={() => item.id && handleToggleItemScope(item.id, true)}
+                              />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">{item.title}</p>
+                                {item.description && (
+                                  <p className="text-xs text-muted-foreground truncate">{item.description}</p>
+                                )}
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive"
+                                onClick={() => item.id && handleDeleteItem(item.id)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="py-8 text-center">
+                            <p className="text-sm text-muted-foreground">All {typeInfo?.itemLabelPlural?.toLowerCase() || "items"} are selected</p>
+                          </div>
+                        )}
+                      </div>
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
+              </div>
+            ) : (
+              <Card className="border-dashed">
+                <CardContent className="py-12 text-center">
+                  <ListChecks className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+                  <p className="text-lg font-medium text-muted-foreground">No {typeInfo?.itemLabelPlural?.toLowerCase() || "items"} defined yet</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Add {typeInfo?.itemLabelPlural?.toLowerCase() || "items"} to define what respondents will evaluate.
+                  </p>
+                  <div className="flex gap-2 justify-center mt-4">
                     <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive hover:text-destructive"
-                      onClick={() => dimension.id && handleDeleteDimension(dimension.id)}
+                      variant="outline"
+                      className="gap-2"
+                      onClick={() => setItemDialogOpen(true)}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Plus className="h-4 w-4" />
+                      Add {typeInfo?.itemLabel || "Item"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="gap-2"
+                      onClick={() => setImportDialogOpen(true)}
+                    >
+                      <Upload className="h-4 w-4" />
+                      Import CSV
                     </Button>
                   </div>
                 </CardContent>
               </Card>
-            );
-          })}
+            )}
+          </TabsContent>
 
-          {namedDimensions.length === 0 && (
-            <Card className="border-dashed">
-              <CardContent className="py-12 text-center">
-                <Layers className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-                <p className="text-lg font-medium text-muted-foreground">No dimensions yet</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Add dimensions to define the evaluation criteria for each {typeInfo?.itemLabel?.toLowerCase() || "item"}
+          {/* Dimensions Tab */}
+          <TabsContent value="dimensions" className="space-y-4 mt-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">
+                  Each {typeInfo?.itemLabel?.toLowerCase() || "item"} will be scored against these dimensions. All respondents evaluate the same dimensions.
                 </p>
-                <Button
-                  onClick={() => {
-                    setDimensionScaleConfig({ ...defaultScaleConfig });
-                    setDimensionDialogOpen(true);
-                  }}
-                  variant="outline"
-                  className="mt-4 gap-2"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add First Dimension
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      ) : (
-        // Standard: full question management inside dimensions
-        <Accordion type="multiple" className="space-y-4">
-          {dimensions.map((dimension, dimIndex) => (
-            <AccordionItem
-              key={dimension.id || `dim-${dimIndex}`}
-              value={dimension.id || `dim-${dimIndex}`}
-              className="border rounded-lg bg-card"
-            >
-              <AccordionTrigger className="px-4 hover:no-underline">
-                <div className="flex items-center gap-3 flex-1">
-                  <GripVertical className="h-4 w-4 text-muted-foreground" />
-                  <div className="flex-1 text-left">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{dimension.name}</span>
-                      <Badge variant="secondary" className="text-xs">
-                        {dimension.questions.length} questions
-                      </Badge>
-                      {dimension.weight !== 1 && (
-                        <Badge variant="outline" className="text-xs">
-                          Weight: {dimension.weight}x
-                        </Badge>
-                      )}
-                    </div>
-                    {dimension.description && (
-                      <p className="text-sm text-muted-foreground mt-0.5">
-                        {dimension.description}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </AccordionTrigger>
-              <AccordionContent className="px-4 pb-4">
-                <div className="space-y-3">
-                  {dimension.questions.map((question, qIndex) => (
-                    <Card
-                      key={question.id || `q-${qIndex}`}
-                      className="border-border/50 bg-background"
-                    >
-                      <CardContent className="py-3 px-4">
-                        <div className="flex items-start justify-between gap-4">
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setDimensionScaleConfig({ ...defaultScaleConfig });
+                  setDimensionDialogOpen(true);
+                }}
+                className="gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Add Dimension
+              </Button>
+            </div>
+
+            <div className="space-y-3">
+              {namedDimensions.map((dimension) => {
+                const scaleConfig = dimension.questions[0]?.scale_config;
+                const scaleRange = scaleConfig
+                  ? `${scaleConfig.min}–${scaleConfig.max} scale`
+                  : "1–5 scale";
+
+                return (
+                  <Card key={dimension.id} className="border-border">
+                    <CardContent className="py-4 px-5">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-start gap-3 flex-1">
+                          <GripVertical className="h-4 w-4 text-muted-foreground mt-1" />
                           <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <Badge variant="outline" className="text-xs capitalize">
-                                {question.question_type.replace("_", " ")}
-                              </Badge>
-                              {question.weight !== 1 && (
-                                <Badge variant="secondary" className="text-xs">
-                                  {question.weight}x
-                                </Badge>
-                              )}
-                              {question.required && (
-                                <Badge variant="destructive" className="text-xs">
-                                  Required
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-medium">{dimension.name}</span>
+                              <Badge variant="secondary" className="text-xs">{scaleRange}</Badge>
+                              {dimension.weight !== 1 && (
+                                <Badge variant="outline" className="text-xs">
+                                  Weight: {dimension.weight}x
                                 </Badge>
                               )}
                             </div>
-                            <p className="text-sm">{question.question_text}</p>
-                            {question.question_type === "likert" && question.scale_config && (
-                              <div className="flex gap-2 mt-2">
+                            {dimension.description && (
+                              <p className="text-sm text-muted-foreground mt-1">{dimension.description}</p>
+                            )}
+                            {scaleConfig && (
+                              <div className="flex gap-1.5 mt-2 flex-wrap">
                                 {Array.from(
-                                  { length: question.scale_config.max - question.scale_config.min + 1 },
-                                  (_, i) => question.scale_config!.min + i
+                                  { length: scaleConfig.max - scaleConfig.min + 1 },
+                                  (_, i) => scaleConfig.min + i
                                 ).map((level) => (
                                   <div
                                     key={level}
-                                    className="text-xs text-center px-2 py-1 rounded bg-muted"
-                                    title={question.scale_config!.descriptions?.[level]}
+                                    className="text-xs px-2 py-1 rounded bg-muted"
+                                    title={scaleConfig.descriptions?.[level]}
                                   >
-                                    {level}: {question.scale_config!.labels?.[level] || `Level ${level}`}
+                                    {level}: {scaleConfig.labels?.[level] || `Level ${level}`}
                                   </div>
                                 ))}
                               </div>
                             )}
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive hover:text-destructive"
-                            onClick={() => question.id && handleDeleteQuestion(question.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
                         </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={() => dimension.id && handleDeleteDimension(dimension.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
 
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full gap-2"
-                    onClick={() => {
-                      setSelectedDimensionIndex(dimIndex);
-                      setQuestionDialogOpen(true);
-                    }}
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add Question
-                  </Button>
-                </div>
-
-                {dimension.id && (
-                  <div className="flex justify-end mt-4 pt-4 border-t">
+              {namedDimensions.length === 0 && (
+                <Card className="border-dashed">
+                  <CardContent className="py-12 text-center">
+                    <Layers className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+                    <p className="text-lg font-medium text-muted-foreground">No dimensions yet</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Add dimensions to define the evaluation criteria for each {typeInfo?.itemLabel?.toLowerCase() || "item"}
+                    </p>
                     <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-destructive hover:text-destructive gap-2"
-                      onClick={() => dimension.id && handleDeleteDimension(dimension.id)}
+                      onClick={() => {
+                        setDimensionScaleConfig({ ...defaultScaleConfig });
+                        setDimensionDialogOpen(true);
+                      }}
+                      variant="outline"
+                      className="mt-4 gap-2"
                     >
-                      <Trash2 className="h-4 w-4" />
-                      Delete Dimension
+                      <Plus className="h-4 w-4" />
+                      Add First Dimension
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
+      ) : (
+        /* Standard: full question management inside dimensions */
+        <>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDimensionScaleConfig({ ...defaultScaleConfig });
+                setDimensionDialogOpen(true);
+              }}
+              className="gap-2"
+            >
+              <Layers className="h-4 w-4" />
+              Add Dimension
+            </Button>
+          </div>
+          <Accordion type="multiple" className="space-y-4">
+            {dimensions.map((dimension, dimIndex) => (
+              <AccordionItem
+                key={dimension.id || `dim-${dimIndex}`}
+                value={dimension.id || `dim-${dimIndex}`}
+                className="border rounded-lg bg-card"
+              >
+                <AccordionTrigger className="px-4 hover:no-underline">
+                  <div className="flex items-center gap-3 flex-1">
+                    <GripVertical className="h-4 w-4 text-muted-foreground" />
+                    <div className="flex-1 text-left">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{dimension.name}</span>
+                        <Badge variant="secondary" className="text-xs">
+                          {dimension.questions.length} questions
+                        </Badge>
+                        {dimension.weight !== 1 && (
+                          <Badge variant="outline" className="text-xs">
+                            Weight: {dimension.weight}x
+                          </Badge>
+                        )}
+                      </div>
+                      {dimension.description && (
+                        <p className="text-sm text-muted-foreground mt-0.5">
+                          {dimension.description}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="px-4 pb-4">
+                  <div className="space-y-3">
+                    {dimension.questions.map((question, qIndex) => (
+                      <Card
+                        key={question.id || `q-${qIndex}`}
+                        className="border-border/50 bg-background"
+                      >
+                        <CardContent className="py-3 px-4">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <Badge variant="outline" className="text-xs capitalize">
+                                  {question.question_type.replace("_", " ")}
+                                </Badge>
+                                {question.weight !== 1 && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    {question.weight}x
+                                  </Badge>
+                                )}
+                                {question.required && (
+                                  <Badge variant="destructive" className="text-xs">
+                                    Required
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-sm">{question.question_text}</p>
+                              {question.question_type === "likert" && question.scale_config && (
+                                <div className="flex gap-2 mt-2">
+                                  {Array.from(
+                                    { length: question.scale_config.max - question.scale_config.min + 1 },
+                                    (_, i) => question.scale_config!.min + i
+                                  ).map((level) => (
+                                    <div
+                                      key={level}
+                                      className="text-xs text-center px-2 py-1 rounded bg-muted"
+                                      title={question.scale_config!.descriptions?.[level]}
+                                    >
+                                      {level}: {question.scale_config!.labels?.[level] || `Level ${level}`}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:text-destructive"
+                              onClick={() => question.id && handleDeleteQuestion(question.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full gap-2"
+                      onClick={() => {
+                        setSelectedDimensionIndex(dimIndex);
+                        setQuestionDialogOpen(true);
+                      }}
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add Question
                     </Button>
                   </div>
-                )}
-              </AccordionContent>
-            </AccordionItem>
-          ))}
 
-          {dimensions.length === 0 && (
-            <Card className="border-dashed">
-              <CardContent className="py-12 text-center">
-                <Layers className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-                <p className="text-lg font-medium text-muted-foreground">No dimensions yet</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Add dimensions to organize your assessment questions
-                </p>
-                <Button
-                  onClick={() => setDimensionDialogOpen(true)}
-                  variant="outline"
-                  className="mt-4 gap-2"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add First Dimension
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-        </Accordion>
+                  {dimension.id && (
+                    <div className="flex justify-end mt-4 pt-4 border-t">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive gap-2"
+                        onClick={() => dimension.id && handleDeleteDimension(dimension.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Delete Dimension
+                      </Button>
+                    </div>
+                  )}
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+
+            {dimensions.length === 0 && (
+              <Card className="border-dashed">
+                <CardContent className="py-12 text-center">
+                  <Layers className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+                  <p className="text-lg font-medium text-muted-foreground">No dimensions yet</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Add dimensions to organize your assessment questions
+                  </p>
+                  <Button
+                    onClick={() => setDimensionDialogOpen(true)}
+                    variant="outline"
+                    className="mt-4 gap-2"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add First Dimension
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </Accordion>
+        </>
       )}
 
       {/* Add Dimension Dialog */}
