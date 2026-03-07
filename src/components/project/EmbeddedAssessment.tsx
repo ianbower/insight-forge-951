@@ -137,7 +137,7 @@ export function EmbeddedAssessment({ projectId, stepId, compact = false, display
     // Fetch templates for adding new
     const { data: templatesData } = await supabase
       .from("assessment_templates")
-      .select("id, name, category")
+      .select("id, name, category, assessment_type")
       .order("name");
 
     setTemplates(templatesData || []);
@@ -148,7 +148,7 @@ export function EmbeddedAssessment({ projectId, stepId, compact = false, display
     // Fetch existing assessment instances that are NOT yet linked to this project
     const { data: instancesData } = await supabase
       .from("assessment_instances")
-      .select("id, name, status, assessment_template:assessment_templates(id, name, category)")
+      .select("id, name, status, assessment_template:assessment_templates(id, name, category, assessment_type)")
       .not("id", "in", linkedInstanceIds.length > 0 ? `(${linkedInstanceIds.join(",")})` : "(00000000-0000-0000-0000-000000000000)")
       .order("created_at", { ascending: false });
 
