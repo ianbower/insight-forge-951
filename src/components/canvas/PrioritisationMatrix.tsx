@@ -91,7 +91,7 @@ function getCategoryStyle(category?: string) {
   return CATEGORY_COLORS[category] || CATEGORY_COLORS["default"];
 }
 
-export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, defaultItems, compact, maxItems, assessmentContext, storageKey }: PrioritisationMatrixProps) {
+export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, defaultItems, compact, maxItems, assessmentContext, storageKey, bubbleMode }: PrioritisationMatrixProps) {
   const { toast } = useToast();
 
   // Load persisted data from localStorage if storageKey is provided
