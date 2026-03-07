@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ClipboardList, Plus, BarChart3, Users, Send, Eye, Settings2, Link2, Maximize2 } from "lucide-react";
+import { ClipboardList, Plus, BarChart3, Users, Send, Eye, Settings2, Link2, Maximize2, Trash2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { AssessmentResults } from "@/components/assessments/AssessmentResults";
@@ -232,6 +232,22 @@ export function EmbeddedAssessment({ projectId, stepId, compact = false, display
     setAddMode('new');
     setSelectedStepId(stepId || "");
     fetchData();
+  };
+
+  const handleRemoveAssessment = async (projectAssessmentId: string, assessmentName: string) => {
+    if (!confirm(`Remove "${assessmentName}" from this project? This will unlink the assessment but won't delete the assessment itself.`)) return;
+
+    const { error } = await supabase
+      .from("project_assessments")
+      .delete()
+      .eq("id", projectAssessmentId);
+
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Assessment removed from project" });
+      fetchData();
+    }
   };
 
   const statusColors: Record<string, string> = {
@@ -489,6 +505,14 @@ export function EmbeddedAssessment({ projectId, stepId, compact = false, display
                         Results
                       </Button>
                     )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRemoveAssessment(pa.id, pa.assessment_instance.name)}
+                      className="gap-2 text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               </CardContent>
