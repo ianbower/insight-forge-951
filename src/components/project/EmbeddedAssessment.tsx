@@ -73,7 +73,7 @@ export function EmbeddedAssessment({ projectId, stepId, compact = false, display
   const [resultsDialogOpen, setResultsDialogOpen] = useState(false);
   const [builderDialogOpen, setBuilderDialogOpen] = useState(false);
   const [selectedInstance, setSelectedInstance] = useState<{ id: string; name: string } | null>(null);
-  const [selectedTemplate, setSelectedTemplate] = useState<{ id: string; name: string } | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<{ id: string; name: string; assessment_type?: string } | null>(null);
 
   useEffect(() => {
     fetchData();
