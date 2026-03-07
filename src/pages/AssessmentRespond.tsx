@@ -697,24 +697,36 @@ function LikertDualScore({
               </td>
               <td className="text-center py-3 px-3">
                 <div className="flex justify-center">
-                  <RadioGroupItem
-                    value={level.toString()}
-                    id={`${question.id}-asis-${level}`}
-                    checked={asIsValue === level}
+                  <button
+                    type="button"
                     onClick={() => onChange("asIs", level)}
-                    className="cursor-pointer"
-                  />
+                    className={cn(
+                      "h-4 w-4 rounded-full border border-primary ring-offset-background focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer flex items-center justify-center",
+                      asIsValue === level && "bg-primary"
+                    )}
+                    aria-label={`As-Is: ${level}`}
+                  >
+                    {asIsValue === level && (
+                      <span className="h-2.5 w-2.5 rounded-full bg-primary-foreground" />
+                    )}
+                  </button>
                 </div>
               </td>
               <td className="text-center py-3 px-3">
                 <div className="flex justify-center">
-                  <RadioGroupItem
-                    value={level.toString()}
-                    id={`${question.id}-tobe-${level}`}
-                    checked={toBeValue === level}
+                  <button
+                    type="button"
                     onClick={() => onChange("toBe", level)}
-                    className="cursor-pointer"
-                  />
+                    className={cn(
+                      "h-4 w-4 rounded-full border border-primary ring-offset-background focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer flex items-center justify-center",
+                      toBeValue === level && "bg-primary"
+                    )}
+                    aria-label={`To-Be: ${level}`}
+                  >
+                    {toBeValue === level && (
+                      <span className="h-2.5 w-2.5 rounded-full bg-primary-foreground" />
+                    )}
+                  </button>
                 </div>
               </td>
             </tr>
