@@ -447,6 +447,7 @@ export function EmbeddedAssessment({ projectId, stepId, compact = false, display
                         setSelectedTemplate({
                           id: pa.assessment_instance.assessment_template?.id || pa.assessment_instance.assessment_template_id,
                           name: pa.assessment_instance.assessment_template?.name || "Assessment",
+                          assessment_type: (pa.assessment_instance.assessment_template as any)?.assessment_type || "standard",
                         });
                         setBuilderDialogOpen(true);
                       }}
