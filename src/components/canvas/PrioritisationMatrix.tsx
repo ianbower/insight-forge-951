@@ -63,6 +63,8 @@ interface PrioritisationMatrixProps {
   assessmentContext?: AssessmentContext;
   /** Key for localStorage persistence when onSave is not provided */
   storageKey?: string;
+  /** Render items as sized bubbles instead of pills. priorityScore controls bubble diameter. */
+  bubbleMode?: boolean;
 }
 
 const QUADRANT_META = [
@@ -89,7 +91,7 @@ function getCategoryStyle(category?: string) {
   return CATEGORY_COLORS[category] || CATEGORY_COLORS["default"];
 }
 
-export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, defaultItems, compact, maxItems, assessmentContext, storageKey }: PrioritisationMatrixProps) {
+export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, defaultItems, compact, maxItems, assessmentContext, storageKey, bubbleMode }: PrioritisationMatrixProps) {
   const { toast } = useToast();
 
   // Load persisted data from localStorage if storageKey is provided
@@ -468,8 +470,9 @@ export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, d
           <div className="ml-6">
             {/* Axis markers */}
             <div className="flex justify-between text-xs text-muted-foreground mb-1 px-1">
-              <span>High Effort</span>
-              <span>Low Effort</span>
+              <span>{bubbleMode ? `Low ${axisLabels.xLabel}` : "High Effort"}</span>
+              <span className="font-medium text-foreground/60">{axisLabels.xLabel}</span>
+              <span>{bubbleMode ? `High ${axisLabels.xLabel}` : "Low Effort"}</span>
             </div>
 
             {/* Matrix area */}
@@ -514,9 +517,43 @@ export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, d
               <div className={cn("absolute top-1/2 left-0 right-0 h-px bg-border transition-all duration-700", mounted ? "scale-x-100" : "scale-x-0")} style={{ transformOrigin: "left" }} />
 
               {/* Items with staggered entrance animation */}
-              {visibleItems.map((item, idx) => (
+              {visibleItems.map((item, idx) => {
+                // Bubble size: map priorityScore (0-100) to pixel diameter (24-64)
+                const bubbleDiameter = bubbleMode && item.priorityScore != null
+                  ? Math.max(28, Math.min(64, 24 + (item.priorityScore / 100) * 40))
+                  : 0;
+
+                return (
                 <Tooltip key={item.id}>
                   <TooltipTrigger asChild>
+                    {bubbleMode ? (
+                      <div
+                        className={cn(
+                          "absolute rounded-full border-2 flex items-center justify-center select-none z-10",
+                          "transition-all duration-300 ease-out",
+                          "hover:shadow-lg hover:z-20 hover:scale-110",
+                          draggingId === item.id ? "shadow-xl z-30 scale-110 cursor-grabbing ring-2 ring-primary/40" : "cursor-grab",
+                          getCategoryStyle(item.category),
+                          mounted ? "opacity-100" : "opacity-0",
+                        )}
+                        style={{
+                          left: `${item.effort}%`,
+                          top: `${100 - item.impact}%`,
+                          width: bubbleDiameter,
+                          height: bubbleDiameter,
+                          transform: `translate(-50%, -50%)${draggingId === item.id ? " scale(1.1)" : ""}`,
+                          transitionDelay: mounted ? `${300 + idx * 80}ms` : "0ms",
+                        }}
+                        onMouseDown={(e) => handleMouseDown(e, item.id)}
+                        onDoubleClick={() => setEditingItem(item)}
+                      >
+                        <span className="text-[9px] font-bold leading-tight text-center px-0.5 truncate"
+                          style={{ maxWidth: bubbleDiameter - 6 }}
+                        >
+                          {item.title.length > 8 ? item.title.slice(0, 6) + "…" : item.title}
+                        </span>
+                      </div>
+                    ) : (
                     <div
                       className={cn(
                         "absolute flex items-center gap-1 px-2 py-1 rounded-md border text-xs font-medium select-none z-10",
@@ -543,6 +580,7 @@ export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, d
                       )}
                       <span className="truncate">{item.title}</span>
                     </div>
+                    )}
                   </TooltipTrigger>
                   <TooltipContent side="top" className="max-w-[250px] animate-scale-in">
                     <p className="font-semibold">{item.title}</p>
@@ -551,7 +589,8 @@ export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, d
                     <p className="text-xs text-muted-foreground">Double-click to edit · Drag to reposition</p>
                   </TooltipContent>
                 </Tooltip>
-              ))}
+                );
+              })}
 
               {visibleItems.length === 0 && (
                 <div className="absolute inset-0 flex items-center justify-center animate-fade-in">
@@ -563,10 +602,12 @@ export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, d
               )}
             </div>
 
-            {/* X-axis label */}
-            <div className="text-center text-xs text-muted-foreground font-semibold mt-2 tracking-wider uppercase">
-              {axisLabels.xLabel}
-            </div>
+            {/* X-axis label - only show when no inline label */}
+            {!bubbleMode && (
+              <div className="text-center text-xs text-muted-foreground font-semibold mt-2 tracking-wider uppercase">
+                {axisLabels.xLabel}
+              </div>
+            )}
           </div>
         </div>
 

@@ -36,6 +36,7 @@ import {
 import { AssessmentInsights } from "./AssessmentInsights";
 import { PrioritisationMatrix, type MatrixItem, type AssessmentContext } from "@/components/canvas/PrioritisationMatrix";
 import { Users, BarChart3, Target, TrendingUp, Sparkles, Download, Filter, Database, LayoutGrid, ListChecks } from "lucide-react";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 interface AssessmentResultsProps {
@@ -89,6 +90,8 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
   const [filterOrg, setFilterOrg] = useState<string>("all");
   const [benchmarkFilter, setBenchmarkFilter] = useState<string>("all");
   const [showInsights, setShowInsights] = useState(false);
+  const [matrixXAxis, setMatrixXAxis] = useState<string>("");
+  const [matrixYAxis, setMatrixYAxis] = useState<string>("");
 
   const isItemBased = ["use_case", "comparative", "process"].includes(assessmentType);
 
@@ -325,11 +328,29 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
           question: q.question_text,
           score: qScores.length > 0 ? qScores.reduce((a, b) => a + b, 0) / qScores.length : 0,
           weight: Number(q.weight) || 1,
+          dimension_id: q.dimension_id,
         };
+      });
+
+      // Per-dimension scores
+      const dimensionScoresMap: Record<string, number> = {};
+      dimensions.forEach((dim) => {
+        const dimQuestions = questionBreakdown.filter((q) => q.dimension_id === dim.id);
+        if (dimQuestions.length > 0) {
+          const totalWeight = dimQuestions.reduce((s, q) => s + q.weight, 0);
+          const weightedSum = dimQuestions.reduce((s, q) => s + q.score * q.weight, 0);
+          dimensionScoresMap[dim.id] = totalWeight > 0 ? weightedSum / totalWeight : 0;
+        }
       });
 
       const avgScore = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
       const avgTarget = targets.length > 0 ? targets.reduce((a, b) => a + b, 0) / targets.length : 4;
+
+      // Weighted composite score
+      const totalWeight = questionBreakdown.reduce((s, q) => s + q.weight, 0);
+      const weightedComposite = totalWeight > 0
+        ? questionBreakdown.reduce((s, q) => s + q.score * q.weight, 0) / totalWeight
+        : avgScore;
 
       return {
         id: item.id,
@@ -340,9 +361,11 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
         gap: avgTarget - avgScore,
         responseCount: scores.length,
         questionBreakdown,
+        dimensionScores: dimensionScoresMap,
+        weightedComposite,
       };
     });
-  }, [filteredResponses, assessmentItems, questions, isItemBased]);
+  }, [filteredResponses, assessmentItems, questions, dimensions, isItemBased]);
 
   // Overall score (works for both types)
   const overallScore = useMemo(() => {
@@ -354,14 +377,31 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
     return dimensionScores.reduce((sum, d) => sum + d.score, 0) / dimensionScores.length;
   }, [dimensionScores, itemScores, isItemBased]);
 
-  // Matrix items for item-based assessments (use cases become initiatives)
+  // Matrix items for item-based assessments with configurable axes
   const matrixItems: MatrixItem[] = useMemo(() => {
     if (isItemBased) {
+      const hasCustomAxes = matrixXAxis && matrixYAxis && matrixXAxis !== matrixYAxis;
+      const maxScale = 5;
+
       return itemScores.map((item) => {
-        // Map score to "value" (impact) and inverse-score to "effort"
-        const maxScale = 5;
+        if (hasCustomAxes) {
+          const xScore = item.dimensionScores[matrixXAxis] || 0;
+          const yScore = item.dimensionScores[matrixYAxis] || 0;
+          // Bubble size from weighted composite (normalised 0-100)
+          const bubbleSize = (item.weightedComposite / maxScale) * 100;
+          return {
+            id: item.id,
+            title: item.title,
+            description: item.description || `Composite: ${item.weightedComposite.toFixed(1)}`,
+            effort: Math.max(5, Math.min(95, (xScore / maxScale) * 100)),
+            impact: Math.max(5, Math.min(95, (yScore / maxScale) * 100)),
+            category: item.weightedComposite >= 4 ? "High Value" : item.weightedComposite >= 3 ? "Medium" : "Needs Attention",
+            priorityScore: Math.round(bubbleSize),
+          };
+        }
+        // Default: score → impact, inverse → effort
         const valueScore = (item.score / maxScale) * 100;
-        const effortScore = 100 - valueScore; // Higher score = lower effort needed
+        const effortScore = 100 - valueScore;
         return {
           id: item.id,
           title: item.title,
@@ -387,7 +427,20 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
         priorityScore: Math.round(Math.min(5, Math.max(1, gapFromTarget * 2 + 2))),
       };
     });
-  }, [dimensionScores, itemScores, isItemBased]);
+  }, [dimensionScores, itemScores, isItemBased, matrixXAxis, matrixYAxis]);
+
+  // Axis labels based on selected dimensions
+  const matrixAxisLabels = useMemo(() => {
+    if (!isItemBased || !matrixXAxis || !matrixYAxis || matrixXAxis === matrixYAxis) {
+      return { xLabel: "Implementation Effort", yLabel: "Business Impact / Value" };
+    }
+    const xDim = dimensions.find((d) => d.id === matrixXAxis);
+    const yDim = dimensions.find((d) => d.id === matrixYAxis);
+    return {
+      xLabel: xDim?.name || "X Axis",
+      yLabel: yDim?.name || "Y Axis",
+    };
+  }, [dimensions, matrixXAxis, matrixYAxis, isItemBased]);
 
   // Build assessment context for AI
   const assessmentCtx: AssessmentContext = useMemo(() => {
@@ -879,18 +932,73 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
                 </CardTitle>
                 <p className="text-sm text-muted-foreground">
                   {isItemBased
-                    ? `${assessmentType === "use_case" ? "Use cases" : "Items"} are plotted based on their composite evaluation scores. Click "AI Recommend" for actionable insights.`
+                    ? `${assessmentType === "use_case" ? "Use cases" : "Items"} are plotted based on their evaluation scores. Configure the axes below to map dimensions, with bubble size reflecting the weighted composite score.`
                     : 'Dimensions are pre-plotted based on gap analysis. Select a detail level and click "AI Recommend" to generate specific, actionable initiatives informed by your assessment data.'
                   }
                 </p>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
+                {/* Axis Configuration for item-based assessments */}
+                {isItemBased && dimensions.length >= 2 && (
+                  <div className="flex flex-wrap items-end gap-4 p-4 rounded-lg border bg-muted/30">
+                    <div className="space-y-1.5 flex-1 min-w-[180px]">
+                      <Label className="text-xs font-medium text-muted-foreground">X Axis (Horizontal)</Label>
+                      <Select value={matrixXAxis} onValueChange={setMatrixXAxis}>
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Select dimension..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {dimensions.map((d) => (
+                            <SelectItem key={d.id} value={d.id} disabled={d.id === matrixYAxis}>
+                              {d.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5 flex-1 min-w-[180px]">
+                      <Label className="text-xs font-medium text-muted-foreground">Y Axis (Vertical)</Label>
+                      <Select value={matrixYAxis} onValueChange={setMatrixYAxis}>
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Select dimension..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {dimensions.map((d) => (
+                            <SelectItem key={d.id} value={d.id} disabled={d.id === matrixXAxis}>
+                              {d.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium text-muted-foreground">Bubble Size</Label>
+                      <div className="h-9 px-3 flex items-center rounded-md border bg-background text-sm text-muted-foreground">
+                        Weighted Composite Score
+                      </div>
+                    </div>
+                    {matrixXAxis && matrixYAxis && matrixXAxis !== matrixYAxis && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-9 text-xs"
+                        onClick={() => { setMatrixXAxis(""); setMatrixYAxis(""); }}
+                      >
+                        Reset
+                      </Button>
+                    )}
+                  </div>
+                )}
+
                 <PrioritisationMatrix
+                  key={`${matrixXAxis}-${matrixYAxis}`}
                   defaultItems={matrixItems}
                   maxItems={isItemBased ? assessmentItems.length + 10 : 10}
                   assessmentContext={assessmentCtx}
-                  storageKey={`matrix-${instanceId}`}
+                  storageKey={`matrix-${instanceId}-${matrixXAxis}-${matrixYAxis}`}
                   compact
+                  initialData={{ items: matrixItems, axisLabels: matrixAxisLabels }}
+                  bubbleMode={!!(matrixXAxis && matrixYAxis && matrixXAxis !== matrixYAxis)}
                 />
               </CardContent>
             </Card>
