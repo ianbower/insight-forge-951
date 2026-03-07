@@ -516,9 +516,43 @@ export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, d
               <div className={cn("absolute top-1/2 left-0 right-0 h-px bg-border transition-all duration-700", mounted ? "scale-x-100" : "scale-x-0")} style={{ transformOrigin: "left" }} />
 
               {/* Items with staggered entrance animation */}
-              {visibleItems.map((item, idx) => (
+              {visibleItems.map((item, idx) => {
+                // Bubble size: map priorityScore (0-100) to pixel diameter (24-64)
+                const bubbleDiameter = bubbleMode && item.priorityScore != null
+                  ? Math.max(28, Math.min(64, 24 + (item.priorityScore / 100) * 40))
+                  : 0;
+
+                return (
                 <Tooltip key={item.id}>
                   <TooltipTrigger asChild>
+                    {bubbleMode ? (
+                      <div
+                        className={cn(
+                          "absolute rounded-full border-2 flex items-center justify-center select-none z-10",
+                          "transition-all duration-300 ease-out",
+                          "hover:shadow-lg hover:z-20 hover:scale-110",
+                          draggingId === item.id ? "shadow-xl z-30 scale-110 cursor-grabbing ring-2 ring-primary/40" : "cursor-grab",
+                          getCategoryStyle(item.category),
+                          mounted ? "opacity-100" : "opacity-0",
+                        )}
+                        style={{
+                          left: `${item.effort}%`,
+                          top: `${100 - item.impact}%`,
+                          width: bubbleDiameter,
+                          height: bubbleDiameter,
+                          transform: `translate(-50%, -50%)${draggingId === item.id ? " scale(1.1)" : ""}`,
+                          transitionDelay: mounted ? `${300 + idx * 80}ms` : "0ms",
+                        }}
+                        onMouseDown={(e) => handleMouseDown(e, item.id)}
+                        onDoubleClick={() => setEditingItem(item)}
+                      >
+                        <span className="text-[9px] font-bold leading-tight text-center px-0.5 truncate"
+                          style={{ maxWidth: bubbleDiameter - 6 }}
+                        >
+                          {item.title.length > 8 ? item.title.slice(0, 6) + "…" : item.title}
+                        </span>
+                      </div>
+                    ) : (
                     <div
                       className={cn(
                         "absolute flex items-center gap-1 px-2 py-1 rounded-md border text-xs font-medium select-none z-10",
@@ -545,6 +579,7 @@ export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, d
                       )}
                       <span className="truncate">{item.title}</span>
                     </div>
+                    )}
                   </TooltipTrigger>
                   <TooltipContent side="top" className="max-w-[250px] animate-scale-in">
                     <p className="font-semibold">{item.title}</p>
