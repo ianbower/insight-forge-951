@@ -51,6 +51,7 @@ interface ProjectAssessment {
       id: string;
       name: string;
       category: string;
+      assessment_type?: string;
     };
   };
   recipientCount?: number;
