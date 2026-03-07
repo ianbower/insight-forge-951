@@ -363,7 +363,6 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
       const maxScale = 5;
 
       return itemScores
-        .filter((item) => item.weightedComposite > 0)
         .map((item) => {
         if (hasCustomAxes) {
           const xScore = item.dimensionScores[matrixXAxis] || 0;
