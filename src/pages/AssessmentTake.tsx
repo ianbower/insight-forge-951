@@ -132,7 +132,13 @@ export default function AssessmentTake() {
         .select("*")
         .eq("assessment_template_id", templateId)
         .order("order_index");
-      setItems((itemsData as any[]) || []);
+      // Filter to only in-scope items (default is in-scope if not explicitly set)
+      const allItems = (itemsData as any[]) || [];
+      const inScopeItems = allItems.filter((item: any) => {
+        const meta = item.metadata_json as Record<string, any> | null;
+        return meta?.in_scope !== false;
+      });
+      setItems(inScopeItems);
     }
 
     const { data: dimensionsData } = await supabase
