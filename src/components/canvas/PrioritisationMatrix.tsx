@@ -93,6 +93,13 @@ function getCategoryStyle(category?: string) {
   return CATEGORY_COLORS[category] || CATEGORY_COLORS["default"];
 }
 
+function getQuadrant(item: MatrixItem) {
+  if (item.impact >= 50 && item.effort >= 50) return "1. Quick Wins";
+  if (item.impact >= 50 && item.effort < 50) return "2. Strategic";
+  if (item.impact < 50 && item.effort >= 50) return "3. Opportunistic";
+  return "4. Deprioritise";
+}
+
 export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, defaultItems, compact, maxItems, assessmentContext, storageKey, bubbleMode }: PrioritisationMatrixProps) {
   const { toast } = useToast();
 
@@ -426,12 +433,6 @@ export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, d
     }
   };
 
-  const getQuadrant = (item: MatrixItem) => {
-    if (item.impact >= 50 && item.effort >= 50) return "1. Quick Wins";
-    if (item.impact >= 50 && item.effort < 50) return "2. Strategic";
-    if (item.impact < 50 && item.effort >= 50) return "3. Opportunistic";
-    return "4. Deprioritise";
-  };
 
   return (
     <TooltipProvider>
