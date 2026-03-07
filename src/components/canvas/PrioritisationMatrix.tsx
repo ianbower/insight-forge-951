@@ -268,6 +268,7 @@ export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, d
     toast({ title: "Matrix Reset", description: "AI recommendations cleared. Showing clean survey data." });
   }, [storageKey, defaultItems, toast]);
 
+  const handleExportPDF = async () => {
     try {
       await exportToPDF("prioritisation-matrix", "Prioritisation Matrix");
       toast({ title: "Exported", description: "PDF file downloaded" });
