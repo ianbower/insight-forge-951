@@ -127,9 +127,13 @@ export function AssessmentBuilder({ templateId, templateName, assessmentType = "
   const [scaleDialogOpen, setScaleDialogOpen] = useState(false);
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [editDimensionDialogOpen, setEditDimensionDialogOpen] = useState(false);
   const [selectedDimensionIndex, setSelectedDimensionIndex] = useState<number | null>(null);
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
   const [editingDimension, setEditingDimension] = useState<Dimension | null>(null);
+  const [editDimensionData, setEditDimensionData] = useState({ name: "", description: "", weight: 1 });
+  const [editDimensionScaleConfig, setEditDimensionScaleConfig] = useState<ScaleConfig>({ ...defaultScaleConfig });
+  const [editDimensionId, setEditDimensionId] = useState<string | null>(null);
 
   const isItemBased = ["use_case", "comparative", "process"].includes(assessmentType);
   const typeInfo = assessmentTypeInfo[assessmentType];
