@@ -105,9 +105,9 @@ const defaultScaleConfig: ScaleConfig = {
 };
 
 const assessmentTypeInfo: Record<string, { itemLabel: string; itemLabelPlural: string; description: string }> = {
-  use_case: { itemLabel: "Use Case", itemLabelPlural: "Use Cases", description: "Each use case will be evaluated against all questions/criteria defined below." },
-  comparative: { itemLabel: "Option", itemLabelPlural: "Options", description: "Each option (vendor/solution) will be scored against the evaluation criteria below." },
-  process: { itemLabel: "Process", itemLabelPlural: "Processes", description: "Each business process will be evaluated against the assessment criteria below." },
+  use_case: { itemLabel: "Use Case", itemLabelPlural: "Use Cases", description: "Each use case will be evaluated against all dimensions defined below." },
+  comparative: { itemLabel: "Option", itemLabelPlural: "Options", description: "Each option (vendor/solution) will be scored against the evaluation dimensions below." },
+  process: { itemLabel: "Process", itemLabelPlural: "Processes", description: "Each business process will be evaluated against the assessment dimensions below." },
 };
 
 export function AssessmentBuilder({ templateId, templateName, assessmentType = "standard", onClose }: AssessmentBuilderProps) {
@@ -147,6 +147,9 @@ export function AssessmentBuilder({ templateId, templateName, assessmentType = "
 
   // New item form state
   const [newItem, setNewItem] = useState({ title: "", description: "" });
+
+  // Scale config for item-based dimension dialog
+  const [dimensionScaleConfig, setDimensionScaleConfig] = useState<ScaleConfig>({ ...defaultScaleConfig });
 
   useEffect(() => {
     fetchDimensions();
@@ -198,32 +201,83 @@ export function AssessmentBuilder({ templateId, templateName, assessmentType = "
         })),
     }));
 
-    const uncategorizedQuestions = (questionsData || [])
-      .filter((q) => !q.dimension_id)
-      .map((q) => ({
-        id: q.id,
-        question_text: q.question_text,
-        question_type: q.question_type as Question["question_type"],
-        weight: Number(q.weight) || 1,
-        order_index: q.order_index,
-        scale_config: q.scale_config as unknown as ScaleConfig | undefined,
-        options: q.options as unknown as string[] | undefined,
-        required: q.required,
-        dimension_id: null,
-      }));
+    // For item-based assessments, auto-sync: ensure each dimension has at least one question
+    if (isItemBased) {
+      for (const dim of dims) {
+        if (dim.id && dim.questions.length === 0) {
+          await autoCreateDimensionQuestion(dim.id, dim.name);
+        }
+      }
+      // Re-fetch if we created any
+      const needsRefetch = dims.some((d) => d.id && d.questions.length === 0);
+      if (needsRefetch) {
+        const { data: updatedQuestions } = await supabase
+          .from("assessment_questions")
+          .select("*")
+          .eq("assessment_template_id", templateId)
+          .order("order_index");
+        for (const dim of dims) {
+          if (dim.id) {
+            dim.questions = (updatedQuestions || [])
+              .filter((q) => q.dimension_id === dim.id)
+              .map((q) => ({
+                id: q.id,
+                question_text: q.question_text,
+                question_type: q.question_type as Question["question_type"],
+                weight: Number(q.weight) || 1,
+                order_index: q.order_index,
+                scale_config: q.scale_config as unknown as ScaleConfig | undefined,
+                options: q.options as unknown as string[] | undefined,
+                required: q.required,
+                dimension_id: q.dimension_id,
+              }));
+          }
+        }
+      }
+    }
 
-    if (uncategorizedQuestions.length > 0) {
-      dims.unshift({
-        name: "General Questions",
-        description: "Questions not assigned to a specific dimension",
-        weight: 1,
-        order_index: -1,
-        questions: uncategorizedQuestions,
-      });
+    if (!isItemBased) {
+      const uncategorizedQuestions = (questionsData || [])
+        .filter((q) => !q.dimension_id)
+        .map((q) => ({
+          id: q.id,
+          question_text: q.question_text,
+          question_type: q.question_type as Question["question_type"],
+          weight: Number(q.weight) || 1,
+          order_index: q.order_index,
+          scale_config: q.scale_config as unknown as ScaleConfig | undefined,
+          options: q.options as unknown as string[] | undefined,
+          required: q.required,
+          dimension_id: null,
+        }));
+
+      if (uncategorizedQuestions.length > 0) {
+        dims.unshift({
+          name: "General Questions",
+          description: "Questions not assigned to a specific dimension",
+          weight: 1,
+          order_index: -1,
+          questions: uncategorizedQuestions,
+        });
+      }
     }
 
     setDimensions(dims);
     setLoading(false);
+  };
+
+  // Auto-create a single likert question for a dimension (item-based assessments)
+  const autoCreateDimensionQuestion = async (dimensionId: string, dimensionName: string, scaleConfig?: ScaleConfig) => {
+    await supabase.from("assessment_questions").insert({
+      assessment_template_id: templateId,
+      dimension_id: dimensionId,
+      question_text: `Rate this item on: ${dimensionName}`,
+      question_type: "likert",
+      weight: 1,
+      order_index: 0,
+      scale_config: JSON.parse(JSON.stringify(scaleConfig || defaultScaleConfig)),
+      required: true,
+    });
   };
 
   const handleAddDimension = async () => {
@@ -241,12 +295,19 @@ export function AssessmentBuilder({ templateId, templateName, assessmentType = "
 
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Dimension added" });
-      setDimensionDialogOpen(false);
-      setNewDimension({ name: "", description: "", weight: 1 });
-      fetchDimensions();
+      return;
     }
+
+    // For item-based assessments, auto-create the likert question for this dimension
+    if (isItemBased && data) {
+      await autoCreateDimensionQuestion(data.id, newDimension.name, dimensionScaleConfig);
+    }
+
+    toast({ title: "Dimension added" });
+    setDimensionDialogOpen(false);
+    setNewDimension({ name: "", description: "", weight: 1 });
+    setDimensionScaleConfig({ ...defaultScaleConfig });
+    fetchDimensions();
   };
 
   const handleAddQuestion = async () => {
@@ -297,6 +358,14 @@ export function AssessmentBuilder({ templateId, templateName, assessmentType = "
   };
 
   const handleDeleteDimension = async (dimensionId: string) => {
+    // For item-based, also delete the auto-generated question(s)
+    if (isItemBased) {
+      await supabase
+        .from("assessment_questions")
+        .delete()
+        .eq("dimension_id", dimensionId);
+    }
+
     const { error } = await supabase
       .from("assessment_dimensions")
       .delete()
@@ -360,6 +429,20 @@ export function AssessmentBuilder({ templateId, templateName, assessmentType = "
     }));
   };
 
+  const updateDimensionScaleLabel = (level: number, value: string) => {
+    setDimensionScaleConfig((prev) => ({
+      ...prev,
+      labels: { ...prev.labels, [level]: value },
+    }));
+  };
+
+  const updateDimensionScaleDescription = (level: number, value: string) => {
+    setDimensionScaleConfig((prev) => ({
+      ...prev,
+      descriptions: { ...prev.descriptions, [level]: value },
+    }));
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -367,6 +450,9 @@ export function AssessmentBuilder({ templateId, templateName, assessmentType = "
       </div>
     );
   }
+
+  const totalQuestions = dimensions.reduce((sum, d) => sum + d.questions.length, 0);
+  const namedDimensions = dimensions.filter((d) => d.id);
 
   return (
     <div className="space-y-6">
@@ -383,8 +469,8 @@ export function AssessmentBuilder({ templateId, templateName, assessmentType = "
           </div>
           <p className="text-sm text-muted-foreground">
             {isItemBased
-              ? `${items.length} ${typeInfo?.itemLabelPlural?.toLowerCase() || "items"} • ${dimensions.reduce((sum, d) => sum + d.questions.length, 0)} evaluation criteria across ${dimensions.filter((d) => d.id).length} dimensions`
-              : `${dimensions.reduce((sum, d) => sum + d.questions.length, 0)} questions across ${dimensions.filter((d) => d.id).length} dimensions`
+              ? `${items.length} ${typeInfo?.itemLabelPlural?.toLowerCase() || "items"} • ${namedDimensions.length} evaluation dimensions`
+              : `${totalQuestions} questions across ${namedDimensions.length} dimensions`
             }
           </p>
         </div>
@@ -411,7 +497,10 @@ export function AssessmentBuilder({ templateId, templateName, assessmentType = "
           )}
           <Button
             variant="outline"
-            onClick={() => setDimensionDialogOpen(true)}
+            onClick={() => {
+              setDimensionScaleConfig({ ...defaultScaleConfig });
+              setDimensionDialogOpen(true);
+            }}
             className="gap-2"
           >
             <Layers className="h-4 w-4" />
@@ -432,7 +521,7 @@ export function AssessmentBuilder({ templateId, templateName, assessmentType = "
               {typeInfo?.itemLabelPlural || "Items"} to Evaluate
             </CardTitle>
             <p className="text-sm text-muted-foreground">
-              {typeInfo?.description || "Each item will be evaluated against the criteria below."}
+              {typeInfo?.description || "Each item will be evaluated against the dimensions below."}
             </p>
           </CardHeader>
           <CardContent>
@@ -469,181 +558,278 @@ export function AssessmentBuilder({ templateId, templateName, assessmentType = "
                 <p className="text-sm text-muted-foreground">
                   No {typeInfo?.itemLabelPlural?.toLowerCase() || "items"} defined yet
                 </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-3 gap-2"
-                  onClick={() => setItemDialogOpen(true)}
-                >
-                  <Plus className="h-4 w-4" />
-                  Add First {typeInfo?.itemLabel || "Item"}
-                </Button>
+                <div className="flex gap-2 justify-center mt-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => setItemDialogOpen(true)}
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add {typeInfo?.itemLabel || "Item"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => setImportDialogOpen(true)}
+                  >
+                    <Upload className="h-4 w-4" />
+                    Import CSV
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>
         </Card>
       )}
 
-      {/* Section Title for Criteria */}
-      {isItemBased && dimensions.length > 0 && (
+      {/* Dimensions Section Title */}
+      {isItemBased && (
         <div>
-          <h3 className="text-base font-medium">Evaluation Criteria</h3>
+          <h3 className="text-base font-medium">Evaluation Dimensions</h3>
           <p className="text-sm text-muted-foreground">
-            These questions will be asked for each {typeInfo?.itemLabel?.toLowerCase() || "item"} above
+            Each {typeInfo?.itemLabel?.toLowerCase() || "item"} will be scored against these dimensions using a maturity scale. All respondents will evaluate the same {typeInfo?.itemLabelPlural?.toLowerCase() || "items"} on the same dimensions.
           </p>
         </div>
       )}
 
       {/* Dimensions */}
-      <Accordion type="multiple" className="space-y-4">
-        {dimensions.map((dimension, dimIndex) => (
-          <AccordionItem
-            key={dimension.id || `dim-${dimIndex}`}
-            value={dimension.id || `dim-${dimIndex}`}
-            className="border rounded-lg bg-card"
-          >
-            <AccordionTrigger className="px-4 hover:no-underline">
-              <div className="flex items-center gap-3 flex-1">
-                <GripVertical className="h-4 w-4 text-muted-foreground" />
-                <div className="flex-1 text-left">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">{dimension.name}</span>
-                    <Badge variant="secondary" className="text-xs">
-                      {dimension.questions.length} {isItemBased ? "criteria" : "questions"}
-                    </Badge>
-                    {dimension.weight !== 1 && (
-                      <Badge variant="outline" className="text-xs">
-                        Weight: {dimension.weight}x
-                      </Badge>
-                    )}
-                  </div>
-                  {dimension.description && (
-                    <p className="text-sm text-muted-foreground mt-0.5">
-                      {dimension.description}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </AccordionTrigger>
-            <AccordionContent className="px-4 pb-4">
-              <div className="space-y-3">
-                {dimension.questions.map((question, qIndex) => (
-                  <Card
-                    key={question.id || `q-${qIndex}`}
-                    className="border-border/50 bg-background"
-                  >
-                    <CardContent className="py-3 px-4">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <Badge variant="outline" className="text-xs capitalize">
-                              {question.question_type.replace("_", " ")}
+      {isItemBased ? (
+        // Item-based: simplified dimension display (no individual question management)
+        <div className="space-y-3">
+          {namedDimensions.map((dimension) => {
+            const scaleConfig = dimension.questions[0]?.scale_config;
+            const scaleRange = scaleConfig
+              ? `${scaleConfig.min}–${scaleConfig.max} scale`
+              : "1–5 scale";
+
+            return (
+              <Card key={dimension.id} className="border-border">
+                <CardContent className="py-4 px-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-3 flex-1">
+                      <GripVertical className="h-4 w-4 text-muted-foreground mt-1" />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium">{dimension.name}</span>
+                          <Badge variant="secondary" className="text-xs">{scaleRange}</Badge>
+                          {dimension.weight !== 1 && (
+                            <Badge variant="outline" className="text-xs">
+                              Weight: {dimension.weight}x
                             </Badge>
-                            {question.weight !== 1 && (
-                              <Badge variant="secondary" className="text-xs">
-                                {question.weight}x
-                              </Badge>
-                            )}
-                            {question.required && (
-                              <Badge variant="destructive" className="text-xs">
-                                Required
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-sm">{question.question_text}</p>
-                          {question.question_type === "likert" && question.scale_config && (
-                            <div className="flex gap-2 mt-2">
-                              {Array.from(
-                                { length: question.scale_config.max - question.scale_config.min + 1 },
-                                (_, i) => question.scale_config!.min + i
-                              ).map((level) => (
-                                <div
-                                  key={level}
-                                  className="text-xs text-center px-2 py-1 rounded bg-muted"
-                                  title={question.scale_config!.descriptions?.[level]}
-                                >
-                                  {level}: {question.scale_config!.labels?.[level] || `Level ${level}`}
-                                </div>
-                              ))}
-                            </div>
                           )}
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive"
-                          onClick={() => question.id && handleDeleteQuestion(question.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {dimension.description && (
+                          <p className="text-sm text-muted-foreground mt-1">{dimension.description}</p>
+                        )}
+                        {scaleConfig && (
+                          <div className="flex gap-1.5 mt-2 flex-wrap">
+                            {Array.from(
+                              { length: scaleConfig.max - scaleConfig.min + 1 },
+                              (_, i) => scaleConfig.min + i
+                            ).map((level) => (
+                              <div
+                                key={level}
+                                className="text-xs px-2 py-1 rounded bg-muted"
+                                title={scaleConfig.descriptions?.[level]}
+                              >
+                                {level}: {scaleConfig.labels?.[level] || `Level ${level}`}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-destructive hover:text-destructive"
+                      onClick={() => dimension.id && handleDeleteDimension(dimension.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
 
+          {namedDimensions.length === 0 && (
+            <Card className="border-dashed">
+              <CardContent className="py-12 text-center">
+                <Layers className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+                <p className="text-lg font-medium text-muted-foreground">No dimensions yet</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Add dimensions to define the evaluation criteria for each {typeInfo?.itemLabel?.toLowerCase() || "item"}
+                </p>
                 <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full gap-2"
                   onClick={() => {
-                    setSelectedDimensionIndex(dimIndex);
-                    setQuestionDialogOpen(true);
+                    setDimensionScaleConfig({ ...defaultScaleConfig });
+                    setDimensionDialogOpen(true);
                   }}
+                  variant="outline"
+                  className="mt-4 gap-2"
                 >
                   <Plus className="h-4 w-4" />
-                  Add {isItemBased ? "Criterion" : "Question"}
+                  Add First Dimension
                 </Button>
-              </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      ) : (
+        // Standard: full question management inside dimensions
+        <Accordion type="multiple" className="space-y-4">
+          {dimensions.map((dimension, dimIndex) => (
+            <AccordionItem
+              key={dimension.id || `dim-${dimIndex}`}
+              value={dimension.id || `dim-${dimIndex}`}
+              className="border rounded-lg bg-card"
+            >
+              <AccordionTrigger className="px-4 hover:no-underline">
+                <div className="flex items-center gap-3 flex-1">
+                  <GripVertical className="h-4 w-4 text-muted-foreground" />
+                  <div className="flex-1 text-left">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{dimension.name}</span>
+                      <Badge variant="secondary" className="text-xs">
+                        {dimension.questions.length} questions
+                      </Badge>
+                      {dimension.weight !== 1 && (
+                        <Badge variant="outline" className="text-xs">
+                          Weight: {dimension.weight}x
+                        </Badge>
+                      )}
+                    </div>
+                    {dimension.description && (
+                      <p className="text-sm text-muted-foreground mt-0.5">
+                        {dimension.description}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="px-4 pb-4">
+                <div className="space-y-3">
+                  {dimension.questions.map((question, qIndex) => (
+                    <Card
+                      key={question.id || `q-${qIndex}`}
+                      className="border-border/50 bg-background"
+                    >
+                      <CardContent className="py-3 px-4">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Badge variant="outline" className="text-xs capitalize">
+                                {question.question_type.replace("_", " ")}
+                              </Badge>
+                              {question.weight !== 1 && (
+                                <Badge variant="secondary" className="text-xs">
+                                  {question.weight}x
+                                </Badge>
+                              )}
+                              {question.required && (
+                                <Badge variant="destructive" className="text-xs">
+                                  Required
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-sm">{question.question_text}</p>
+                            {question.question_type === "likert" && question.scale_config && (
+                              <div className="flex gap-2 mt-2">
+                                {Array.from(
+                                  { length: question.scale_config.max - question.scale_config.min + 1 },
+                                  (_, i) => question.scale_config!.min + i
+                                ).map((level) => (
+                                  <div
+                                    key={level}
+                                    className="text-xs text-center px-2 py-1 rounded bg-muted"
+                                    title={question.scale_config!.descriptions?.[level]}
+                                  >
+                                    {level}: {question.scale_config!.labels?.[level] || `Level ${level}`}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={() => question.id && handleDeleteQuestion(question.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
 
-              {dimension.id && (
-                <div className="flex justify-end mt-4 pt-4 border-t">
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
-                    className="text-destructive hover:text-destructive gap-2"
-                    onClick={() => dimension.id && handleDeleteDimension(dimension.id)}
+                    className="w-full gap-2"
+                    onClick={() => {
+                      setSelectedDimensionIndex(dimIndex);
+                      setQuestionDialogOpen(true);
+                    }}
                   >
-                    <Trash2 className="h-4 w-4" />
-                    Delete Dimension
+                    <Plus className="h-4 w-4" />
+                    Add Question
                   </Button>
                 </div>
-              )}
-            </AccordionContent>
-          </AccordionItem>
-        ))}
 
-        {dimensions.length === 0 && (
-          <Card className="border-dashed">
-            <CardContent className="py-12 text-center">
-              <Layers className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-              <p className="text-lg font-medium text-muted-foreground">No dimensions yet</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Add dimensions to organize your {isItemBased ? "evaluation criteria" : "assessment questions"}
-              </p>
-              <Button
-                onClick={() => setDimensionDialogOpen(true)}
-                variant="outline"
-                className="mt-4 gap-2"
-              >
-                <Plus className="h-4 w-4" />
-                Add First Dimension
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-      </Accordion>
+                {dimension.id && (
+                  <div className="flex justify-end mt-4 pt-4 border-t">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive hover:text-destructive gap-2"
+                      onClick={() => dimension.id && handleDeleteDimension(dimension.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Delete Dimension
+                    </Button>
+                  </div>
+                )}
+              </AccordionContent>
+            </AccordionItem>
+          ))}
+
+          {dimensions.length === 0 && (
+            <Card className="border-dashed">
+              <CardContent className="py-12 text-center">
+                <Layers className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+                <p className="text-lg font-medium text-muted-foreground">No dimensions yet</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Add dimensions to organize your assessment questions
+                </p>
+                <Button
+                  onClick={() => setDimensionDialogOpen(true)}
+                  variant="outline"
+                  className="mt-4 gap-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add First Dimension
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </Accordion>
+      )}
 
       {/* Add Dimension Dialog */}
       <Dialog open={dimensionDialogOpen} onOpenChange={setDimensionDialogOpen}>
-        <DialogContent>
+        <DialogContent className={isItemBased ? "max-w-2xl max-h-[90vh] overflow-y-auto" : ""}>
           <DialogHeader>
-            <DialogTitle>Add Dimension</DialogTitle>
+            <DialogTitle>{isItemBased ? "Add Evaluation Dimension" : "Add Dimension"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Dimension Name</Label>
               <Input
-                placeholder="e.g., Technology Infrastructure"
+                placeholder={isItemBased ? "e.g., Business Value, Implementation Effort" : "e.g., Technology Infrastructure"}
                 value={newDimension.name}
                 onChange={(e) => setNewDimension({ ...newDimension, name: e.target.value })}
               />
@@ -670,6 +856,44 @@ export function AssessmentBuilder({ templateId, templateName, assessmentType = "
                 <span className="text-sm font-medium w-12">{newDimension.weight}x</span>
               </div>
             </div>
+
+            {/* Scale config for item-based assessments */}
+            {isItemBased && (
+              <div className="space-y-4 p-4 rounded-lg border bg-muted/30">
+                <Label className="text-base font-medium">Rating Scale</Label>
+                <p className="text-sm text-muted-foreground">
+                  Configure the scale respondents will use to rate each {typeInfo?.itemLabel?.toLowerCase() || "item"} on this dimension.
+                </p>
+                <div className="space-y-3">
+                  {Array.from(
+                    { length: dimensionScaleConfig.max - dimensionScaleConfig.min + 1 },
+                    (_, i) => dimensionScaleConfig.min + i
+                  ).map((level) => (
+                    <div key={level} className="grid grid-cols-12 gap-2 items-start">
+                      <div className="col-span-1 flex items-center justify-center h-9 rounded bg-primary/10 text-primary font-medium">
+                        {level}
+                      </div>
+                      <div className="col-span-3">
+                        <Input
+                          placeholder="Label"
+                          value={dimensionScaleConfig.labels?.[level] || ""}
+                          onChange={(e) => updateDimensionScaleLabel(level, e.target.value)}
+                          className="h-9"
+                        />
+                      </div>
+                      <div className="col-span-8">
+                        <Input
+                          placeholder="Description for this level..."
+                          value={dimensionScaleConfig.descriptions?.[level] || ""}
+                          onChange={(e) => updateDimensionScaleDescription(level, e.target.value)}
+                          className="h-9"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDimensionDialogOpen(false)}>
@@ -719,164 +943,166 @@ export function AssessmentBuilder({ templateId, templateName, assessmentType = "
         </Dialog>
       )}
 
-      {/* Add Question Dialog */}
-      <Dialog open={questionDialogOpen} onOpenChange={setQuestionDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Add {isItemBased ? "Evaluation Criterion" : "Question"}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>{isItemBased ? "Criterion" : "Question"} Text</Label>
-              <Textarea
-                placeholder={isItemBased ? "e.g., Business value potential" : "Enter your question..."}
-                value={newQuestion.question_text}
-                onChange={(e) =>
-                  setNewQuestion({ ...newQuestion, question_text: e.target.value })
-                }
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
+      {/* Add Question Dialog (standard only) */}
+      {!isItemBased && (
+        <Dialog open={questionDialogOpen} onOpenChange={setQuestionDialogOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Add Question</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label>Response Type</Label>
-                <Select
-                  value={newQuestion.question_type}
-                  onValueChange={(value: Question["question_type"]) =>
-                    setNewQuestion({ ...newQuestion, question_type: value })
+                <Label>Question Text</Label>
+                <Textarea
+                  placeholder="Enter your question..."
+                  value={newQuestion.question_text}
+                  onChange={(e) =>
+                    setNewQuestion({ ...newQuestion, question_text: e.target.value })
                   }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="likert">Likert Scale (1-5)</SelectItem>
-                    <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
-                    <SelectItem value="text">Free Text</SelectItem>
-                    <SelectItem value="numeric">Numeric Value</SelectItem>
-                  </SelectContent>
-                </Select>
+                />
               </div>
-              <div className="space-y-2">
-                <Label>Weight</Label>
-                <div className="flex items-center gap-4">
-                  <Slider
-                    value={[newQuestion.weight]}
-                    onValueChange={([value]) =>
-                      setNewQuestion({ ...newQuestion, weight: value })
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Response Type</Label>
+                  <Select
+                    value={newQuestion.question_type}
+                    onValueChange={(value: Question["question_type"]) =>
+                      setNewQuestion({ ...newQuestion, question_type: value })
                     }
-                    min={0.5}
-                    max={3}
-                    step={0.25}
-                    className="flex-1"
-                  />
-                  <span className="text-sm font-medium w-12">{newQuestion.weight}x</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Likert Scale Configuration */}
-            {newQuestion.question_type === "likert" && (
-              <div className="space-y-4 p-4 rounded-lg border bg-muted/30">
-                <div className="flex items-center justify-between">
-                  <Label className="text-base font-medium">Scale Configuration</Label>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="gap-2"
-                    onClick={() => setScaleDialogOpen(true)}
                   >
-                    <Settings2 className="h-4 w-4" />
-                    Advanced
-                  </Button>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="likert">Likert Scale (1-5)</SelectItem>
+                      <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
+                      <SelectItem value="text">Free Text</SelectItem>
+                      <SelectItem value="numeric">Numeric Value</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-                <div className="space-y-3">
-                  {Array.from(
-                    { length: newQuestion.scale_config!.max - newQuestion.scale_config!.min + 1 },
-                    (_, i) => newQuestion.scale_config!.min + i
-                  ).map((level) => (
-                    <div key={level} className="grid grid-cols-12 gap-2 items-start">
-                      <div className="col-span-1 flex items-center justify-center h-9 rounded bg-primary/10 text-primary font-medium">
-                        {level}
-                      </div>
-                      <div className="col-span-3">
-                        <Input
-                          placeholder="Label"
-                          value={newQuestion.scale_config!.labels?.[level] || ""}
-                          onChange={(e) => updateScaleLabel(level, e.target.value)}
-                          className="h-9"
-                        />
-                      </div>
-                      <div className="col-span-8">
-                        <Input
-                          placeholder="Description for this level..."
-                          value={newQuestion.scale_config!.descriptions?.[level] || ""}
-                          onChange={(e) => updateScaleDescription(level, e.target.value)}
-                          className="h-9"
-                        />
-                      </div>
-                    </div>
-                  ))}
+                <div className="space-y-2">
+                  <Label>Weight</Label>
+                  <div className="flex items-center gap-4">
+                    <Slider
+                      value={[newQuestion.weight]}
+                      onValueChange={([value]) =>
+                        setNewQuestion({ ...newQuestion, weight: value })
+                      }
+                      min={0.5}
+                      max={3}
+                      step={0.25}
+                      className="flex-1"
+                    />
+                    <span className="text-sm font-medium w-12">{newQuestion.weight}x</span>
+                  </div>
                 </div>
               </div>
-            )}
 
-            {/* Multiple Choice Options */}
-            {newQuestion.question_type === "multiple_choice" && (
-              <div className="space-y-3 p-4 rounded-lg border bg-muted/30">
-                <Label className="text-base font-medium">Answer Options</Label>
-                {(newQuestion.options || [""]).map((option, index) => (
-                  <div key={index} className="flex gap-2">
-                    <Input
-                      placeholder={`Option ${index + 1}`}
-                      value={option}
-                      onChange={(e) => {
-                        const newOptions = [...(newQuestion.options || [])];
-                        newOptions[index] = e.target.value;
-                        setNewQuestion({ ...newQuestion, options: newOptions });
-                      }}
-                    />
+              {/* Likert Scale Configuration */}
+              {newQuestion.question_type === "likert" && (
+                <div className="space-y-4 p-4 rounded-lg border bg-muted/30">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-base font-medium">Scale Configuration</Label>
                     <Button
                       variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        const newOptions = (newQuestion.options || []).filter(
-                          (_, i) => i !== index
-                        );
-                        setNewQuestion({ ...newQuestion, options: newOptions });
-                      }}
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => setScaleDialogOpen(true)}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Settings2 className="h-4 w-4" />
+                      Advanced
                     </Button>
                   </div>
-                ))}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setNewQuestion({
-                      ...newQuestion,
-                      options: [...(newQuestion.options || []), ""],
-                    });
-                  }}
-                  className="gap-2"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add Option
-                </Button>
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setQuestionDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleAddQuestion} disabled={!newQuestion.question_text}>
-              Add {isItemBased ? "Criterion" : "Question"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+                  <div className="space-y-3">
+                    {Array.from(
+                      { length: newQuestion.scale_config!.max - newQuestion.scale_config!.min + 1 },
+                      (_, i) => newQuestion.scale_config!.min + i
+                    ).map((level) => (
+                      <div key={level} className="grid grid-cols-12 gap-2 items-start">
+                        <div className="col-span-1 flex items-center justify-center h-9 rounded bg-primary/10 text-primary font-medium">
+                          {level}
+                        </div>
+                        <div className="col-span-3">
+                          <Input
+                            placeholder="Label"
+                            value={newQuestion.scale_config!.labels?.[level] || ""}
+                            onChange={(e) => updateScaleLabel(level, e.target.value)}
+                            className="h-9"
+                          />
+                        </div>
+                        <div className="col-span-8">
+                          <Input
+                            placeholder="Description for this level..."
+                            value={newQuestion.scale_config!.descriptions?.[level] || ""}
+                            onChange={(e) => updateScaleDescription(level, e.target.value)}
+                            className="h-9"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Multiple Choice Options */}
+              {newQuestion.question_type === "multiple_choice" && (
+                <div className="space-y-3 p-4 rounded-lg border bg-muted/30">
+                  <Label className="text-base font-medium">Answer Options</Label>
+                  {(newQuestion.options || [""]).map((option, index) => (
+                    <div key={index} className="flex gap-2">
+                      <Input
+                        placeholder={`Option ${index + 1}`}
+                        value={option}
+                        onChange={(e) => {
+                          const newOptions = [...(newQuestion.options || [])];
+                          newOptions[index] = e.target.value;
+                          setNewQuestion({ ...newQuestion, options: newOptions });
+                        }}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          const newOptions = (newQuestion.options || []).filter(
+                            (_, i) => i !== index
+                          );
+                          setNewQuestion({ ...newQuestion, options: newOptions });
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setNewQuestion({
+                        ...newQuestion,
+                        options: [...(newQuestion.options || []), ""],
+                      });
+                    }}
+                    className="gap-2"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add Option
+                  </Button>
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setQuestionDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleAddQuestion} disabled={!newQuestion.question_text}>
+                Add Question
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Import Items Dialog */}
       {isItemBased && (
