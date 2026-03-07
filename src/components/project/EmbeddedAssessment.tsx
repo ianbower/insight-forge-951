@@ -95,7 +95,7 @@ export function EmbeddedAssessment({ projectId, stepId, compact = false, display
           status,
           created_at,
           assessment_template_id,
-          assessment_template:assessment_templates(id, name, category)
+          assessment_template:assessment_templates(id, name, category, assessment_type)
         )
       `)
       .eq("project_id", projectId)
