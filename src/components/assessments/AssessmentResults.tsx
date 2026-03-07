@@ -998,6 +998,7 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
                   storageKey={`matrix-${instanceId}-${matrixXAxis}-${matrixYAxis}`}
                   compact
                   initialData={{ items: matrixItems, axisLabels: matrixAxisLabels }}
+                  bubbleMode={!!(matrixXAxis && matrixYAxis && matrixXAxis !== matrixYAxis)}
                 />
               </CardContent>
             </Card>
