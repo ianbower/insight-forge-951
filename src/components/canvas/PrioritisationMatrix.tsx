@@ -470,8 +470,9 @@ export function PrioritisationMatrix({ projectId, toolId, initialData, onSave, d
           <div className="ml-6">
             {/* Axis markers */}
             <div className="flex justify-between text-xs text-muted-foreground mb-1 px-1">
-              <span>High Effort</span>
-              <span>Low Effort</span>
+              <span>{bubbleMode ? `Low ${axisLabels.xLabel}` : "High Effort"}</span>
+              <span className="font-medium text-foreground/60">{axisLabels.xLabel}</span>
+              <span>{bubbleMode ? `High ${axisLabels.xLabel}` : "Low Effort"}</span>
             </div>
 
             {/* Matrix area */}
