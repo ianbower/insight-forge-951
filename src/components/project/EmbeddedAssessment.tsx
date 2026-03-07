@@ -670,6 +670,7 @@ export function EmbeddedAssessment({ projectId, stepId, compact = false, display
             <AssessmentBuilder
               templateId={selectedTemplate.id}
               templateName={selectedTemplate.name}
+              assessmentType={selectedTemplate.assessment_type || "standard"}
               onClose={() => {
                 setBuilderDialogOpen(false);
                 setSelectedTemplate(null);
