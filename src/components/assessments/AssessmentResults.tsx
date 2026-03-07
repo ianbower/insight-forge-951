@@ -343,7 +343,7 @@ export function AssessmentResults({ instanceId, instanceName, onClose, embedded 
         dimensionScores: dimensionScoresMap,
         weightedComposite,
       };
-    });
+    }).filter((item) => item.weightedComposite > 0);
   }, [filteredResponses, assessmentItems, questions, dimensions, isItemBased]);
 
   // Overall score (works for both types)
