@@ -71,7 +71,7 @@ export default function AssessmentRespond() {
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [currentDimensionIndex, setCurrentDimensionIndex] = useState(0);
   const [currentItemIndex, setCurrentItemIndex] = useState(0);
-  const notesTimers = useRef<Record<string, NodeJS.Timeout>>({});
+  const notesTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const isItemBased = ["use_case", "comparative", "process"].includes(assessmentType);
 

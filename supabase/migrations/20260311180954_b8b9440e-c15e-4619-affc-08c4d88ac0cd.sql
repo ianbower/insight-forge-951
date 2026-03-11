@@ -1,0 +1,1 @@
+UPDATE public.llm_config SET model = 'gpt-4o' WHERE id = '604add87-8a39-4f0a-b429-0d05278edfb1';
