@@ -29,6 +29,9 @@ async function callLLM(config: LLMConfig, messages: any[], stream = false): Prom
     if (!key) throw new Error("LOVABLE_API_KEY not configured");
     headers["Authorization"] = `Bearer ${key}`;
     if (config.model) body.model = config.model;
+  } else if (config.provider === "axet") {
+    // Axet requires a model field — use configured model or a default
+    body.model = config.model || "default";
   } else if (config.provider === "custom" && config.api_key_secret_name) {
     const key = Deno.env.get(config.api_key_secret_name);
     if (key) headers["Authorization"] = `Bearer ${key}`;
