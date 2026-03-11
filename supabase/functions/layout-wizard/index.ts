@@ -17,7 +17,7 @@ async function callLLM(config: LLMConfig, messages: any[], stream = false): Prom
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   const body: any = { messages, stream };
   if (config.provider === "lovable_ai") { const key = Deno.env.get("LOVABLE_API_KEY"); if (!key) throw new Error("LOVABLE_API_KEY not configured"); headers["Authorization"] = `Bearer ${key}`; if (config.model) body.model = config.model; }
-  else if (config.provider === "axet") { body.model = config.model || "default"; }
+  else if (config.provider === "axet") { body.model = config.model || "gpt-4o"; }
   else if (config.provider === "custom" && config.api_key_secret_name) { const key = Deno.env.get(config.api_key_secret_name); if (key) headers["Authorization"] = `Bearer ${key}`; if (config.model) body.model = config.model; }
   return fetch(config.endpoint_url, { method: "POST", headers, body: JSON.stringify(body) });
 }
