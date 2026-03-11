@@ -244,6 +244,18 @@ export function LLMSettings() {
                   </div>
                 )}
 
+                {config.provider === "axet" && (
+                  <div className="grid gap-1.5">
+                    <Label className="text-xs">Model (optional)</Label>
+                    <Input
+                      value={config.model || ""}
+                      onChange={(e) => updateConfig(config.id, { model: e.target.value || null })}
+                      placeholder="e.g. default"
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                )}
+
                 {config.provider === "custom" && (
                   <>
                     <div className="grid gap-1.5">
