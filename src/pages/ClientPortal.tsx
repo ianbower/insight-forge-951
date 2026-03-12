@@ -114,7 +114,7 @@ export default function ClientPortal() {
     if (feedbackRating === 0) { toast.error("Please select a rating"); return; }
     setFeedbackSubmitting(true);
     try {
-      const { error } = await supabase.from("client_feedback" as any).insert({ client_id: data.clientId!, portal_token_id: data.tokenId!, rating: feedbackRating, comment: feedbackComment || null, category: "general" });
+      const { error } = await supabase.from("client_feedback").insert({ client_id: data.clientId!, portal_token_id: data.tokenId!, rating: feedbackRating, comment: feedbackComment || null, category: "general" });
       if (error) throw error;
       setFeedbackSubmitted(true); toast.success("Thank you for your feedback!");
     } catch { toast.error("Failed to submit feedback"); } finally { setFeedbackSubmitting(false); }
