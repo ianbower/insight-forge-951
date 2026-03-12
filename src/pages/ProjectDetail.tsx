@@ -15,9 +15,15 @@ import {
   UserPlus,
   DollarSign,
   Package,
-  ClipboardCheck
+  ClipboardCheck,
+  Globe,
+  Copy,
+  Link2,
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { toast as sonnerToast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -98,6 +104,96 @@ interface TeamAssignment {
 }
 
 const COLORS = ["hsl(var(--success))", "hsl(var(--warning))", "hsl(var(--muted))"];
+
+function ClientPortalButton({ clientId }: { clientId: string }) {
+  const [loading, setLoading] = useState(false);
+  const [portalUrl, setPortalUrl] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+
+  const generateOrFetchLink = async () => {
+    setLoading(true);
+    try {
+      // Check for existing active token
+      const { data: existing } = await supabase
+        .from("client_portal_tokens")
+        .select("token")
+        .eq("client_id", clientId)
+        .eq("is_active", true)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existing) {
+        const url = `${window.location.origin}/portal/${existing.token}`;
+        setPortalUrl(url);
+      } else {
+        // Create new token
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const { data: newToken, error } = await supabase
+          .from("client_portal_tokens")
+          .insert({ client_id: clientId, created_by: user.id })
+          .select("token")
+          .single();
+        if (error) throw error;
+        const url = `${window.location.origin}/portal/${newToken.token}`;
+        setPortalUrl(url);
+      }
+    } catch {
+      sonnerToast.error("Failed to generate portal link");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const copyLink = () => {
+    if (portalUrl) {
+      navigator.clipboard.writeText(portalUrl);
+      sonnerToast.success("Portal link copied to clipboard");
+    }
+  };
+
+  return (
+    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (o && !portalUrl) generateOrFetchLink(); }}>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm" className="gap-2">
+          <Globe className="h-4 w-4" />
+          Client Portal
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80" align="end">
+        <div className="space-y-3">
+          <div>
+            <h4 className="text-sm font-medium">Client Portal Link</h4>
+            <p className="text-xs text-muted-foreground mt-1">Share this link with your client for real-time project visibility.</p>
+          </div>
+          {loading ? (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : portalUrl ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 p-2 rounded-md bg-muted text-xs font-mono break-all">
+                <Link2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span className="flex-1 truncate">{portalUrl}</span>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" className="flex-1 gap-1.5" onClick={copyLink}>
+                  <Copy className="h-3.5 w-3.5" />
+                  Copy Link
+                </Button>
+                <Button size="sm" variant="outline" className="gap-1.5" onClick={() => window.open(portalUrl, '_blank')}>
+                  <Globe className="h-3.5 w-3.5" />
+                  Preview
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 export default function ProjectDetail() {
   const { projectId } = useParams();
@@ -574,6 +670,9 @@ export default function ProjectDetail() {
 
         {/* View Mode Toggle & Outputs */}
         <div className="flex items-center gap-2">
+          {client && (
+            <ClientPortalButton clientId={project.client_id!} />
+          )}
           <Button
             variant="outline"
             size="sm"
