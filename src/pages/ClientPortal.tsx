@@ -48,14 +48,14 @@ export default function ClientPortal() {
     if (!token) return;
     const fetchPortalData = async () => {
       try {
-        const { data: tokenData, error: tokenError } = await supabase.from("client_portal_tokens" as any).select("id, client_id, is_active, expires_at, created_by").eq("token", token).eq("is_active", true).single();
+        const { data: tokenData, error: tokenError } = await supabase.from("client_portal_tokens").select("id, client_id, is_active, expires_at, created_by").eq("token", token).eq("is_active", true).single();
         if (tokenError || !tokenData) { setError("Invalid or expired portal link."); setLoading(false); return; }
-        if ((tokenData as any).expires_at && new Date((tokenData as any).expires_at) < new Date()) { setError("This portal link has expired."); setLoading(false); return; }
+        if (tokenData.expires_at && new Date(tokenData.expires_at) < new Date()) { setError("This portal link has expired."); setLoading(false); return; }
 
-        const { data: client } = await supabase.from("clients").select("name, industry").eq("id", (tokenData as any).client_id).single();
+        const { data: client } = await supabase.from("clients").select("name, industry").eq("id", tokenData.client_id).single();
         if (!client) { setError("Client not found."); setLoading(false); return; }
 
-        const { data: projects } = await supabase.from("projects").select("id, name, status, description, progress_percentage, start_date, end_date, budget_amount, currency").eq("client_id", (tokenData as any).client_id).neq("status", "Cancelled").order("created_at", { ascending: false });
+        const { data: projects } = await supabase.from("projects").select("id, name, status, description, progress_percentage, start_date, end_date, budget_amount, currency").eq("client_id", tokenData.client_id).neq("status", "Cancelled").order("created_at", { ascending: false });
         const projectIds = (projects || []).map(p => p.id);
 
         let milestones: any[] = [], deliverables: any[] = [], assessmentInstances: any[] = [];
@@ -71,7 +71,7 @@ export default function ClientPortal() {
         setData({
           client,
           projects: (projects || []).map(p => ({ ...p, milestones: milestones.filter(m => m.project_id === p.id), deliverables: deliverables.filter(d => d.project_id === p.id), documents: [], assessments: assessmentInstances.filter(a => a.project_id === p.id) })),
-          tokenId: (tokenData as any).id, clientId: (tokenData as any).client_id,
+          tokenId: tokenData.id, clientId: tokenData.client_id,
         });
         if (projects && projects.length > 0) setActiveProject(projects[0].id);
       } catch { setError("Something went wrong loading the portal."); } finally { setLoading(false); }
@@ -114,7 +114,7 @@ export default function ClientPortal() {
     if (feedbackRating === 0) { toast.error("Please select a rating"); return; }
     setFeedbackSubmitting(true);
     try {
-      const { error } = await supabase.from("client_feedback" as any).insert({ client_id: data.clientId!, portal_token_id: data.tokenId!, rating: feedbackRating, comment: feedbackComment || null, category: "general" });
+      const { error } = await supabase.from("client_feedback").insert({ client_id: data.clientId!, portal_token_id: data.tokenId!, rating: feedbackRating, comment: feedbackComment || null, category: "general" });
       if (error) throw error;
       setFeedbackSubmitted(true); toast.success("Thank you for your feedback!");
     } catch { toast.error("Failed to submit feedback"); } finally { setFeedbackSubmitting(false); }
