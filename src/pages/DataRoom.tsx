@@ -44,7 +44,7 @@ export default function DataRoom() {
     queryFn: async () => {
       const { data, error } = await supabase.from("vault_folders" as any).select("*").order("name");
       if (error) throw error;
-      return data;
+      return (data || []) as any[];
     },
     enabled: !!user,
   });
