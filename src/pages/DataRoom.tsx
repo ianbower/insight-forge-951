@@ -122,7 +122,7 @@ export default function DataRoom() {
   return (
     <div className="flex gap-0 h-[calc(100vh-4rem)]">
       <div className="w-60 shrink-0 border-r border-border bg-muted/30 p-3 overflow-y-auto">
-        <FolderTree folders={folders} selectedFolderId={selectedFolderId} onSelectFolder={setSelectedFolderId} onCreateFolder={handleCreateFolder} onRenameFolder={handleRenameFolder} onDeleteFolder={handleDeleteFolder} totalDocCount={allDocsCount} />
+        <FolderTree folders={folders as any} selectedFolderId={selectedFolderId} onSelectFolder={setSelectedFolderId} onCreateFolder={handleCreateFolder} onRenameFolder={handleRenameFolder} onDeleteFolder={handleDeleteFolder} totalDocCount={allDocsCount} />
       </div>
 
       <div className="flex-1 overflow-y-auto p-6 space-y-5">
