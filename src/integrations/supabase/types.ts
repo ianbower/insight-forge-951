@@ -615,6 +615,99 @@ export type Database = {
           },
         ]
       }
+      client_feedback: {
+        Row: {
+          category: string
+          client_id: string
+          comment: string | null
+          created_at: string
+          id: string
+          portal_token_id: string | null
+          project_id: string | null
+          rating: number
+        }
+        Insert: {
+          category?: string
+          client_id: string
+          comment?: string | null
+          created_at?: string
+          id?: string
+          portal_token_id?: string | null
+          project_id?: string | null
+          rating: number
+        }
+        Update: {
+          category?: string
+          client_id?: string
+          comment?: string | null
+          created_at?: string
+          id?: string
+          portal_token_id?: string | null
+          project_id?: string | null
+          rating?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_feedback_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_feedback_portal_token_id_fkey"
+            columns: ["portal_token_id"]
+            isOneToOne: false
+            referencedRelation: "client_portal_tokens"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_feedback_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_portal_tokens: {
+        Row: {
+          client_id: string
+          created_at: string
+          created_by: string
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          token: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          created_by: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          token?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          created_by?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_portal_tokens_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           created_at: string
@@ -1561,6 +1654,120 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      vault_documents: {
+        Row: {
+          ai_summary: string | null
+          category: string
+          client_id: string | null
+          created_at: string
+          description: string | null
+          file_size: number
+          file_type: string
+          file_url: string
+          folder_id: string | null
+          id: string
+          name: string
+          project_id: string | null
+          tags: string[]
+          updated_at: string
+          uploaded_by: string
+        }
+        Insert: {
+          ai_summary?: string | null
+          category?: string
+          client_id?: string | null
+          created_at?: string
+          description?: string | null
+          file_size?: number
+          file_type?: string
+          file_url: string
+          folder_id?: string | null
+          id?: string
+          name: string
+          project_id?: string | null
+          tags?: string[]
+          updated_at?: string
+          uploaded_by: string
+        }
+        Update: {
+          ai_summary?: string | null
+          category?: string
+          client_id?: string | null
+          created_at?: string
+          description?: string | null
+          file_size?: number
+          file_type?: string
+          file_url?: string
+          folder_id?: string | null
+          id?: string
+          name?: string
+          project_id?: string | null
+          tags?: string[]
+          updated_at?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vault_documents_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vault_documents_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "vault_folders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vault_documents_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vault_folders: {
+        Row: {
+          created_at: string
+          created_by: string
+          folder_type: string
+          id: string
+          name: string
+          parent_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          folder_type?: string
+          id?: string
+          name: string
+          parent_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          folder_type?: string
+          id?: string
+          name?: string
+          parent_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vault_folders_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "vault_folders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

@@ -28,6 +28,11 @@ import AssessmentPreview from "@/pages/AssessmentPreview";
 import AssessmentTake from "@/pages/AssessmentTake";
 import ProfileSettings from "@/pages/ProfileSettings";
 import Documentation from "@/pages/Documentation";
+import DataRoom from "@/pages/DataRoom";
+import KnowledgeMining from "@/pages/KnowledgeMining";
+import SmartBenchmarking from "@/pages/SmartBenchmarking";
+import SkillGap from "@/pages/SkillGap";
+import ClientPortal from "@/pages/ClientPortal";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -46,10 +51,12 @@ const App = () => (
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/assess/:token" element={<AssessmentRespond />} />
                 <Route path="/assessments/preview/:templateId" element={<AssessmentPreview />} />
+                <Route path="/portal/:token" element={<ClientPortal />} />
                 
                 {/* Protected routes with layout */}
                 <Route path="/" element={<ProtectedRoute><AppLayout><Dashboard /></AppLayout></ProtectedRoute>} />
                 <Route path="/research" element={<ProtectedRoute><AppLayout><Research /></AppLayout></ProtectedRoute>} />
+                <Route path="/knowledge" element={<ProtectedRoute><AppLayout><KnowledgeMining /></AppLayout></ProtectedRoute>} />
                 <Route path="/projects" element={<ProtectedRoute><AppLayout><Projects /></AppLayout></ProtectedRoute>} />
                 <Route path="/projects/:projectId" element={<ProtectedRoute><AppLayout><ProjectDetail /></AppLayout></ProtectedRoute>} />
                 <Route path="/projects/:projectId/outputs" element={<ProtectedRoute><AppLayout><ProjectOutputs /></AppLayout></ProtectedRoute>} />
@@ -63,6 +70,9 @@ const App = () => (
                 <Route path="/team" element={<ProtectedRoute><AppLayout><Team /></AppLayout></ProtectedRoute>} />
                 <Route path="/assessments" element={<ProtectedRoute><AppLayout><Assessments /></AppLayout></ProtectedRoute>} />
                 <Route path="/assessments/take/:token" element={<ProtectedRoute><AppLayout><AssessmentTake /></AppLayout></ProtectedRoute>} />
+                <Route path="/data-room" element={<ProtectedRoute><AppLayout><DataRoom /></AppLayout></ProtectedRoute>} />
+                <Route path="/benchmarking" element={<ProtectedRoute><AppLayout><SmartBenchmarking /></AppLayout></ProtectedRoute>} />
+                <Route path="/skill-gap" element={<ProtectedRoute><AppLayout><SkillGap /></AppLayout></ProtectedRoute>} />
                 <Route path="/admin" element={<ProtectedRoute><AppLayout><Admin /></AppLayout></ProtectedRoute>} />
                 <Route path="/documentation" element={<ProtectedRoute><AppLayout><Documentation /></AppLayout></ProtectedRoute>} />
                 <Route path="/profile" element={<ProtectedRoute><ProfileSettings /></ProtectedRoute>} />
