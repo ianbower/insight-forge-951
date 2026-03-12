@@ -48,7 +48,7 @@ export default function ClientPortal() {
     if (!token) return;
     const fetchPortalData = async () => {
       try {
-        const { data: tokenData, error: tokenError } = await supabase.from("client_portal_tokens" as any).select("id, client_id, is_active, expires_at, created_by").eq("token", token).eq("is_active", true).single();
+        const { data: tokenData, error: tokenError } = await supabase.from("client_portal_tokens").select("id, client_id, is_active, expires_at, created_by").eq("token", token).eq("is_active", true).single();
         if (tokenError || !tokenData) { setError("Invalid or expired portal link."); setLoading(false); return; }
         if ((tokenData as any).expires_at && new Date((tokenData as any).expires_at) < new Date()) { setError("This portal link has expired."); setLoading(false); return; }
 
