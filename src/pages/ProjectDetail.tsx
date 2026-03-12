@@ -19,7 +19,8 @@ import {
   Globe,
   Copy,
   Link2,
-  Loader2
+  Loader2,
+  Settings
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
