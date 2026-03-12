@@ -55,7 +55,7 @@ export default function ClientPortal() {
         const { data: client } = await supabase.from("clients").select("name, industry").eq("id", tokenData.client_id).single();
         if (!client) { setError("Client not found."); setLoading(false); return; }
 
-        const { data: projects } = await supabase.from("projects").select("id, name, status, description, progress_percentage, start_date, end_date, budget_amount, currency").eq("client_id", (tokenData as any).client_id).neq("status", "Cancelled").order("created_at", { ascending: false });
+        const { data: projects } = await supabase.from("projects").select("id, name, status, description, progress_percentage, start_date, end_date, budget_amount, currency").eq("client_id", tokenData.client_id).neq("status", "Cancelled").order("created_at", { ascending: false });
         const projectIds = (projects || []).map(p => p.id);
 
         let milestones: any[] = [], deliverables: any[] = [], assessmentInstances: any[] = [];
