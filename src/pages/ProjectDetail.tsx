@@ -19,7 +19,8 @@ import {
   Globe,
   Copy,
   Link2,
-  Loader2
+  Loader2,
+  Settings
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -105,18 +106,51 @@ interface TeamAssignment {
 
 const COLORS = ["hsl(var(--success))", "hsl(var(--warning))", "hsl(var(--muted))"];
 
+interface PortalSettings {
+  showNttLogo: boolean;
+  showAxetLogo: boolean;
+  showClientLogo: boolean;
+  sections: {
+    milestones: boolean;
+    deliverables: boolean;
+    assessments: boolean;
+    budget: boolean;
+    ragStatus: boolean;
+    progress: boolean;
+    feedback: boolean;
+  };
+}
+
+const DEFAULT_SETTINGS: PortalSettings = {
+  showNttLogo: true,
+  showAxetLogo: true,
+  showClientLogo: true,
+  sections: {
+    milestones: true,
+    deliverables: true,
+    assessments: true,
+    budget: false,
+    ragStatus: true,
+    progress: true,
+    feedback: true,
+  },
+};
+
 function ClientPortalButton({ clientId }: { clientId: string }) {
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [portalUrl, setPortalUrl] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  const [tokenId, setTokenId] = useState<string | null>(null);
+  const [settings, setSettings] = useState<PortalSettings>(DEFAULT_SETTINGS);
+  const [showConfig, setShowConfig] = useState(false);
 
   const generateOrFetchLink = async () => {
     setLoading(true);
     try {
-      // Check for existing active token
       const { data: existing } = await supabase
         .from("client_portal_tokens")
-        .select("token")
+        .select("token, id, settings")
         .eq("client_id", clientId)
         .eq("is_active", true)
         .order("created_at", { ascending: false })
@@ -124,25 +158,45 @@ function ClientPortalButton({ clientId }: { clientId: string }) {
         .maybeSingle();
 
       if (existing) {
-        const url = `${window.location.origin}/portal/${existing.token}`;
-        setPortalUrl(url);
+        setPortalUrl(`${window.location.origin}/portal/${existing.token}`);
+        setTokenId(existing.id);
+        if (existing.settings && typeof existing.settings === 'object') {
+          setSettings({ ...DEFAULT_SETTINGS, ...(existing.settings as any) });
+        }
       } else {
-        // Create new token
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
         const { data: newToken, error } = await supabase
           .from("client_portal_tokens")
-          .insert({ client_id: clientId, created_by: user.id })
-          .select("token")
+          .insert({ client_id: clientId, created_by: user.id, settings: DEFAULT_SETTINGS as any })
+          .select("token, id")
           .single();
         if (error) throw error;
-        const url = `${window.location.origin}/portal/${newToken.token}`;
-        setPortalUrl(url);
+        setPortalUrl(`${window.location.origin}/portal/${newToken.token}`);
+        setTokenId(newToken.id);
       }
     } catch {
       sonnerToast.error("Failed to generate portal link");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const saveSettings = async () => {
+    if (!tokenId) return;
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("client_portal_tokens")
+        .update({ settings: settings as any })
+        .eq("id", tokenId);
+      if (error) throw error;
+      sonnerToast.success("Portal settings saved");
+      setShowConfig(false);
+    } catch {
+      sonnerToast.error("Failed to save settings");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -153,6 +207,10 @@ function ClientPortalButton({ clientId }: { clientId: string }) {
     }
   };
 
+  const toggleSection = (key: keyof PortalSettings['sections']) => {
+    setSettings(prev => ({ ...prev, sections: { ...prev.sections, [key]: !prev.sections[key] } }));
+  };
+
   return (
     <Popover open={open} onOpenChange={(o) => { setOpen(o); if (o && !portalUrl) generateOrFetchLink(); }}>
       <PopoverTrigger asChild>
@@ -161,17 +219,26 @@ function ClientPortalButton({ clientId }: { clientId: string }) {
           Client Portal
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80" align="end">
+      <PopoverContent className="w-96" align="end">
         <div className="space-y-3">
-          <div>
-            <h4 className="text-sm font-medium">Client Portal Link</h4>
-            <p className="text-xs text-muted-foreground mt-1">Share this link with your client for real-time project visibility.</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="text-sm font-medium">Client Portal</h4>
+              <p className="text-xs text-muted-foreground mt-0.5">Configure and share the client portal.</p>
+            </div>
+            {portalUrl && (
+              <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => setShowConfig(!showConfig)}>
+                <Settings className="h-3.5 w-3.5" />
+                {showConfig ? "Link" : "Configure"}
+              </Button>
+            )}
           </div>
+
           {loading ? (
             <div className="flex items-center justify-center py-4">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
-          ) : portalUrl ? (
+          ) : portalUrl && !showConfig ? (
             <div className="space-y-2">
               <div className="flex items-center gap-2 p-2 rounded-md bg-muted text-xs font-mono break-all">
                 <Link2 className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -187,6 +254,53 @@ function ClientPortalButton({ clientId }: { clientId: string }) {
                   Preview
                 </Button>
               </div>
+            </div>
+          ) : portalUrl && showConfig ? (
+            <div className="space-y-4">
+              {/* Logo Settings */}
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">Branding</p>
+                <div className="space-y-2">
+                  <label className="flex items-center justify-between cursor-pointer">
+                    <span className="text-sm">NTT DATA logo</span>
+                    <input type="checkbox" checked={settings.showNttLogo} onChange={() => setSettings(s => ({ ...s, showNttLogo: !s.showNttLogo }))} className="accent-primary h-4 w-4" />
+                  </label>
+                  <label className="flex items-center justify-between cursor-pointer">
+                    <span className="text-sm">aXet consult logo</span>
+                    <input type="checkbox" checked={settings.showAxetLogo} onChange={() => setSettings(s => ({ ...s, showAxetLogo: !s.showAxetLogo }))} className="accent-primary h-4 w-4" />
+                  </label>
+                  <label className="flex items-center justify-between cursor-pointer">
+                    <span className="text-sm">Client logo</span>
+                    <input type="checkbox" checked={settings.showClientLogo} onChange={() => setSettings(s => ({ ...s, showClientLogo: !s.showClientLogo }))} className="accent-primary h-4 w-4" />
+                  </label>
+                </div>
+              </div>
+
+              {/* Section Settings */}
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">Visible Sections</p>
+                <div className="space-y-2">
+                  {([
+                    ['progress', 'Progress Bar'],
+                    ['ragStatus', 'RAG Status'],
+                    ['milestones', 'Milestones'],
+                    ['deliverables', 'Deliverables'],
+                    ['assessments', 'Assessments'],
+                    ['budget', 'Budget'],
+                    ['feedback', 'Feedback Form'],
+                  ] as [keyof PortalSettings['sections'], string][]).map(([key, label]) => (
+                    <label key={key} className="flex items-center justify-between cursor-pointer">
+                      <span className="text-sm">{label}</span>
+                      <input type="checkbox" checked={settings.sections[key]} onChange={() => toggleSection(key)} className="accent-primary h-4 w-4" />
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <Button size="sm" className="w-full gap-1.5" onClick={saveSettings} disabled={saving}>
+                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                Save Settings
+              </Button>
             </div>
           ) : null}
         </div>
