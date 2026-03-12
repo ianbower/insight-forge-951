@@ -578,6 +578,9 @@ export default function ProjectDetail() {
 
         {/* View Mode Toggle & Outputs */}
         <div className="flex items-center gap-2">
+          {client && (
+            <ClientPortalButton clientId={project.client_id!} />
+          )}
           <Button
             variant="outline"
             size="sm"
