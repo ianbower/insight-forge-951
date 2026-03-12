@@ -71,7 +71,7 @@ export default function ClientPortal() {
         setData({
           client,
           projects: (projects || []).map(p => ({ ...p, milestones: milestones.filter(m => m.project_id === p.id), deliverables: deliverables.filter(d => d.project_id === p.id), documents: [], assessments: assessmentInstances.filter(a => a.project_id === p.id) })),
-          tokenId: (tokenData as any).id, clientId: (tokenData as any).client_id,
+          tokenId: tokenData.id, clientId: tokenData.client_id,
         });
         if (projects && projects.length > 0) setActiveProject(projects[0].id);
       } catch { setError("Something went wrong loading the portal."); } finally { setLoading(false); }
