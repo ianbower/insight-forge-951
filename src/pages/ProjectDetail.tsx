@@ -110,14 +110,20 @@ interface PortalSettings {
   showNttLogo: boolean;
   showAxetLogo: boolean;
   showClientLogo: boolean;
+  nttLogoUrl?: string;
+  clientLogoUrl?: string;
   sections: {
     milestones: boolean;
     deliverables: boolean;
     assessments: boolean;
+    assessmentDetails: boolean;
     budget: boolean;
     ragStatus: boolean;
     progress: boolean;
     feedback: boolean;
+    projectDetails: boolean;
+    teams: boolean;
+    risks: boolean;
   };
 }
 
@@ -129,10 +135,14 @@ const DEFAULT_SETTINGS: PortalSettings = {
     milestones: true,
     deliverables: true,
     assessments: true,
+    assessmentDetails: false,
     budget: false,
     ragStatus: true,
     progress: true,
     feedback: true,
+    projectDetails: true,
+    teams: false,
+    risks: false,
   },
 };
 

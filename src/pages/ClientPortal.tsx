@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Briefcase, Target, CheckCircle2, Clock, FileText, Building2, AlertTriangle,
-  Star, Send, BarChart3, Calendar, Shield, Activity, DollarSign
+  Star, Send, BarChart3, Calendar, Shield, Activity, DollarSign, Users, AlertCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, differenceInDays, isPast } from "date-fns";
@@ -19,14 +19,20 @@ interface PortalSettings {
   showNttLogo: boolean;
   showAxetLogo: boolean;
   showClientLogo: boolean;
+  nttLogoUrl?: string;
+  clientLogoUrl?: string;
   sections: {
     milestones: boolean;
     deliverables: boolean;
     assessments: boolean;
+    assessmentDetails: boolean;
     budget: boolean;
     ragStatus: boolean;
     progress: boolean;
     feedback: boolean;
+    projectDetails: boolean;
+    teams: boolean;
+    risks: boolean;
   };
 }
 
@@ -34,16 +40,30 @@ const DEFAULT_SETTINGS: PortalSettings = {
   showNttLogo: true,
   showAxetLogo: true,
   showClientLogo: true,
-  sections: { milestones: true, deliverables: true, assessments: true, budget: false, ragStatus: true, progress: true, feedback: true },
+  sections: {
+    milestones: true, deliverables: true, assessments: true, assessmentDetails: false,
+    budget: false, ragStatus: true, progress: true, feedback: true,
+    projectDetails: true, teams: false, risks: false,
+  },
 };
+
+interface PortalMilestone { id: string; title: string; status: string; target_date: string; description: string | null }
+interface PortalDeliverable { id: string; title: string; status: string; due_date: string | null; description: string | null }
+interface PortalAssessment { id: string; name: string; status: string; description: string | null; response_count?: number; question_count?: number }
+interface PortalTeamMember { id: string; name: string; role: string; role_in_project: string; avatar_url: string | null }
+interface PortalRisk { id: string; title: string; status: string; likelihood: string; impact: string; category: string }
+interface PortalIssue { id: string; title: string; status: string; priority: string; raised_date: string }
 
 interface PortalProject {
   id: string; name: string; status: string; description: string | null; progress_percentage: number | null;
   start_date: string | null; end_date: string | null; budget_amount: number | null; currency: string | null;
-  milestones: Array<{ id: string; title: string; status: string; target_date: string; description: string | null }>;
-  deliverables: Array<{ id: string; title: string; status: string; due_date: string | null; description: string | null }>;
+  milestones: PortalMilestone[];
+  deliverables: PortalDeliverable[];
   documents: Array<{ name: string; id: string; created_at: string; metadata: any }>;
-  assessments: Array<{ id: string; name: string; status: string; description: string | null }>;
+  assessments: PortalAssessment[];
+  team: PortalTeamMember[];
+  risks: PortalRisk[];
+  issues: PortalIssue[];
 }
 
 interface PortalData {
@@ -84,18 +104,96 @@ export default function ClientPortal() {
         const projectIds = (projects || []).map(p => p.id);
 
         let milestones: any[] = [], deliverables: any[] = [], assessmentInstances: any[] = [];
+        let teamAssignments: any[] = [], risks: any[] = [], issues: any[] = [];
+        let assessmentQuestionCounts: Record<string, number> = {};
+        let assessmentResponseCounts: Record<string, number> = {};
+
         if (projectIds.length > 0) {
-          const [milestonesRes, deliverablesRes, assessmentsRes] = await Promise.all([
+          const promises: Promise<any>[] = [
             supabase.from("project_milestones").select("id, title, status, target_date, description, project_id").in("project_id", projectIds).order("target_date"),
             supabase.from("project_deliverables").select("id, title, status, due_date, description, project_id").in("project_id", projectIds).order("order_index"),
-            supabase.from("assessment_instances").select("id, name, status, description, project_id").in("project_id", projectIds).neq("status", "draft"),
-          ]);
-          milestones = milestonesRes.data || []; deliverables = deliverablesRes.data || []; assessmentInstances = assessmentsRes.data || [];
+            supabase.from("assessment_instances").select("id, name, status, description, project_id, assessment_template_id").in("project_id", projectIds).neq("status", "draft"),
+          ];
+
+          if (portalSettings.sections.teams) {
+            promises.push(
+              supabase.from("project_team_assignments").select("id, project_id, role_in_project, team_member_id, team_members(id, name, role, avatar_url)").in("project_id", projectIds).eq("assignment_status", "active")
+            );
+          } else {
+            promises.push(Promise.resolve({ data: [] }));
+          }
+
+          if (portalSettings.sections.risks) {
+            promises.push(
+              supabase.from("project_risks").select("id, title, status, likelihood, impact, category, project_id").in("project_id", projectIds),
+              supabase.from("project_issues").select("id, title, status, priority, raised_date, project_id").in("project_id", projectIds)
+            );
+          } else {
+            promises.push(Promise.resolve({ data: [] }), Promise.resolve({ data: [] }));
+          }
+
+          const [milestonesRes, deliverablesRes, assessmentsRes, teamRes, risksRes, issuesRes] = await Promise.all(promises);
+          milestones = milestonesRes.data || [];
+          deliverables = deliverablesRes.data || [];
+          assessmentInstances = assessmentsRes.data || [];
+          teamAssignments = teamRes.data || [];
+          risks = risksRes.data || [];
+          issues = issuesRes.data || [];
+
+          // Fetch assessment details if enabled
+          if (portalSettings.sections.assessmentDetails && assessmentInstances.length > 0) {
+            const instanceIds = assessmentInstances.map((a: any) => a.id);
+            const templateIds = [...new Set(assessmentInstances.map((a: any) => a.assessment_template_id))];
+
+            const [questionsRes, responsesRes] = await Promise.all([
+              supabase.from("assessment_questions").select("id, assessment_template_id").in("assessment_template_id", templateIds),
+              supabase.from("assessment_responses").select("id, assessment_instance_id").in("assessment_instance_id", instanceIds),
+            ]);
+
+            const questions = questionsRes.data || [];
+            const responses = responsesRes.data || [];
+
+            // Map template question counts to instances
+            const templateQCounts: Record<string, number> = {};
+            questions.forEach((q: any) => {
+              templateQCounts[q.assessment_template_id] = (templateQCounts[q.assessment_template_id] || 0) + 1;
+            });
+            assessmentInstances.forEach((a: any) => {
+              assessmentQuestionCounts[a.id] = templateQCounts[a.assessment_template_id] || 0;
+            });
+
+            responses.forEach((r: any) => {
+              assessmentResponseCounts[r.assessment_instance_id] = (assessmentResponseCounts[r.assessment_instance_id] || 0) + 1;
+            });
+          }
         }
 
         setData({
           client,
-          projects: (projects || []).map(p => ({ ...p, milestones: milestones.filter(m => m.project_id === p.id), deliverables: deliverables.filter(d => d.project_id === p.id), documents: [], assessments: assessmentInstances.filter(a => a.project_id === p.id) })),
+          projects: (projects || []).map(p => ({
+            ...p,
+            milestones: milestones.filter((m: any) => m.project_id === p.id),
+            deliverables: deliverables.filter((d: any) => d.project_id === p.id),
+            documents: [],
+            assessments: assessmentInstances
+              .filter((a: any) => a.project_id === p.id)
+              .map((a: any) => ({
+                id: a.id, name: a.name, status: a.status, description: a.description,
+                question_count: assessmentQuestionCounts[a.id] || 0,
+                response_count: assessmentResponseCounts[a.id] || 0,
+              })),
+            team: teamAssignments
+              .filter((t: any) => t.project_id === p.id)
+              .map((t: any) => ({
+                id: t.team_member_id,
+                name: t.team_members?.name || "Unknown",
+                role: t.team_members?.role || "",
+                role_in_project: t.role_in_project,
+                avatar_url: t.team_members?.avatar_url || null,
+              })),
+            risks: risks.filter((r: any) => r.project_id === p.id),
+            issues: issues.filter((i: any) => i.project_id === p.id),
+          })),
           tokenId: tokenData.id, clientId: tokenData.client_id,
           settings: portalSettings,
         });
@@ -129,6 +227,15 @@ export default function ClientPortal() {
     return { status: "Green", color: "bg-emerald-500 text-white" };
   };
 
+  const getLikelihoodImpactColor = (value: string) => {
+    switch (value?.toLowerCase()) {
+      case "high": return "text-destructive";
+      case "medium": return "text-amber-500";
+      case "low": return "text-emerald-500";
+      default: return "text-muted-foreground";
+    }
+  };
+
   const activeCount = data.projects.filter(p => p.status === "Active").length;
   const totalMilestones = data.projects.reduce((acc, p) => acc + p.milestones.length, 0);
   const completedMilestones = data.projects.reduce((acc, p) => acc + p.milestones.filter(m => m.status === "completed").length, 0);
@@ -137,6 +244,9 @@ export default function ClientPortal() {
   const selectedProject = data.projects.find(p => p.id === activeProject);
   const milestoneProgress = totalMilestones > 0 ? Math.round((completedMilestones / totalMilestones) * 100) : 0;
   const deliverableProgress = totalDeliverables > 0 ? Math.round((completedDeliverables / totalDeliverables) * 100) : 0;
+
+  const nttLogoSrc = data.settings.nttLogoUrl || "/ntt-data-logo.png";
+  const clientLogoSrc = data.settings.clientLogoUrl || data.client.logo_url;
 
   const submitFeedback = async () => {
     if (feedbackRating === 0) { toast.error("Please select a rating"); return; }
@@ -150,9 +260,12 @@ export default function ClientPortal() {
 
   // Build visible tabs dynamically
   const visibleTabs: { value: string; label: string }[] = [{ value: "overview", label: "Overview" }];
+  if (s.projectDetails) visibleTabs.push({ value: "details", label: "Project Details" });
   if (s.milestones) visibleTabs.push({ value: "milestones", label: "Milestones" });
   if (s.deliverables) visibleTabs.push({ value: "deliverables", label: "Deliverables" });
   if (s.assessments) visibleTabs.push({ value: "assessments", label: "Assessments" });
+  if (s.teams) visibleTabs.push({ value: "team", label: "Team" });
+  if (s.risks) visibleTabs.push({ value: "risks", label: "Risks & Issues" });
   if (s.budget) visibleTabs.push({ value: "budget", label: "Budget" });
   if (s.feedback) visibleTabs.push({ value: "feedback", label: "Feedback" });
 
@@ -163,18 +276,18 @@ export default function ClientPortal() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
             {data.settings.showNttLogo && (
-              <img alt="NTT DATA" className="h-7" src="/ntt-data-logo.png" />
+              <img alt="NTT DATA" className="h-7 object-contain" src={nttLogoSrc} />
             )}
             {data.settings.showAxetLogo && (
-              <img alt="aXet consult" className="h-7" src="/lovable-uploads/3719f63a-7253-4d1d-9213-327c9940cd39.png" />
+              <img alt="aXet consult" className="h-7 object-contain" src="/lovable-uploads/3719f63a-7253-4d1d-9213-327c9940cd39.png" />
             )}
-            {data.settings.showNttLogo && data.settings.showAxetLogo && (
+            {(data.settings.showNttLogo || data.settings.showAxetLogo) && (
               <div className="h-6 w-px bg-border" />
             )}
           </div>
           <div className="flex items-center gap-3 text-sm">
-            {data.settings.showClientLogo && data.client.logo_url && (
-              <img alt={data.client.name} className="h-7 rounded" src={data.client.logo_url} />
+            {data.settings.showClientLogo && clientLogoSrc && (
+              <img alt={data.client.name} className="h-7 rounded object-contain" src={clientLogoSrc} />
             )}
             <div className="flex items-center gap-2">
               <Building2 className="h-4 w-4 text-primary" />
@@ -240,7 +353,7 @@ export default function ClientPortal() {
             </CardHeader>
             <CardContent>
               <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList>
+                <TabsList className="flex-wrap">
                   {visibleTabs.map(tab => (
                     <TabsTrigger key={tab.value} value={tab.value}>{tab.label}</TabsTrigger>
                   ))}
@@ -258,11 +371,60 @@ export default function ClientPortal() {
                     {s.assessments && (
                       <Card><CardContent className="p-4 text-center"><BarChart3 className="h-6 w-6 mx-auto text-primary mb-2" /><p className="text-2xl font-bold">{selectedProject.assessments.length}</p><p className="text-xs text-muted-foreground">Assessments</p></CardContent></Card>
                     )}
+                    {s.teams && (
+                      <Card><CardContent className="p-4 text-center"><Users className="h-6 w-6 mx-auto text-primary mb-2" /><p className="text-2xl font-bold">{selectedProject.team.length}</p><p className="text-xs text-muted-foreground">Team Members</p></CardContent></Card>
+                    )}
+                    {s.risks && (
+                      <Card><CardContent className="p-4 text-center"><AlertCircle className="h-6 w-6 mx-auto text-primary mb-2" /><p className="text-2xl font-bold">{selectedProject.risks.filter(r => r.status === "Open").length}</p><p className="text-xs text-muted-foreground">Open Risks</p></CardContent></Card>
+                    )}
                     {s.budget && selectedProject.budget_amount && (
                       <Card><CardContent className="p-4 text-center"><DollarSign className="h-6 w-6 mx-auto text-primary mb-2" /><p className="text-2xl font-bold">{selectedProject.currency || '$'}{selectedProject.budget_amount.toLocaleString()}</p><p className="text-xs text-muted-foreground">Budget</p></CardContent></Card>
                     )}
                   </div>
                 </TabsContent>
+
+                {/* Project Details Tab */}
+                {s.projectDetails && (
+                  <TabsContent value="details" className="space-y-4 mt-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <Card>
+                        <CardHeader className="pb-2"><CardTitle className="text-sm">Project Information</CardTitle></CardHeader>
+                        <CardContent className="space-y-3">
+                          <div><span className="text-xs text-muted-foreground">Status</span><p className="text-sm font-medium">{selectedProject.status}</p></div>
+                          {selectedProject.description && <div><span className="text-xs text-muted-foreground">Description</span><p className="text-sm">{selectedProject.description}</p></div>}
+                          {selectedProject.start_date && <div><span className="text-xs text-muted-foreground">Start Date</span><p className="text-sm">{format(new Date(selectedProject.start_date), "MMMM dd, yyyy")}</p></div>}
+                          {selectedProject.end_date && <div><span className="text-xs text-muted-foreground">End Date</span><p className="text-sm">{format(new Date(selectedProject.end_date), "MMMM dd, yyyy")}</p></div>}
+                          {selectedProject.start_date && selectedProject.end_date && (
+                            <div><span className="text-xs text-muted-foreground">Duration</span><p className="text-sm">{differenceInDays(new Date(selectedProject.end_date), new Date(selectedProject.start_date))} days</p></div>
+                          )}
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardHeader className="pb-2"><CardTitle className="text-sm">Progress Summary</CardTitle></CardHeader>
+                        <CardContent className="space-y-4">
+                          {s.progress && selectedProject.progress_percentage !== null && (
+                            <div>
+                              <div className="flex justify-between text-xs mb-1"><span className="text-muted-foreground">Overall Progress</span><span className="font-medium">{selectedProject.progress_percentage}%</span></div>
+                              <Progress value={selectedProject.progress_percentage} className="h-2" />
+                            </div>
+                          )}
+                          {s.milestones && (
+                            <div>
+                              <div className="flex justify-between text-xs mb-1"><span className="text-muted-foreground">Milestones</span><span className="font-medium">{selectedProject.milestones.filter(m => m.status === "completed").length}/{selectedProject.milestones.length}</span></div>
+                              <Progress value={selectedProject.milestones.length > 0 ? (selectedProject.milestones.filter(m => m.status === "completed").length / selectedProject.milestones.length) * 100 : 0} className="h-2" />
+                            </div>
+                          )}
+                          {s.deliverables && (
+                            <div>
+                              <div className="flex justify-between text-xs mb-1"><span className="text-muted-foreground">Deliverables</span><span className="font-medium">{selectedProject.deliverables.filter(d => d.status === "delivered" || d.status === "approved").length}/{selectedProject.deliverables.length}</span></div>
+                              <Progress value={selectedProject.deliverables.length > 0 ? (selectedProject.deliverables.filter(d => d.status === "delivered" || d.status === "approved").length / selectedProject.deliverables.length) * 100 : 0} className="h-2" />
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </TabsContent>
+                )}
 
                 {/* Milestones Tab */}
                 {s.milestones && (
@@ -296,16 +458,103 @@ export default function ClientPortal() {
                 {s.assessments && (
                   <TabsContent value="assessments" className="space-y-3 mt-4">
                     {selectedProject.assessments.map(a => (
-                      <div key={a.id} className="flex items-center gap-3 p-3 rounded-lg border">
-                        <BarChart3 className="h-5 w-5 text-primary" />
-                        <div className="flex-1">
-                          <p className="text-sm font-medium">{a.name}</p>
-                          {a.description && <p className="text-xs text-muted-foreground">{a.description}</p>}
+                      <div key={a.id} className="p-4 rounded-lg border space-y-2">
+                        <div className="flex items-center gap-3">
+                          <BarChart3 className="h-5 w-5 text-primary" />
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">{a.name}</p>
+                            {a.description && <p className="text-xs text-muted-foreground">{a.description}</p>}
+                          </div>
+                          <Badge variant="outline" className={cn("text-[10px]", getStatusColor(a.status))}>{a.status}</Badge>
                         </div>
-                        <Badge variant="outline" className={cn("text-[10px]", getStatusColor(a.status))}>{a.status}</Badge>
+                        {s.assessmentDetails && (a.question_count! > 0 || a.response_count! > 0) && (
+                          <div className="flex items-center gap-4 ml-8 text-xs text-muted-foreground">
+                            <span>{a.question_count} questions</span>
+                            <span>{a.response_count} responses</span>
+                            {a.question_count! > 0 && (
+                              <div className="flex items-center gap-2 flex-1">
+                                <Progress value={Math.min((a.response_count! / a.question_count!) * 100, 100)} className="h-1.5 max-w-[120px]" />
+                                <span>{Math.round(Math.min((a.response_count! / a.question_count!) * 100, 100))}%</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ))}
                     {selectedProject.assessments.length === 0 && <p className="text-sm text-muted-foreground text-center py-8">No assessments available</p>}
+                  </TabsContent>
+                )}
+
+                {/* Team Tab */}
+                {s.teams && (
+                  <TabsContent value="team" className="mt-4">
+                    {selectedProject.team.length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                        {selectedProject.team.map(member => (
+                          <Card key={member.id}>
+                            <CardContent className="p-4 flex items-center gap-3">
+                              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium text-sm shrink-0">
+                                {member.avatar_url ? (
+                                  <img src={member.avatar_url} alt={member.name} className="h-10 w-10 rounded-full object-cover" />
+                                ) : (
+                                  member.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+                                )}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium truncate">{member.name}</p>
+                                <p className="text-xs text-muted-foreground truncate">{member.role_in_project}</p>
+                                <p className="text-xs text-muted-foreground truncate">{member.role}</p>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground text-center py-8">No team members assigned</p>
+                    )}
+                  </TabsContent>
+                )}
+
+                {/* Risks & Issues Tab */}
+                {s.risks && (
+                  <TabsContent value="risks" className="space-y-6 mt-4">
+                    <div>
+                      <h3 className="text-sm font-medium mb-3 flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-amber-500" /> Risks ({selectedProject.risks.length})</h3>
+                      {selectedProject.risks.length > 0 ? (
+                        <div className="space-y-2">
+                          {selectedProject.risks.map(r => (
+                            <div key={r.id} className="flex items-center gap-3 p-3 rounded-lg border">
+                              <div className="flex-1">
+                                <p className="text-sm font-medium">{r.title}</p>
+                                <div className="flex items-center gap-3 mt-1 text-xs">
+                                  <span className={getLikelihoodImpactColor(r.likelihood)}>Likelihood: {r.likelihood}</span>
+                                  <span className={getLikelihoodImpactColor(r.impact)}>Impact: {r.impact}</span>
+                                  <span className="text-muted-foreground">{r.category}</span>
+                                </div>
+                              </div>
+                              <Badge variant="outline" className={cn("text-[10px]", getStatusColor(r.status))}>{r.status}</Badge>
+                            </div>
+                          ))}
+                        </div>
+                      ) : <p className="text-sm text-muted-foreground">No risks recorded</p>}
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-medium mb-3 flex items-center gap-2"><AlertCircle className="h-4 w-4 text-destructive" /> Issues ({selectedProject.issues.length})</h3>
+                      {selectedProject.issues.length > 0 ? (
+                        <div className="space-y-2">
+                          {selectedProject.issues.map(i => (
+                            <div key={i.id} className="flex items-center gap-3 p-3 rounded-lg border">
+                              <div className="flex-1">
+                                <p className="text-sm font-medium">{i.title}</p>
+                                <p className="text-xs text-muted-foreground mt-1">Raised: {format(new Date(i.raised_date), "MMM dd, yyyy")}</p>
+                              </div>
+                              <Badge variant="outline" className={cn("text-[10px]", getLikelihoodImpactColor(i.priority))}>{i.priority}</Badge>
+                              <Badge variant="outline" className={cn("text-[10px]", getStatusColor(i.status))}>{i.status}</Badge>
+                            </div>
+                          ))}
+                        </div>
+                      ) : <p className="text-sm text-muted-foreground">No issues recorded</p>}
+                    </div>
                   </TabsContent>
                 )}
 
