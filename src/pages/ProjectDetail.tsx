@@ -110,14 +110,20 @@ interface PortalSettings {
   showNttLogo: boolean;
   showAxetLogo: boolean;
   showClientLogo: boolean;
+  nttLogoUrl?: string;
+  clientLogoUrl?: string;
   sections: {
     milestones: boolean;
     deliverables: boolean;
     assessments: boolean;
+    assessmentDetails: boolean;
     budget: boolean;
     ragStatus: boolean;
     progress: boolean;
     feedback: boolean;
+    projectDetails: boolean;
+    teams: boolean;
+    risks: boolean;
   };
 }
 
@@ -129,10 +135,14 @@ const DEFAULT_SETTINGS: PortalSettings = {
     milestones: true,
     deliverables: true,
     assessments: true,
+    assessmentDetails: false,
     budget: false,
     ragStatus: true,
     progress: true,
     feedback: true,
+    projectDetails: true,
+    teams: false,
+    risks: false,
   },
 };
 
@@ -256,7 +266,7 @@ function ClientPortalButton({ clientId }: { clientId: string }) {
               </div>
             </div>
           ) : portalUrl && showConfig ? (
-            <div className="space-y-4">
+            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-1">
               {/* Logo Settings */}
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">Branding</p>
@@ -265,6 +275,20 @@ function ClientPortalButton({ clientId }: { clientId: string }) {
                     <span className="text-sm">NTT DATA logo</span>
                     <input type="checkbox" checked={settings.showNttLogo} onChange={() => setSettings(s => ({ ...s, showNttLogo: !s.showNttLogo }))} className="accent-primary h-4 w-4" />
                   </label>
+                  {settings.showNttLogo && (
+                    <div className="ml-2">
+                      <input
+                        type="text"
+                        value={settings.nttLogoUrl || ''}
+                        onChange={(e) => setSettings(s => ({ ...s, nttLogoUrl: e.target.value || undefined }))}
+                        placeholder="Custom logo URL (optional)"
+                        className="w-full text-xs border border-input rounded px-2 py-1.5 bg-background"
+                      />
+                      {settings.nttLogoUrl && (
+                        <img src={settings.nttLogoUrl} alt="Preview" className="h-6 mt-1 object-contain" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                      )}
+                    </div>
+                  )}
                   <label className="flex items-center justify-between cursor-pointer">
                     <span className="text-sm">aXet consult logo</span>
                     <input type="checkbox" checked={settings.showAxetLogo} onChange={() => setSettings(s => ({ ...s, showAxetLogo: !s.showAxetLogo }))} className="accent-primary h-4 w-4" />
@@ -273,6 +297,20 @@ function ClientPortalButton({ clientId }: { clientId: string }) {
                     <span className="text-sm">Client logo</span>
                     <input type="checkbox" checked={settings.showClientLogo} onChange={() => setSettings(s => ({ ...s, showClientLogo: !s.showClientLogo }))} className="accent-primary h-4 w-4" />
                   </label>
+                  {settings.showClientLogo && (
+                    <div className="ml-2">
+                      <input
+                        type="text"
+                        value={settings.clientLogoUrl || ''}
+                        onChange={(e) => setSettings(s => ({ ...s, clientLogoUrl: e.target.value || undefined }))}
+                        placeholder="Override client logo URL (optional)"
+                        className="w-full text-xs border border-input rounded px-2 py-1.5 bg-background"
+                      />
+                      {settings.clientLogoUrl && (
+                        <img src={settings.clientLogoUrl} alt="Preview" className="h-6 mt-1 object-contain" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -283,9 +321,13 @@ function ClientPortalButton({ clientId }: { clientId: string }) {
                   {([
                     ['progress', 'Progress Bar'],
                     ['ragStatus', 'RAG Status'],
+                    ['projectDetails', 'Project Details'],
                     ['milestones', 'Milestones'],
                     ['deliverables', 'Deliverables'],
                     ['assessments', 'Assessments'],
+                    ['assessmentDetails', 'Assessment Details (questions/responses)'],
+                    ['teams', 'Team Members'],
+                    ['risks', 'Risks & Issues'],
                     ['budget', 'Budget'],
                     ['feedback', 'Feedback Form'],
                   ] as [keyof PortalSettings['sections'], string][]).map(([key, label]) => (
