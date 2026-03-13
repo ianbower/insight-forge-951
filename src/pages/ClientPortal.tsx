@@ -109,34 +109,24 @@ export default function ClientPortal() {
         let assessmentResponseCounts: Record<string, number> = {};
 
         if (projectIds.length > 0) {
-          const promises: Promise<any>[] = [
-            supabase.from("project_milestones").select("id, title, status, target_date, description, project_id").in("project_id", projectIds).order("target_date"),
-            supabase.from("project_deliverables").select("id, title, status, due_date, description, project_id").in("project_id", projectIds).order("order_index"),
-            supabase.from("assessment_instances").select("id, name, status, description, project_id, assessment_template_id").in("project_id", projectIds).neq("status", "draft"),
-          ];
+          const milestonesRes = await supabase.from("project_milestones").select("id, title, status, target_date, description, project_id").in("project_id", projectIds).order("target_date");
+          const deliverablesRes = await supabase.from("project_deliverables").select("id, title, status, due_date, description, project_id").in("project_id", projectIds).order("order_index");
+          const assessmentsRes = await supabase.from("assessment_instances").select("id, name, status, description, project_id, assessment_template_id").in("project_id", projectIds).neq("status", "draft");
 
-          if (portalSettings.sections.teams) {
-            promises.push(
-              supabase.from("project_team_assignments").select("id, project_id, role_in_project, team_member_id, team_members(id, name, role, avatar_url)").in("project_id", projectIds).eq("assignment_status", "active")
-            );
-          } else {
-            promises.push(Promise.resolve({ data: [] }));
-          }
-
-          if (portalSettings.sections.risks) {
-            promises.push(
-              supabase.from("project_risks").select("id, title, status, likelihood, impact, category, project_id").in("project_id", projectIds),
-              supabase.from("project_issues").select("id, title, status, priority, raised_date, project_id").in("project_id", projectIds)
-            );
-          } else {
-            promises.push(Promise.resolve({ data: [] }), Promise.resolve({ data: [] }));
-          }
-
-          const [milestonesRes, deliverablesRes, assessmentsRes, teamRes, risksRes, issuesRes] = await Promise.all(promises);
           milestones = milestonesRes.data || [];
           deliverables = deliverablesRes.data || [];
           assessmentInstances = assessmentsRes.data || [];
-          teamAssignments = teamRes.data || [];
+
+          if (portalSettings.sections.teams) {
+            const teamRes = await supabase.from("project_team_assignments").select("id, project_id, role_in_project, team_member_id, team_members(id, name, role, avatar_url)").in("project_id", projectIds).eq("assignment_status", "active");
+            teamAssignments = teamRes.data || [];
+          }
+
+          if (portalSettings.sections.risks) {
+            const [risksRes, issuesRes] = await Promise.all([
+              supabase.from("project_risks").select("id, title, status, likelihood, impact, category, project_id").in("project_id", projectIds).then(r => r),
+              supabase.from("project_issues").select("id, title, status, priority, raised_date, project_id").in("project_id", projectIds).then(r => r),
+            ]);
           risks = risksRes.data || [];
           issues = issuesRes.data || [];
 
