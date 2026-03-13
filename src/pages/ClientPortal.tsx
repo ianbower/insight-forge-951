@@ -127,8 +127,9 @@ export default function ClientPortal() {
               supabase.from("project_risks").select("id, title, status, likelihood, impact, category, project_id").in("project_id", projectIds).then(r => r),
               supabase.from("project_issues").select("id, title, status, priority, raised_date, project_id").in("project_id", projectIds).then(r => r),
             ]);
-          risks = risksRes.data || [];
-          issues = issuesRes.data || [];
+            risks = risksRes.data || [];
+            issues = issuesRes.data || [];
+          }
 
           // Fetch assessment details if enabled
           if (portalSettings.sections.assessmentDetails && assessmentInstances.length > 0) {
