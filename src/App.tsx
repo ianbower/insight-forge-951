@@ -33,7 +33,7 @@ import KnowledgeMining from "@/pages/KnowledgeMining";
 import SmartBenchmarking from "@/pages/SmartBenchmarking";
 import SkillGap from "@/pages/SkillGap";
 import ClientPortal from "@/pages/ClientPortal";
-import AutomotiveAIMaturity from "@/pages/AutomotiveAIMaturity";
+
 import MaturityDashboards from "@/pages/MaturityDashboards";
 import MaturityDashboard from "@/pages/MaturityDashboard";
 import NotFound from "@/pages/NotFound";
