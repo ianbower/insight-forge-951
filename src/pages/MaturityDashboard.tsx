@@ -50,7 +50,14 @@ export default function MaturityDashboard() {
     queryFn: async () => {
       const { data, error } = await supabase.from("maturity_dashboard_entities").select("*").eq("dashboard_id", id!).order("order_index");
       if (error) throw error;
-      return data;
+      return (data || []).map(d => ({
+        ...d,
+        dimension_scores: (d.dimension_scores || {}) as Record<string, number>,
+        tech_stack: (d.tech_stack || []) as any[],
+        tags: (d.tags || []) as string[],
+        key_use_cases: (d.key_use_cases || []) as string[],
+        sources: (d.sources || []) as any[],
+      }));
     },
     enabled: !!id,
   });
