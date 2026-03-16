@@ -352,19 +352,6 @@ export default function Dashboard() {
               </p>
             </div>
           </div>
-          <Link to="/assets/automotive-ai-maturity" className="block max-w-md">
-            <div className="rounded-[1.5rem] border border-white/10 bg-white/6 p-5 backdrop-blur-sm transition-transform hover:-translate-y-1">
-              <div className="flex items-center justify-between">
-                <GaugeCircle className="h-6 w-6 text-accent" />
-                <ArrowRight className="h-4 w-4 text-white/60" />
-              </div>
-              <p className="mt-6 text-sm uppercase tracking-[0.24em] text-white/55">Featured Asset</p>
-              <h2 className="mt-2 font-display text-2xl text-white">Automotive AI maturity dashboard</h2>
-              <p className="mt-2 text-sm text-white/70">
-                Open a reusable client-facing benchmark view with export controls.
-              </p>
-            </div>
-          </Link>
         </div>
       </section>
 
