@@ -75,7 +75,7 @@ const App = () => (
                 <Route path="/assessments/take/:token" element={<ProtectedRoute><AppLayout><AssessmentTake /></AppLayout></ProtectedRoute>} />
                 <Route path="/data-room" element={<ProtectedRoute><AppLayout><DataRoom /></AppLayout></ProtectedRoute>} />
                 <Route path="/benchmarking" element={<ProtectedRoute><AppLayout><SmartBenchmarking /></AppLayout></ProtectedRoute>} />
-                <Route path="/assets/automotive-ai-maturity" element={<ProtectedRoute><AppLayout><AutomotiveAIMaturity /></AppLayout></ProtectedRoute>} />
+                
                 <Route path="/maturity-dashboards" element={<ProtectedRoute><AppLayout><MaturityDashboards /></AppLayout></ProtectedRoute>} />
                 <Route path="/maturity-dashboards/:id" element={<ProtectedRoute><AppLayout><MaturityDashboard /></AppLayout></ProtectedRoute>} />
                 <Route path="/skill-gap" element={<ProtectedRoute><AppLayout><SkillGap /></AppLayout></ProtectedRoute>} />
