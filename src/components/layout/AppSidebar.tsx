@@ -148,7 +148,7 @@ export function AppSidebar({ collapsed, onToggleCollapsed }: AppSidebarProps) {
           </div>
         ) : (
           <div className="space-y-1">
-            <p className="text-xs uppercase tracking-[0.35em] text-sidebar-foreground/55">Guiding Greatness</p>
+            
             <img alt="aXet Consult" className="h-9" src="/lovable-uploads/3719f63a-7253-4d1d-9213-327c9940cd39.png" />
           </div>
         )}
