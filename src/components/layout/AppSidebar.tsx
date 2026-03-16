@@ -2,7 +2,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Briefcase, BookOpen, FolderKanban, Bot,
   ChevronDown, Search, Users, ClipboardList, Database,
-  Brain, Radar, GraduationCap, ChevronLeft, ChevronRight, GaugeCircle, BarChart3, Car,
+  Brain, Radar, GraduationCap, ChevronLeft, ChevronRight, GaugeCircle, BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
