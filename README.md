@@ -1,63 +1,73 @@
-# Insight Forge 951
+# Welcome to your Lovable project
 
-Insight Forge 951 is a Vite and React consulting platform for managing projects, assessments, research, tools, and client-facing delivery assets.
+## Project info
 
-## Recent release
+**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
 
-The latest UI refresh introduces an NTT DATA-inspired visual system across the shared shell and dashboard experience, including:
+## How can I edit this code?
 
-- Updated typography, color tokens, buttons, and layout styling for a more polished enterprise presentation
-- A redesigned dashboard with stronger hierarchy, clearer summary cards, and a client-ready hero section
-- A new reusable Automotive AI maturity dashboard asset at `/assets/automotive-ai-maturity`
-- Built-in PDF export and share actions for the automotive maturity page
+There are several ways of editing your application.
 
-## Key areas
+**Use Lovable**
 
-- `Dashboard`: operational overview for projects, assessments, team health, and delivery activity
-- `Tool Library`: reusable consulting tools and canvases
-- `Assessments`: structured maturity and discovery workflows
-- `Projects`: engagement delivery management
-- `Automotive AI maturity dashboard`: reusable client asset for executive readouts and benchmarking
+Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
 
-## Local development
+Changes made via Lovable will be committed automatically to this repo.
 
-Requirements:
+**Use your preferred IDE**
 
-- Node.js
-- npm
+If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
 
-Run locally:
+The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+
+Follow these steps:
 
 ```sh
-git clone https://github.com/ianbower/insight-forge-951
-cd insight-forge-951
-npm install
+# Step 1: Clone the repository using the project's Git URL.
+git clone <YOUR_GIT_URL>
+
+# Step 2: Navigate to the project directory.
+cd <YOUR_PROJECT_NAME>
+
+# Step 3: Install the necessary dependencies.
+npm i
+
+# Step 4: Start the development server with auto-reloading and an instant preview.
 npm run dev
 ```
 
-Production build:
+**Edit a file directly in GitHub**
 
-```sh
-npm run build
-```
+- Navigate to the desired file(s).
+- Click the "Edit" button (pencil icon) at the top right of the file view.
+- Make your changes and commit the changes.
 
-Linting:
+**Use GitHub Codespaces**
 
-```sh
-npm run lint
-```
+- Navigate to the main page of your repository.
+- Click on the "Code" button (green button) near the top right.
+- Select the "Codespaces" tab.
+- Click on "New codespace" to launch a new Codespace environment.
+- Edit files directly within the Codespace and commit and push your changes once you're done.
 
-Note: the repository currently has a broader backlog of existing ESLint issues outside this release work, so lint may report pre-existing failures even when the app builds successfully.
+## What technologies are used for this project?
 
-## Stack
+This project is built with:
 
 - Vite
-- React
 - TypeScript
+- React
+- shadcn-ui
 - Tailwind CSS
-- shadcn/ui
-- Supabase
 
-## Deployment
+## How can I deploy this project?
 
-This project can still be managed and published through Lovable, and local Git pushes continue to sync back to the connected repository.
+Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+
+## Can I connect a custom domain to my Lovable project?
+
+Yes, you can!
+
+To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+
+Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
