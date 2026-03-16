@@ -112,10 +112,6 @@ export function TopBar() {
         </div>
 
         <div className="flex items-center gap-3 self-end lg:self-auto">
-          <div className="hidden items-center gap-2 rounded-full border border-primary/10 bg-white/75 px-3 py-2 text-xs text-muted-foreground xl:flex">
-            <Sparkles className="h-4 w-4 text-primary" />
-            Client-ready assets and delivery intelligence
-          </div>
           <Dialog open={newEngagementOpen} onOpenChange={setNewEngagementOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2">
