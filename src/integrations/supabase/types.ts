@@ -963,6 +963,74 @@ export type Database = {
           },
         ]
       }
+      maturity_dashboard_entities: {
+        Row: {
+          ai_leader: string | null
+          created_at: string
+          dashboard_id: string
+          description: string | null
+          dimension_scores: Json | null
+          id: string
+          investment_level: string | null
+          key_use_cases: string[] | null
+          metadata: Json | null
+          name: string
+          order_index: number
+          overall_score: number
+          region: string | null
+          sources: Json | null
+          tags: string[] | null
+          tech_stack: Json | null
+          tier: string | null
+        }
+        Insert: {
+          ai_leader?: string | null
+          created_at?: string
+          dashboard_id: string
+          description?: string | null
+          dimension_scores?: Json | null
+          id?: string
+          investment_level?: string | null
+          key_use_cases?: string[] | null
+          metadata?: Json | null
+          name: string
+          order_index?: number
+          overall_score?: number
+          region?: string | null
+          sources?: Json | null
+          tags?: string[] | null
+          tech_stack?: Json | null
+          tier?: string | null
+        }
+        Update: {
+          ai_leader?: string | null
+          created_at?: string
+          dashboard_id?: string
+          description?: string | null
+          dimension_scores?: Json | null
+          id?: string
+          investment_level?: string | null
+          key_use_cases?: string[] | null
+          metadata?: Json | null
+          name?: string
+          order_index?: number
+          overall_score?: number
+          region?: string | null
+          sources?: Json | null
+          tags?: string[] | null
+          tech_stack?: Json | null
+          tier?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maturity_dashboard_entities_dashboard_id_fkey"
+            columns: ["dashboard_id"]
+            isOneToOne: false
+            referencedRelation: "maturity_dashboards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       maturity_dashboards: {
         Row: {
           assessment_instance_id: string | null
