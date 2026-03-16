@@ -107,9 +107,6 @@ function SidebarNavGroup({
                   collapsed && "justify-center px-2"
                 )}
               >
-                {isActive && (
-                  <span className="absolute left-0 top-1/2 h-7 w-1 -translate-y-1/2 rounded-r-full bg-sidebar-primary" />
-                )}
                 <item.icon className={cn("h-4 w-4 shrink-0", collapsed && "h-[18px] w-[18px]", isActive && "text-primary")} />
                 {!collapsed && <span className="truncate">{item.label}</span>}
                 {collapsed && (
