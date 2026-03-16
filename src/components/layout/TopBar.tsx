@@ -101,9 +101,6 @@ export function TopBar() {
     <header className="sticky top-0 z-30 border-b border-border/70 bg-background/85 backdrop-blur-xl">
       <div className="flex flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
         <div className="flex items-center gap-4">
-          <div className="hidden rounded-full border border-primary/15 bg-primary/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-primary sm:inline-flex">
-            ONE NTT DATA
-          </div>
           <div className="relative w-full max-w-md min-w-[260px]">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
