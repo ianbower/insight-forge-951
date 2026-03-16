@@ -120,7 +120,7 @@ export default function MaturityDashboard() {
         investment_level: e.investment_level, ai_leader: e.ai_leader,
         sources: e.sources || [], order_index: i,
       }));
-      const { error } = await supabase.from("maturity_dashboard_entities" as any).insert(entsToInsert);
+      const { error } = await supabase.from("maturity_dashboard_entities").insert(entsToInsert);
       if (error) throw error;
     }
 
