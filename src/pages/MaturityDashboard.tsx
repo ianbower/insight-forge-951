@@ -48,9 +48,9 @@ export default function MaturityDashboard() {
   const { data: entities } = useQuery({
     queryKey: ["maturity-entities", id],
     queryFn: async () => {
-      const { data, error } = await supabase.from("maturity_dashboard_entities" as any).select("*").eq("dashboard_id", id!).order("order_index");
+      const { data, error } = await supabase.from("maturity_dashboard_entities").select("*").eq("dashboard_id", id!).order("order_index");
       if (error) throw error;
-      return data as any[];
+      return data;
     },
     enabled: !!id,
   });
