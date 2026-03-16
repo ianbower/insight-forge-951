@@ -48,9 +48,16 @@ export default function MaturityDashboard() {
   const { data: entities } = useQuery({
     queryKey: ["maturity-entities", id],
     queryFn: async () => {
-      const { data, error } = await supabase.from("maturity_dashboard_entities" as any).select("*").eq("dashboard_id", id!).order("order_index");
+      const { data, error } = await supabase.from("maturity_dashboard_entities").select("*").eq("dashboard_id", id!).order("order_index");
       if (error) throw error;
-      return data as any[];
+      return (data || []).map(d => ({
+        ...d,
+        dimension_scores: (d.dimension_scores || {}) as Record<string, number>,
+        tech_stack: (d.tech_stack || []) as any[],
+        tags: (d.tags || []) as string[],
+        key_use_cases: (d.key_use_cases || []) as string[],
+        sources: (d.sources || []) as any[],
+      }));
     },
     enabled: !!id,
   });
@@ -105,7 +112,7 @@ export default function MaturityDashboard() {
   const handleImport = async (newEntities: any[], newUseCases: any[]) => {
     // Update entities
     if (newEntities.length > 0) {
-      await supabase.from("maturity_dashboard_entities" as any).delete().eq("dashboard_id", id!);
+      await supabase.from("maturity_dashboard_entities").delete().eq("dashboard_id", id!);
       const entsToInsert = newEntities.map((e: any, i: number) => ({
         dashboard_id: id!, name: e.name, region: e.region, overall_score: e.overall_score || 0,
         tier: e.tier, description: e.description, dimension_scores: e.dimension_scores || {},
@@ -113,7 +120,7 @@ export default function MaturityDashboard() {
         investment_level: e.investment_level, ai_leader: e.ai_leader,
         sources: e.sources || [], order_index: i,
       }));
-      const { error } = await supabase.from("maturity_dashboard_entities" as any).insert(entsToInsert);
+      const { error } = await supabase.from("maturity_dashboard_entities").insert(entsToInsert);
       if (error) throw error;
     }
 
