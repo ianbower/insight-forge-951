@@ -1,105 +1,114 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface Entity {
   id: string;
   name: string;
   overall_score: number;
-  dimension_scores: Record<string, number>;
-}
-
-interface Capability {
-  id: string;
-  name: string;
 }
 
 interface Props {
   entities: Entity[];
-  capabilities: Capability[];
+  useCases: any[];
+  domains: string[];
 }
 
-function cellColor(score: number): string {
-  if (score >= 4) return "bg-emerald-500/80 text-white";
-  if (score >= 3) return "bg-emerald-400/60 text-foreground";
-  if (score >= 2) return "bg-amber-400/50 text-foreground";
-  if (score >= 1) return "bg-orange-400/50 text-foreground";
-  if (score > 0) return "bg-red-400/40 text-foreground";
-  return "bg-muted/30 text-muted-foreground";
-}
-
-export function DashboardHeatmap({ entities, capabilities }: Props) {
-  if (!entities.length || !capabilities.length) {
+export function DashboardHeatmap({ entities, useCases, domains }: Props) {
+  if (!entities.length || !domains.length) {
     return (
       <Card className="enterprise-card rounded-[1.75rem]">
         <CardContent className="p-8 text-center text-muted-foreground">
-          Add entities and dimensions to see the heatmap.
+          Add entities and use cases to see the heatmap.
         </CardContent>
       </Card>
     );
   }
 
-  const sorted = [...entities].sort((a, b) => Number(b.overall_score) - Number(a.overall_score));
+  // Count use cases per entity-domain
+  const grid: Record<string, Record<string, number>> = {};
+  entities.forEach(e => {
+    grid[e.name] = {};
+    domains.forEach(d => (grid[e.name][d] = 0));
+  });
+  useCases.forEach((uc: any) => {
+    (uc.adopters || []).forEach((a: string) => {
+      if (grid[a] && grid[a][uc.domain] !== undefined) grid[a][uc.domain]++;
+    });
+  });
+
+  const maxCount = Math.max(1, ...Object.values(grid).flatMap(d => Object.values(d)));
+
+  const cellBg = (count: number) => {
+    if (count === 0) return "bg-muted/30";
+    const intensity = count / maxCount;
+    if (intensity > 0.7) return "bg-primary/70 text-primary-foreground";
+    if (intensity > 0.4) return "bg-primary/40 text-foreground";
+    return "bg-primary/20 text-foreground";
+  };
 
   return (
-    <Card className="enterprise-card rounded-[1.75rem]">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-primary">Maturity Heatmap</CardTitle>
-        <p className="text-sm text-muted-foreground">Entity scores across all dimensions</p>
-      </CardHeader>
-      <CardContent className="overflow-x-auto">
-        <TooltipProvider>
-          <table className="w-full border-collapse text-xs">
-            <thead>
-              <tr>
-                <th className="sticky left-0 bg-card z-10 text-left p-2 font-semibold text-muted-foreground min-w-[140px]">
-                  Entity
-                </th>
-                {capabilities.map((cap) => (
-                  <th key={cap.id} className="p-2 font-semibold text-muted-foreground text-center min-w-[80px]">
-                    <span className="block truncate max-w-[100px]">{cap.name}</span>
-                  </th>
-                ))}
-                <th className="p-2 font-semibold text-muted-foreground text-center min-w-[60px]">Overall</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sorted.map((entity) => {
-                const dims = entity.dimension_scores || {};
-                return (
-                  <tr key={entity.id} className="border-t border-border/30">
-                    <td className="sticky left-0 bg-card z-10 p-2 font-medium text-foreground">
-                      {entity.name}
-                    </td>
-                    {capabilities.map((cap) => {
-                      const score = dims[cap.id] || dims[cap.name] || 0;
-                      return (
-                        <td key={cap.id} className="p-1 text-center">
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className={`mx-auto flex h-9 w-14 items-center justify-center rounded-lg font-semibold transition-colors ${cellColor(Number(score))}`}>
-                                {Number(score).toFixed(1)}
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p className="font-medium">{entity.name}</p>
-                              <p className="text-xs">{cap.name}: {Number(score).toFixed(1)}/5</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </td>
-                      );
-                    })}
-                    <td className="p-1 text-center">
-                      <div className="mx-auto flex h-9 w-14 items-center justify-center rounded-lg bg-primary/10 font-bold text-primary">
-                        {Number(entity.overall_score).toFixed(0)}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </TooltipProvider>
-      </CardContent>
-    </Card>
+    <div className="space-y-4">
+      <div>
+        <h2 className="font-display text-2xl text-primary">Adoption Coverage Heatmap</h2>
+        <p className="text-sm text-muted-foreground mt-1">Which entities are adopting which use case domains</p>
+      </div>
+
+      <Card className="enterprise-card rounded-[1.75rem]">
+        <CardContent className="p-5 overflow-x-auto">
+          <TooltipProvider>
+            <div className="min-w-[800px]"
+              style={{
+                display: "grid",
+                gridTemplateColumns: `120px repeat(${entities.length}, minmax(80px, 1fr))`,
+                gap: 3,
+              }}>
+              {/* Header row */}
+              <div className="text-xs font-semibold text-muted-foreground flex items-center">Domain</div>
+              {entities.map(e => (
+                <div key={e.id} className="text-center text-[10px] font-bold text-muted-foreground py-2 truncate" title={e.name}>
+                  {e.name.split(" ")[0]}
+                </div>
+              ))}
+
+              {/* Data rows */}
+              {domains.map(domain => (
+                <>
+                  <div key={`label-${domain}`} className="text-xs font-semibold text-muted-foreground flex items-center py-2">
+                    {domain}
+                  </div>
+                  {entities.map(e => {
+                    const count = grid[e.name]?.[domain] || 0;
+                    return (
+                      <Tooltip key={`${e.name}-${domain}`}>
+                        <TooltipTrigger asChild>
+                          <div className={`flex items-center justify-center rounded-lg h-10 text-xs font-bold transition-colors ${cellBg(count)}`}>
+                            {count > 0 ? count : "—"}
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="font-medium">{e.name}</p>
+                          <p className="text-xs">{count} use case{count !== 1 ? "s" : ""} in {domain}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  })}
+                </>
+              ))}
+            </div>
+          </TooltipProvider>
+
+          {/* Legend */}
+          <div className="mt-6 flex items-center gap-4">
+            <span className="text-xs text-muted-foreground">Intensity:</span>
+            <div className="flex items-center gap-1">
+              {[0, 1, 2, 3].map(v => (
+                <div key={v} className={`w-6 h-6 rounded border border-border ${cellBg(v * (maxCount / 3))}`} />
+              ))}
+              <span className="text-xs text-muted-foreground ml-2">0 → {maxCount} use cases</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

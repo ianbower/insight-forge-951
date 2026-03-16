@@ -18,118 +18,124 @@ interface Entity {
   investment_level: string | null;
   ai_leader: string | null;
   sources: any[];
-}
-
-interface Capability {
-  id: string;
-  name: string;
+  metadata: any;
 }
 
 interface Props {
   entities: Entity[];
-  capabilities: Capability[];
+  dimensions: string[];
+  useCases: any[];
 }
 
-const tierColors: Record<string, string> = {
-  Pioneer: "bg-emerald-100 text-emerald-700 border-emerald-200",
-  Leader: "bg-blue-100 text-blue-700 border-blue-200",
-  "Fast Follower": "bg-amber-100 text-amber-700 border-amber-200",
-  Developer: "bg-orange-100 text-orange-700 border-orange-200",
-  Experimenter: "bg-red-100 text-red-700 border-red-200",
+const tierStyle: Record<string, { badge: string; icon: string }> = {
+  Pioneer: { badge: "bg-emerald-500/15 text-emerald-500 border-emerald-500/30", icon: "★" },
+  Leader: { badge: "bg-blue-500/15 text-blue-500 border-blue-500/30", icon: "◆" },
+  "Fast Follower": { badge: "bg-amber-500/15 text-amber-500 border-amber-500/30", icon: "▲" },
+  Developer: { badge: "bg-orange-500/15 text-orange-500 border-orange-500/30", icon: "●" },
+  Experimenter: { badge: "bg-red-500/15 text-red-500 border-red-500/30", icon: "○" },
 };
 
-function ScoreRing({ score, max = 100, size = 100 }: { score: number; max?: number; size?: number }) {
-  const pct = Math.min((score / max) * 100, 100);
-  const r = (size - 10) / 2;
+const scoreColor = (score: number) => {
+  if (score >= 85) return "#10b981";
+  if (score >= 75) return "#3b82f6";
+  if (score >= 65) return "#f59e0b";
+  if (score >= 55) return "#f97316";
+  return "#ef4444";
+};
+
+const techCatClass: Record<string, string> = {
+  "tp-azure": "bg-blue-500/15 text-blue-400 border-blue-500/30",
+  "tp-aws": "bg-orange-500/15 text-orange-400 border-orange-500/30",
+  "tp-gcp": "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+  "tp-nvidia": "bg-lime-500/15 text-lime-400 border-lime-500/30",
+  "tp-openai": "bg-purple-500/15 text-purple-400 border-purple-500/30",
+  "tp-alibaba": "bg-red-500/15 text-red-400 border-red-500/30",
+  "tp-custom": "bg-muted text-muted-foreground border-border",
+};
+
+function ScoreRing({ score, size = 56 }: { score: number; size?: number }) {
+  const r = (size - 8) / 2;
   const circ = 2 * Math.PI * r;
-  const offset = circ - (pct / 100) * circ;
-  const color = pct >= 80 ? "hsl(var(--primary))" : pct >= 60 ? "hsl(var(--accent))" : "hsl(var(--destructive))";
+  const pct = Math.min(score / 100, 1);
+  const dash = pct * circ;
+  const color = scoreColor(score);
 
   return (
-    <svg width={size} height={size} className="transform -rotate-90">
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="hsl(var(--border))" strokeWidth={6} />
-      <circle
-        cx={size / 2} cy={size / 2} r={r} fill="none"
-        stroke={color} strokeWidth={6} strokeLinecap="round"
-        strokeDasharray={circ} strokeDashoffset={offset}
-        className="transition-all duration-1000 ease-out"
-      />
-      <text
-        x={size / 2} y={size / 2}
-        textAnchor="middle" dominantBaseline="central"
-        className="transform rotate-90 origin-center fill-foreground font-display text-xl"
-        style={{ transformOrigin: `${size / 2}px ${size / 2}px` }}
-      >
-        {score.toFixed(0)}
-      </text>
-    </svg>
+    <div className="relative" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="transform -rotate-90">
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="hsl(var(--border))" strokeWidth={4} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={4}
+          strokeLinecap="round" strokeDasharray={`${dash} ${circ}`}
+          className="transition-all duration-1000 ease-out" />
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center">
+        <span className="font-display font-bold" style={{ color, fontSize: size > 50 ? 16 : 12 }}>
+          {score.toFixed(0)}
+        </span>
+      </div>
+    </div>
   );
 }
 
-export function EntityCards({ entities, capabilities }: Props) {
+export function EntityCards({ entities, dimensions, useCases }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = selectedId ? entities.find(e => e.id === selectedId) : null;
-
   const sorted = [...entities].sort((a, b) => Number(b.overall_score) - Number(a.overall_score));
+
+  const getEntityUseCases = (entityName: string) =>
+    useCases.filter((uc: any) => uc.adopters?.includes(entityName));
 
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div>
+        <h2 className="font-display text-2xl text-primary">AI Maturity Profiles</h2>
+        <p className="text-sm text-muted-foreground mt-1">Click any company card to explore their full AI capability profile</p>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {sorted.map((entity) => {
-          const dimScores = entity.dimension_scores || {};
+          const dims = entity.dimension_scores || {};
+          const ts = tierStyle[entity.tier || ""] || tierStyle.Experimenter;
           return (
-            <Card
-              key={entity.id}
-              className="enterprise-card rounded-[1.75rem] cursor-pointer hover:shadow-md transition-all group"
-              onClick={() => setSelectedId(entity.id)}
-            >
+            <Card key={entity.id}
+              className="enterprise-card rounded-[1.75rem] cursor-pointer hover:shadow-lg hover:border-primary/30 transition-all"
+              onClick={() => setSelectedId(entity.id)}>
               <CardContent className="p-5">
                 <div className="flex items-start justify-between">
-                  <div className="space-y-1">
+                  <div>
                     <h3 className="font-semibold text-foreground">{entity.name}</h3>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {entity.tier && (
-                        <Badge variant="outline" className={`text-[10px] ${tierColors[entity.tier] || ""}`}>
-                          {entity.tier}
-                        </Badge>
-                      )}
-                      {entity.region && (
-                        <span className="text-xs text-muted-foreground">{entity.region}</span>
-                      )}
-                    </div>
+                    <p className="text-xs text-muted-foreground">{entity.region}</p>
                   </div>
                   <ScoreRing score={Number(entity.overall_score)} />
                 </div>
 
-                {entity.description && (
-                  <p className="mt-3 text-xs text-muted-foreground line-clamp-2">{entity.description}</p>
-                )}
+                <div className="mt-2">
+                  <Badge variant="outline" className={`text-[10px] border ${ts.badge}`}>
+                    {ts.icon} {entity.tier}
+                  </Badge>
+                </div>
 
-                {/* Dimension bars */}
                 <div className="mt-4 space-y-2">
-                  {capabilities.slice(0, 4).map((cap) => {
-                    const dimScore = dimScores[cap.id] || dimScores[cap.name] || 0;
+                  {dimensions.map((dim) => {
+                    const score = Number(dims[dim] || 0);
                     return (
-                      <div key={cap.id} className="space-y-0.5">
+                      <div key={dim} className="space-y-0.5">
                         <div className="flex items-center justify-between">
-                          <span className="text-[10px] text-muted-foreground truncate max-w-[70%]">{cap.name}</span>
-                          <span className="text-[10px] font-medium text-foreground">{Number(dimScore).toFixed(1)}</span>
+                          <span className="text-[10px] text-muted-foreground truncate max-w-[60%]">{dim}</span>
+                          <span className="text-[10px] font-bold" style={{ color: scoreColor(score) }}>{score}</span>
                         </div>
-                        <div className="h-1.5 rounded-full bg-primary/10">
-                          <div
-                            className="h-1.5 rounded-full bg-primary transition-all duration-700"
-                            style={{ width: `${Math.min((Number(dimScore) / 5) * 100, 100)}%` }}
-                          />
+                        <div className="h-1 rounded-full bg-primary/10">
+                          <div className="h-1 rounded-full transition-all duration-700"
+                            style={{ width: `${score}%`, background: scoreColor(score) }} />
                         </div>
                       </div>
                     );
                   })}
                 </div>
 
-                {/* Tags */}
-                {entity.tags?.length > 0 && (
+                {(entity.tags as string[])?.length > 0 && (
                   <div className="mt-3 flex flex-wrap gap-1">
-                    {(entity.tags as string[]).slice(0, 3).map((tag, i) => (
+                    {(entity.tags as string[]).slice(0, 4).map((tag, i) => (
                       <Badge key={i} variant="secondary" className="text-[9px] px-1.5 py-0">{tag}</Badge>
                     ))}
                   </div>
@@ -143,94 +149,98 @@ export function EntityCards({ entities, capabilities }: Props) {
       {/* Detail Sheet */}
       <Sheet open={!!selected} onOpenChange={() => setSelectedId(null)}>
         <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
-          {selected && (
-            <>
-              <SheetHeader>
-                <div className="flex items-center gap-3">
-                  <ScoreRing score={Number(selected.overall_score)} size={64} />
-                  <div>
-                    <SheetTitle>{selected.name}</SheetTitle>
-                    <div className="flex items-center gap-2 mt-1">
-                      {selected.tier && <Badge variant="outline" className={tierColors[selected.tier] || ""}>{selected.tier}</Badge>}
-                      {selected.region && <span className="text-xs text-muted-foreground">{selected.region}</span>}
+          {selected && (() => {
+            const ts = tierStyle[selected.tier || ""] || tierStyle.Experimenter;
+            const companyUCs = getEntityUseCases(selected.name);
+            return (
+              <>
+                <SheetHeader>
+                  <div className="flex items-center gap-4">
+                    <ScoreRing score={Number(selected.overall_score)} size={72} />
+                    <div>
+                      <SheetTitle>{selected.name}</SheetTitle>
+                      <p className="text-xs text-muted-foreground">{selected.region} · {selected.tier}</p>
+                      <Badge variant="outline" className={`mt-1 text-[10px] border ${ts.badge}`}>
+                        {selected.tier}
+                      </Badge>
                     </div>
                   </div>
-                </div>
-              </SheetHeader>
+                </SheetHeader>
+                <div className="mt-4 space-y-6">
+                  {selected.investment_level && (
+                    <p className="text-xs text-muted-foreground">{selected.investment_level}</p>
+                  )}
+                  {selected.description && (
+                    <p className="text-sm text-muted-foreground leading-relaxed">{selected.description}</p>
+                  )}
 
-              <div className="mt-6 space-y-6">
-                {selected.description && (
-                  <p className="text-sm text-muted-foreground">{selected.description}</p>
-                )}
-
-                {/* All dimensions */}
-                <div>
-                  <h4 className="text-sm font-semibold text-foreground mb-3">Dimension Scores</h4>
-                  <div className="space-y-3">
-                    {capabilities.map((cap) => {
-                      const dimScore = (selected.dimension_scores || {})[cap.id] || (selected.dimension_scores || {})[cap.name] || 0;
-                      return (
-                        <div key={cap.id}>
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-xs text-muted-foreground">{cap.name}</span>
-                            <span className="text-xs font-semibold text-foreground">{Number(dimScore).toFixed(1)}/5</span>
+                  <div>
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Capability Dimensions</h4>
+                    <div className="space-y-3">
+                      {dimensions.map((dim) => {
+                        const score = Number((selected.dimension_scores || {})[dim] || 0);
+                        return (
+                          <div key={dim}>
+                            <div className="flex justify-between mb-1">
+                              <span className="text-xs font-semibold text-muted-foreground">{dim}</span>
+                              <span className="text-xs font-bold" style={{ color: scoreColor(score) }}>{score}</span>
+                            </div>
+                            <div className="h-2 rounded-full bg-primary/10">
+                              <div className="h-2 rounded-full" style={{ width: `${score}%`, background: scoreColor(score) }} />
+                            </div>
                           </div>
-                          <div className="h-2 rounded-full bg-primary/10">
-                            <div className="h-2 rounded-full bg-gradient-to-r from-primary to-accent" style={{ width: `${Math.min((Number(dimScore) / 5) * 100, 100)}%` }} />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {selected.investment_level && (
-                  <div>
-                    <h4 className="text-sm font-semibold text-foreground mb-1">Investment Level</h4>
-                    <p className="text-sm text-muted-foreground">{selected.investment_level}</p>
-                  </div>
-                )}
-
-                {selected.ai_leader && (
-                  <div>
-                    <h4 className="text-sm font-semibold text-foreground mb-1">AI Leader</h4>
-                    <p className="text-sm text-muted-foreground">{selected.ai_leader}</p>
-                  </div>
-                )}
-
-                {(selected.key_use_cases as string[])?.length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-semibold text-foreground mb-2">Key Use Cases</h4>
-                    <div className="flex flex-wrap gap-1.5">
-                      {(selected.key_use_cases as string[]).map((uc, i) => (
-                        <Badge key={i} variant="secondary" className="text-xs">{uc}</Badge>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
-                )}
 
-                {(selected.sources as any[])?.length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-semibold text-foreground mb-2">Sources</h4>
-                    <div className="space-y-1.5">
-                      {(selected.sources as any[]).map((src: any, i: number) => (
-                        <a
-                          key={i}
-                          href={src.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1.5 text-xs text-primary hover:underline"
-                        >
-                          <ExternalLink className="h-3 w-3" />
-                          {src.label || src.url}
+                  {(selected.tech_stack as any[])?.length > 0 && (
+                    <div>
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Technology Stack</h4>
+                      <div className="space-y-2">
+                        {(selected.tech_stack as any[]).map((t: any, i: number) => (
+                          <div key={i} className="flex items-start gap-2 p-2.5 rounded-xl bg-muted/30">
+                            <Badge variant="outline" className={`text-[9px] shrink-0 border ${techCatClass[t.cat] || techCatClass["tp-custom"]}`}>
+                              {t.name}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">{t.desc}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {companyUCs.length > 0 && (
+                    <div>
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
+                        Active AI Use Cases ({companyUCs.length})
+                      </h4>
+                      <div className="space-y-1.5">
+                        {companyUCs.map((uc: any) => (
+                          <div key={uc.id} className="p-2.5 rounded-xl bg-muted/30">
+                            <p className="text-[10px] font-bold text-primary">{uc.domain}</p>
+                            <p className="text-xs font-semibold text-foreground">{uc.title}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {(selected.sources as any[])?.length > 0 && (
+                    <div>
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Sources</h4>
+                      {(selected.sources as any[]).map((s: any, i: number) => (
+                        <a key={i} href={s.url} target="_blank" rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 text-xs text-primary hover:underline mb-1.5">
+                          <ExternalLink className="h-3 w-3" /> {s.label} ↗
                         </a>
                       ))}
                     </div>
-                  </div>
-                )}
-              </div>
-            </>
-          )}
+                  )}
+                </div>
+              </>
+            );
+          })()}
         </SheetContent>
       </Sheet>
     </>
