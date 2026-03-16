@@ -74,9 +74,9 @@ export function ProjectsChart({ className }: ProjectsChartProps) {
 
   if (loading) {
     return (
-      <div className={cn("rounded-xl border border-border bg-card h-full flex flex-col", className)}>
-        <div className="border-b border-border p-4">
-          <h3 className="font-semibold font-display">Engagement Trend</h3>
+      <div className={cn("enterprise-card flex h-full flex-col rounded-[1.75rem] border border-border/80", className)}>
+        <div className="border-b border-border/80 p-5">
+          <h3 className="font-display text-[1.6rem] text-primary">Engagement Trend</h3>
           <p className="text-sm text-muted-foreground">Monthly project activity</p>
         </div>
         <div className="flex-1 flex items-center justify-center p-4">
@@ -90,9 +90,9 @@ export function ProjectsChart({ className }: ProjectsChartProps) {
 
   if (!hasData) {
     return (
-      <div className={cn("rounded-xl border border-border bg-card h-full flex flex-col", className)}>
-        <div className="border-b border-border p-4">
-          <h3 className="font-semibold font-display">Engagement Trend</h3>
+      <div className={cn("enterprise-card flex h-full flex-col rounded-[1.75rem] border border-border/80", className)}>
+        <div className="border-b border-border/80 p-5">
+          <h3 className="font-display text-[1.6rem] text-primary">Engagement Trend</h3>
           <p className="text-sm text-muted-foreground">Monthly project activity</p>
         </div>
         <div className="flex-1 flex items-center justify-center p-4 text-center">
@@ -106,9 +106,9 @@ export function ProjectsChart({ className }: ProjectsChartProps) {
   }
 
   return (
-    <div className={cn("rounded-xl border border-border bg-card h-full flex flex-col", className)}>
-      <div className="border-b border-border p-4">
-        <h3 className="font-semibold font-display">Engagement Trend</h3>
+    <div className={cn("enterprise-card flex h-full flex-col rounded-[1.75rem] border border-border/80", className)}>
+      <div className="border-b border-border/80 p-5">
+        <h3 className="font-display text-[1.6rem] text-primary">Engagement Trend</h3>
         <p className="text-sm text-muted-foreground">Monthly project activity</p>
       </div>
       <div className="p-4">
@@ -116,15 +116,15 @@ export function ProjectsChart({ className }: ProjectsChartProps) {
           <AreaChart data={data}>
             <defs>
               <linearGradient id="colorProjects" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="hsl(217 71% 22%)" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="hsl(217 71% 22%)" stopOpacity={0} />
+                <stop offset="5%" stopColor="hsl(204 100% 37%)" stopOpacity={0.35} />
+                <stop offset="95%" stopColor="hsl(204 100% 37%)" stopOpacity={0} />
               </linearGradient>
               <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="hsl(172 66% 38%)" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="hsl(172 66% 38%)" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 13% 91%)" />
+                <stop offset="5%" stopColor="hsl(46 100% 50%)" stopOpacity={0.35} />
+                <stop offset="95%" stopColor="hsl(46 100% 50%)" stopOpacity={0} />
+            </linearGradient>
+          </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(219 29% 88%)" />
             <XAxis
               dataKey="month"
               stroke="hsl(220 9% 46%)"
@@ -141,15 +141,15 @@ export function ProjectsChart({ className }: ProjectsChartProps) {
             <Tooltip
               contentStyle={{
                 backgroundColor: "hsl(0 0% 100%)",
-                border: "1px solid hsl(220 13% 91%)",
-                borderRadius: "8px",
-                boxShadow: "0 4px 6px -1px hsl(222 47% 11% / 0.1)",
+                border: "1px solid hsl(219 29% 88%)",
+                borderRadius: "16px",
+                boxShadow: "0 16px 32px -24px hsl(221 66% 10% / 0.45)",
               }}
             />
             <Area
               type="monotone"
               dataKey="projects"
-              stroke="hsl(217 71% 22%)"
+              stroke="hsl(204 100% 37%)"
               strokeWidth={2}
               fillOpacity={1}
               fill="url(#colorProjects)"
@@ -158,7 +158,7 @@ export function ProjectsChart({ className }: ProjectsChartProps) {
             <Area
               type="monotone"
               dataKey="revenue"
-              stroke="hsl(172 66% 38%)"
+              stroke="hsl(46 100% 50%)"
               strokeWidth={2}
               fillOpacity={1}
               fill="url(#colorRevenue)"

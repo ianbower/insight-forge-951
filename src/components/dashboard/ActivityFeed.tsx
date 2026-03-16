@@ -39,9 +39,9 @@ const getAvatarColor = (name: string) => {
 
 export function ActivityFeed({ activities, className }: ActivityFeedProps) {
   return (
-    <div className={cn("rounded-xl border border-border bg-card h-full flex flex-col", className)}>
-      <div className="border-b border-border p-4">
-        <h3 className="font-semibold font-display">Recent Activity</h3>
+    <div className={cn("enterprise-card flex h-full flex-col rounded-[1.75rem] border border-border/80", className)}>
+      <div className="border-b border-border/80 p-5">
+        <h3 className="font-display text-[1.6rem] text-primary">Recent Activity</h3>
       </div>
       <ScrollArea className="h-[320px]">
         <div className="divide-y divide-border">
@@ -53,7 +53,7 @@ export function ActivityFeed({ activities, className }: ActivityFeedProps) {
             activities.map((activity, index) => (
               <div
                 key={activity.id}
-                className="flex items-start gap-3 p-4 transition-colors hover:bg-muted/50 animate-fade-in"
+                className="flex items-start gap-3 p-4 transition-colors hover:bg-primary/5 animate-fade-in"
                 style={{ animationDelay: `${index * 50}ms` }}
               >
                 <Avatar className={`h-9 w-9 ${getAvatarColor(activity.user_name)}`}>

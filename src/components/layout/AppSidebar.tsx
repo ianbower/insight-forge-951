@@ -2,7 +2,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Briefcase, BookOpen, FolderKanban, Bot,
   ChevronDown, Search, Users, ClipboardList, Database,
-  Brain, Radar, GraduationCap, Building2, ChevronLeft, ChevronRight,
+  Brain, Radar, GraduationCap, ChevronLeft, ChevronRight, GaugeCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -55,6 +55,7 @@ const navGroups: NavGroup[] = [
     label: "Health & Insights",
     items: [
       { icon: Radar, label: "Benchmarking", path: "/benchmarking" },
+      { icon: GaugeCircle, label: "Auto AI Maturity", path: "/assets/automotive-ai-maturity" },
       { icon: GraduationCap, label: "Skill Gap", path: "/skill-gap", requiredPermission: "hasGlobalAccess" },
       { icon: Users, label: "Team", path: "/team", requiredPermission: "hasGlobalAccess" },
     ],
@@ -80,9 +81,9 @@ function SidebarNavGroup({
       {!collapsed && (
         <button
           onClick={() => setOpen(!open)}
-          className="group flex w-full items-center justify-between px-3 py-1 mb-0.5"
+          className="group mb-1 flex w-full items-center justify-between px-3 py-1"
         >
-          <span className="text-[10px] font-semibold tracking-widest uppercase text-sidebar-foreground/35 group-hover:text-sidebar-foreground/55 transition-colors">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-sidebar-foreground/35 transition-colors group-hover:text-sidebar-foreground/55">
             {group.label}
           </span>
           <ChevronDown className={cn("h-3 w-3 text-sidebar-foreground/25 transition-transform duration-200", !open && "-rotate-90")} />
@@ -98,17 +99,17 @@ function SidebarNavGroup({
                 to={item.path}
                 title={collapsed ? item.label : undefined}
                 className={cn(
-                  "group relative flex items-center gap-2.5 rounded-md px-3 py-[7px] text-sm font-medium transition-all duration-150",
+                  "group relative flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-medium transition-all duration-150",
                   isActive
-                    ? "bg-sidebar-accent text-sidebar-primary"
-                    : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
+                    ? "bg-white text-sidebar-background shadow-[0_20px_40px_-28px_rgba(0,0,0,0.8)]"
+                    : "text-sidebar-foreground hover:bg-white/8 hover:text-sidebar-accent-foreground",
                   collapsed && "justify-center px-2"
                 )}
               >
                 {isActive && (
-                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-[18px] rounded-r-full bg-sidebar-primary" />
+                  <span className="absolute left-0 top-1/2 h-7 w-1 -translate-y-1/2 rounded-r-full bg-sidebar-primary" />
                 )}
-                <item.icon className={cn("h-[15px] w-[15px] shrink-0", collapsed && "h-[18px] w-[18px]", isActive && "text-sidebar-primary")} />
+                <item.icon className={cn("h-4 w-4 shrink-0", collapsed && "h-[18px] w-[18px]", isActive && "text-primary")} />
                 {!collapsed && <span className="truncate">{item.label}</span>}
                 {collapsed && (
                   <div className="absolute left-full ml-3 px-2.5 py-1.5 bg-popover text-popover-foreground text-xs font-medium rounded-md border border-border shadow-lg opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap z-50">
@@ -124,36 +125,46 @@ function SidebarNavGroup({
   );
 }
 
-export function AppSidebar() {
-  const [collapsed, setCollapsed] = useState(false);
+interface AppSidebarProps {
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
+}
+
+export function AppSidebar({ collapsed, onToggleCollapsed }: AppSidebarProps) {
   const { hasGlobalAccess } = useUserRole();
 
   return (
-    <aside className={cn("fixed left-0 top-0 z-40 flex h-screen flex-col bg-sidebar transition-all duration-300", collapsed ? "w-[72px]" : "w-64")}>
-      {/* Logo */}
-      <div className="flex h-16 items-center border-b border-sidebar-border px-4">
+    <aside
+      className={cn(
+        "fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-sidebar-border navy-panel transition-all duration-300 lg:flex",
+        collapsed ? "w-[88px]" : "w-72",
+      )}
+    >
+      <div className="hero-grid absolute inset-0 opacity-40" />
+      <div className="relative flex h-20 items-center border-b border-sidebar-border px-5">
         {collapsed ? (
-          <div className="flex h-9 w-9 items-center justify-center">
-            <span className="text-lg font-bold text-sidebar-accent-foreground">aX</span>
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/5">
+            <span className="text-sm font-semibold tracking-[0.24em] text-sidebar-accent-foreground">IF</span>
           </div>
         ) : (
-          <img alt="aXet consult" className="h-8" src="/lovable-uploads/3719f63a-7253-4d1d-9213-327c9940cd39.png" />
+          <div className="space-y-1">
+            <p className="text-xs uppercase tracking-[0.35em] text-sidebar-foreground/55">Guiding Greatness</p>
+            <img alt="NTT DATA" className="h-9" src="/ntt-data-logo.png" />
+          </div>
         )}
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
+      <nav className="relative flex-1 space-y-6 overflow-y-auto px-4 py-6">
         {navGroups.map((group) => (
           <SidebarNavGroup key={group.label} group={group} collapsed={collapsed} hasGlobalAccess={hasGlobalAccess} />
         ))}
       </nav>
 
-      {/* Collapse Toggle */}
-      <div className="border-t border-sidebar-border p-3">
+      <div className="relative border-t border-sidebar-border p-4">
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => setCollapsed(!collapsed)}
+          onClick={onToggleCollapsed}
           className="w-full justify-center text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
         >
           {collapsed ? (

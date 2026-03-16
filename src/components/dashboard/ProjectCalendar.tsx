@@ -12,6 +12,15 @@ interface Milestone {
   type: "deadline" | "review" | "milestone";
 }
 
+interface MilestoneQueryRow {
+  title: string;
+  target_date: string;
+  status: string | null;
+  projects?: {
+    name?: string | null;
+  } | null;
+}
+
 interface ProjectCalendarProps {
   className?: string;
 }
@@ -45,7 +54,7 @@ export function ProjectCalendar({ className }: ProjectCalendarProps) {
 
         if (error) throw error;
 
-        const formattedMilestones: Milestone[] = (data || []).map((m: any) => ({
+        const formattedMilestones: Milestone[] = ((data || []) as MilestoneQueryRow[]).map((m) => ({
           date: new Date(m.target_date),
           title: m.title,
           project: m.projects?.name || "Unknown Project",
@@ -65,9 +74,9 @@ export function ProjectCalendar({ className }: ProjectCalendarProps) {
   }, []);
 
   return (
-    <div className={cn("rounded-xl border border-border bg-card h-full flex flex-col overflow-hidden", className)}>
-      <div className="border-b border-border p-4">
-        <h3 className="font-semibold font-display">Project Calendar</h3>
+    <div className={cn("enterprise-card flex h-full flex-col overflow-hidden rounded-[1.75rem] border border-border/80", className)}>
+      <div className="border-b border-border/80 p-5">
+        <h3 className="font-display text-[1.6rem] text-primary">Project Calendar</h3>
       </div>
       <div className="p-4">
         <Calendar
@@ -90,7 +99,7 @@ export function ProjectCalendar({ className }: ProjectCalendarProps) {
             milestones.slice(0, 3).map((milestone, i) => (
             <div
               key={i}
-              className="flex items-center justify-between rounded-lg bg-muted/50 p-3"
+              className="flex items-center justify-between rounded-2xl bg-primary/5 p-3"
             >
               <div>
                 <p className="text-sm font-medium">{milestone.title}</p>

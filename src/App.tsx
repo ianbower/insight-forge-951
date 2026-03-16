@@ -33,6 +33,7 @@ import KnowledgeMining from "@/pages/KnowledgeMining";
 import SmartBenchmarking from "@/pages/SmartBenchmarking";
 import SkillGap from "@/pages/SkillGap";
 import ClientPortal from "@/pages/ClientPortal";
+import AutomotiveAIMaturity from "@/pages/AutomotiveAIMaturity";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -72,6 +73,7 @@ const App = () => (
                 <Route path="/assessments/take/:token" element={<ProtectedRoute><AppLayout><AssessmentTake /></AppLayout></ProtectedRoute>} />
                 <Route path="/data-room" element={<ProtectedRoute><AppLayout><DataRoom /></AppLayout></ProtectedRoute>} />
                 <Route path="/benchmarking" element={<ProtectedRoute><AppLayout><SmartBenchmarking /></AppLayout></ProtectedRoute>} />
+                <Route path="/assets/automotive-ai-maturity" element={<ProtectedRoute><AppLayout><AutomotiveAIMaturity /></AppLayout></ProtectedRoute>} />
                 <Route path="/skill-gap" element={<ProtectedRoute><AppLayout><SkillGap /></AppLayout></ProtectedRoute>} />
                 <Route path="/admin" element={<ProtectedRoute><AppLayout><Admin /></AppLayout></ProtectedRoute>} />
                 <Route path="/documentation" element={<ProtectedRoute><AppLayout><Documentation /></AppLayout></ProtectedRoute>} />

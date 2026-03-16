@@ -14,8 +14,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
-        display: ["Playfair Display", "Georgia", "serif"],
+        sans: ["Noto Sans", "system-ui", "sans-serif"],
+        display: ["Noto Serif", "Georgia", "serif"],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -78,6 +78,7 @@ export default {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        pill: "999px",
       },
       keyframes: {
         "accordion-down": {

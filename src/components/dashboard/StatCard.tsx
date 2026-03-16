@@ -26,13 +26,14 @@ export function StatCard({
   return (
     <div
       className={cn(
-        "group relative overflow-hidden rounded-xl border p-6 transition-all duration-300 hover:shadow-card-lg h-full",
-        variant === "default" && "bg-card border-border",
-        variant === "primary" && "bg-primary text-primary-foreground border-primary",
-        variant === "accent" && "bg-accent text-accent-foreground border-accent",
+        "group relative h-full overflow-hidden rounded-[1.75rem] border p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-card-lg",
+        variant === "default" && "enterprise-card border-border/80",
+        variant === "primary" && "navy-panel border-white/10 text-primary-foreground",
+        variant === "accent" && "border-accent/70 bg-accent text-accent-foreground",
         className
       )}
     >
+      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-primary to-accent opacity-80" />
       <div className="flex items-start justify-between">
         <div className="space-y-2">
           <p
@@ -43,7 +44,7 @@ export function StatCard({
           >
             {title}
           </p>
-          <p className="text-3xl font-bold tracking-tight font-display">{value}</p>
+          <p className="font-display text-4xl tracking-tight">{value}</p>
           {subtitle && (
             <p
               className={cn(
@@ -69,9 +70,9 @@ export function StatCard({
         </div>
         <div
           className={cn(
-            "flex h-12 w-12 items-center justify-center rounded-lg transition-transform duration-300 group-hover:scale-110",
+            "flex h-12 w-12 items-center justify-center rounded-2xl transition-transform duration-300 group-hover:scale-110",
             variant === "default" && "bg-primary/10",
-            variant === "primary" && "bg-primary-foreground/20",
+            variant === "primary" && "bg-white/10",
             variant === "accent" && "bg-accent-foreground/20"
           )}
         >
