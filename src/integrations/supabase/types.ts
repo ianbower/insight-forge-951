@@ -900,6 +900,148 @@ export type Database = {
         }
         Relationships: []
       }
+      maturity_dashboard_capabilities: {
+        Row: {
+          created_at: string
+          dashboard_id: string
+          dimension_id: string | null
+          id: string
+          metadata: Json | null
+          name: string
+          order_index: number
+          owner: string | null
+          score: number
+          source_detail: string | null
+          source_type: string
+          summary: string | null
+          target_score: number | null
+        }
+        Insert: {
+          created_at?: string
+          dashboard_id: string
+          dimension_id?: string | null
+          id?: string
+          metadata?: Json | null
+          name: string
+          order_index?: number
+          owner?: string | null
+          score?: number
+          source_detail?: string | null
+          source_type?: string
+          summary?: string | null
+          target_score?: number | null
+        }
+        Update: {
+          created_at?: string
+          dashboard_id?: string
+          dimension_id?: string | null
+          id?: string
+          metadata?: Json | null
+          name?: string
+          order_index?: number
+          owner?: string | null
+          score?: number
+          source_detail?: string | null
+          source_type?: string
+          summary?: string | null
+          target_score?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maturity_dashboard_capabilities_dashboard_id_fkey"
+            columns: ["dashboard_id"]
+            isOneToOne: false
+            referencedRelation: "maturity_dashboards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maturity_dashboard_capabilities_dimension_id_fkey"
+            columns: ["dimension_id"]
+            isOneToOne: false
+            referencedRelation: "assessment_dimensions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      maturity_dashboards: {
+        Row: {
+          assessment_instance_id: string | null
+          assessment_template_id: string | null
+          created_at: string
+          hero_style: string
+          id: string
+          industry: string | null
+          maturity_bands: Json | null
+          metadata: Json | null
+          owner_id: string
+          project_id: string | null
+          recommended_moves: Json | null
+          snapshot_metrics: Json | null
+          subtitle: string | null
+          title: string
+          topic: string
+          updated_at: string
+        }
+        Insert: {
+          assessment_instance_id?: string | null
+          assessment_template_id?: string | null
+          created_at?: string
+          hero_style?: string
+          id?: string
+          industry?: string | null
+          maturity_bands?: Json | null
+          metadata?: Json | null
+          owner_id: string
+          project_id?: string | null
+          recommended_moves?: Json | null
+          snapshot_metrics?: Json | null
+          subtitle?: string | null
+          title: string
+          topic: string
+          updated_at?: string
+        }
+        Update: {
+          assessment_instance_id?: string | null
+          assessment_template_id?: string | null
+          created_at?: string
+          hero_style?: string
+          id?: string
+          industry?: string | null
+          maturity_bands?: Json | null
+          metadata?: Json | null
+          owner_id?: string
+          project_id?: string | null
+          recommended_moves?: Json | null
+          snapshot_metrics?: Json | null
+          subtitle?: string | null
+          title?: string
+          topic?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maturity_dashboards_assessment_instance_id_fkey"
+            columns: ["assessment_instance_id"]
+            isOneToOne: false
+            referencedRelation: "assessment_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maturity_dashboards_assessment_template_id_fkey"
+            columns: ["assessment_template_id"]
+            isOneToOne: false
+            referencedRelation: "assessment_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maturity_dashboards_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
