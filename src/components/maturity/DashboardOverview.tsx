@@ -1,9 +1,10 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { GaugeCircle, Factory, ShieldCheck, Users, ArrowUpRight } from "lucide-react";
+import { GaugeCircle, Users, Target, Trophy, Handshake } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
-  ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend,
 } from "recharts";
 
 interface Entity {
@@ -12,189 +13,194 @@ interface Entity {
   overall_score: number;
   tier: string | null;
   dimension_scores: Record<string, number>;
-}
-
-interface Capability {
-  id: string;
-  name: string;
-  score: number;
-  target_score: number | null;
-  source_type: string;
-  source_detail: string | null;
-  owner: string | null;
-  summary: string | null;
+  tech_stack: any[];
+  [key: string]: any;
 }
 
 interface Props {
   dashboard: any;
-  capabilities: Capability[];
   entities: Entity[];
+  dimensions: string[];
+  useCases: any[];
   onSwitchView: (view: string) => void;
 }
 
-const maturityBandFor = (score: number, max = 5) => {
-  const pct = (score / max) * 100;
-  if (pct >= 80) return "Leading";
-  if (pct >= 60) return "Scaling";
-  return "Foundational";
+const scoreColor = (score: number) => {
+  if (score >= 85) return "hsl(var(--chart-2))";
+  if (score >= 75) return "hsl(var(--primary))";
+  if (score >= 65) return "hsl(var(--accent))";
+  return "hsl(var(--destructive))";
 };
 
-export function DashboardOverview({ dashboard, capabilities, entities, onSwitchView }: Props) {
-  const hasEntities = entities.length > 0;
-  const snapshotMetrics = (dashboard.snapshot_metrics as any) || {};
-  const recommendedMoves = (dashboard.recommended_moves as string[]) || [];
+const tierStyle = (tier: string) => {
+  const map: Record<string, string> = {
+    Pioneer: "bg-emerald-500/15 text-emerald-500 border-emerald-500/30",
+    Leader: "bg-blue-500/15 text-blue-500 border-blue-500/30",
+    "Fast Follower": "bg-amber-500/15 text-amber-500 border-amber-500/30",
+    Developer: "bg-orange-500/15 text-orange-500 border-orange-500/30",
+    Experimenter: "bg-red-500/15 text-red-500 border-red-500/30",
+  };
+  return map[tier] || map.Experimenter;
+};
 
-  // Calculate avg score
-  const avgScore = hasEntities
-    ? (entities.reduce((s, e) => s + Number(e.overall_score), 0) / entities.length)
-    : capabilities.length
-      ? (capabilities.reduce((s, c) => s + Number(c.score), 0) / capabilities.length)
-      : 0;
+export function DashboardOverview({ dashboard, entities, dimensions, useCases, onSwitchView }: Props) {
+  const content = (dashboard.metadata as any)?.dashboard_content || {};
+  const sorted = [...entities].sort((a, b) => Number(b.overall_score) - Number(a.overall_score));
+  const avgScore = entities.length
+    ? Math.round(entities.reduce((s, e) => s + Number(e.overall_score), 0) / entities.length)
+    : 0;
+  const top = sorted[0];
+  const domains = new Set(useCases.map((u: any) => u.domain));
+  const techCount = entities.reduce((s, e) => s + ((e.tech_stack as any[]) || []).length, 0);
 
-  const maxScore = hasEntities ? 100 : 5;
-  const topEntity = hasEntities
-    ? [...entities].sort((a, b) => Number(b.overall_score) - Number(a.overall_score))[0]
-    : null;
+  // Radar: top 3 entities
+  const top3 = sorted.slice(0, 3);
+  const COLORS = ["hsl(var(--accent))", "hsl(var(--primary))", "hsl(var(--muted-foreground))"];
+  const radarData = dimensions.map((dim) => {
+    const entry: any = { dimension: dim.length > 12 ? dim.slice(0, 10) + "…" : dim };
+    top3.forEach((e, i) => {
+      entry[e.name] = (e.dimension_scores || {})[dim] || 0;
+    });
+    return entry;
+  });
 
-  // Radar data from capabilities
-  const radarData = capabilities.map((c) => ({
-    name: c.name.length > 18 ? c.name.slice(0, 16) + "…" : c.name,
-    score: Number(c.score),
-    target: c.target_score ? Number(c.target_score) : undefined,
-  }));
-
-  // Leaderboard data from entities
-  const leaderboard = [...entities]
-    .sort((a, b) => Number(b.overall_score) - Number(a.overall_score))
-    .slice(0, 10);
+  // Bar chart: all entities by dimension
+  const barData = dimensions.map((dim) => {
+    const entry: any = { dimension: dim.length > 12 ? dim.slice(0, 10) + "…" : dim };
+    entities.forEach((e) => {
+      entry[e.name] = (e.dimension_scores || {})[dim] || 0;
+    });
+    return entry;
+  });
+  const barColors = ["#FFC400", "#19A3FC", "#0072BC", "#CFD8FC", "#7fd1b9", "#E6B600", "#6f7fb7", "#2E404D", "#4d91d0", "#d45a52"];
 
   return (
     <div className="space-y-6">
-      {/* Hero */}
-      <section className="navy-panel relative overflow-hidden rounded-[2rem] px-6 py-8 text-white sm:px-8">
+      {/* Section Header */}
+      <div>
+        <h2 className="font-display text-2xl text-primary">
+          {content.overviewTitle || dashboard.title}
+        </h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          {content.overviewSubtitle || dashboard.subtitle || ""}
+        </p>
+      </div>
+
+      {/* Hero Panel */}
+      <section className="navy-panel relative overflow-hidden rounded-[2rem] px-6 py-10 text-white sm:px-10">
         <div className="hero-grid absolute inset-0 opacity-25" />
-        <div className="relative max-w-3xl space-y-3">
-          <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-white/70">
-            <GaugeCircle className="h-3.5 w-3.5" />
-            {dashboard.industry || "General"}
+        <div className="relative max-w-3xl space-y-4">
+          <p className="text-xs font-bold uppercase tracking-[0.3em] text-white/50">
+            {content.heroEyebrow || dashboard.industry}
+          </p>
+          <h2 className="font-display text-3xl sm:text-4xl text-white">
+            {content.heroTitle || dashboard.title}
+          </h2>
+          <p className="text-sm text-white/70 max-w-2xl leading-relaxed">
+            {content.heroCopy || dashboard.subtitle}
+          </p>
+          <div className="flex gap-3 pt-2">
+            <Button onClick={() => onSwitchView("entities")} size="sm">Explore profiles</Button>
+            <Button variant="outline" onClick={() => onSwitchView("usecases")} size="sm"
+              className="border-white/20 bg-white/5 text-white hover:bg-white hover:text-sidebar-background">
+              View use cases
+            </Button>
           </div>
-          <h1 className="font-display text-3xl text-white sm:text-4xl">{dashboard.title}</h1>
-          {dashboard.subtitle && (
-            <p className="max-w-2xl text-base text-white/72">{dashboard.subtitle}</p>
+          {(content.heroStat1 || content.heroStat2 || content.heroStat3) && (
+            <div className="flex gap-6 pt-4 text-[10px] font-bold uppercase tracking-[0.2em] text-white/40">
+              {content.heroStat1 && <span>{content.heroStat1}</span>}
+              {content.heroStat2 && <span>{content.heroStat2}</span>}
+              {content.heroStat3 && <span>{content.heroStat3}</span>}
+            </div>
           )}
         </div>
       </section>
 
       {/* KPI Cards */}
-      <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-5">
         <Card className="enterprise-card rounded-[1.75rem]">
           <CardContent className="p-5">
-            <GaugeCircle className="h-6 w-6 text-primary" />
-            <p className="mt-4 text-sm uppercase tracking-[0.2em] text-muted-foreground">Maturity Band</p>
-            <p className="mt-2 font-display text-2xl text-primary">{maturityBandFor(avgScore, maxScore)}</p>
-            <Badge className="mt-2 bg-primary text-primary-foreground hover:bg-primary">
-              Avg {avgScore.toFixed(1)}/{maxScore}
-            </Badge>
+            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Entities Tracked</p>
+            <p className="mt-2 font-display text-3xl text-primary">{entities.length}</p>
+            <p className="text-xs text-muted-foreground mt-1">Assessed organizations</p>
           </CardContent>
         </Card>
-
-        {hasEntities && (
-          <Card className="enterprise-card rounded-[1.75rem]">
-            <CardContent className="p-5">
-              <Users className="h-6 w-6 text-primary" />
-              <p className="mt-4 text-sm uppercase tracking-[0.2em] text-muted-foreground">Entities Assessed</p>
-              <p className="mt-2 font-display text-2xl text-primary">{entities.length}</p>
-            </CardContent>
-          </Card>
-        )}
-
         <Card className="enterprise-card rounded-[1.75rem]">
           <CardContent className="p-5">
-            <Factory className="h-6 w-6 text-primary" />
-            <p className="mt-4 text-sm uppercase tracking-[0.2em] text-muted-foreground">
-              {hasEntities ? "Top Entity" : "Priority Domain"}
-            </p>
-            <p className="mt-2 font-display text-xl text-primary">
-              {hasEntities ? topEntity?.name : snapshotMetrics.priority_domain || "—"}
-            </p>
+            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Avg Maturity Score</p>
+            <p className="mt-2 font-display text-3xl text-primary">{avgScore}<span className="text-lg text-muted-foreground">/100</span></p>
+            <p className="text-xs text-muted-foreground mt-1">Portfolio average</p>
           </CardContent>
         </Card>
-
         <Card className="enterprise-card rounded-[1.75rem]">
           <CardContent className="p-5">
-            <ShieldCheck className="h-6 w-6 text-primary" />
-            <p className="mt-4 text-sm uppercase tracking-[0.2em] text-muted-foreground">
-              {hasEntities ? "Dimensions" : "Strongest Signal"}
-            </p>
-            <p className="mt-2 font-display text-xl text-primary">
-              {hasEntities ? capabilities.length : snapshotMetrics.strongest_signal || "—"}
-            </p>
+            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Use Cases Mapped</p>
+            <p className="mt-2 font-display text-3xl text-accent">{useCases.length}</p>
+            <p className="text-xs text-muted-foreground mt-1">Across {domains.size} domains</p>
           </CardContent>
         </Card>
-      </section>
+        <Card className="enterprise-card rounded-[1.75rem]">
+          <CardContent className="p-5">
+            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Top Maturity Leader</p>
+            <p className="mt-2 font-display text-2xl text-primary">{top?.name || "—"}</p>
+            <p className="text-xs text-muted-foreground mt-1">{top ? `Score: ${Number(top.overall_score).toFixed(0)}/100` : ""}</p>
+          </CardContent>
+        </Card>
+        <Card className="enterprise-card rounded-[1.75rem]">
+          <CardContent className="p-5">
+            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Active Partnerships</p>
+            <p className="mt-2 font-display text-3xl text-primary">{techCount}+</p>
+            <p className="text-xs text-muted-foreground mt-1">Platform & cloud alliances</p>
+          </CardContent>
+        </Card>
+      </div>
 
+      {/* Leaderboard + Radar */}
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Leaderboard or Capability list */}
-        {hasEntities ? (
-          <Card className="enterprise-card rounded-[1.75rem]">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-primary">Maturity Leaderboard</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {leaderboard.map((e, i) => (
-                  <div key={e.id} className="flex items-center gap-3 rounded-[1.25rem] border border-border/50 bg-card p-3">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
-                      {i + 1}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-foreground truncate">{e.name}</p>
-                      {e.tier && <Badge variant="outline" className="text-[10px]">{e.tier}</Badge>}
+        <Card className="enterprise-card rounded-[1.75rem]">
+          <CardContent className="p-5">
+            <h3 className="font-semibold text-primary mb-1">AI Maturity Leaderboard</h3>
+            <p className="text-xs text-muted-foreground mb-4">Overall scores across {dimensions.length} capability dimensions</p>
+            <div className="space-y-1">
+              {sorted.map((e, i) => (
+                <div key={e.id} className="flex items-center gap-3 py-2.5 border-b border-border/30 cursor-pointer hover:bg-muted/30 rounded-lg px-2 transition-colors"
+                  onClick={() => onSwitchView("entities")}>
+                  <span className="text-xs font-bold text-muted-foreground w-5 text-center">{i + 1}</span>
+                  <span className="flex-1 text-sm font-semibold text-foreground">{e.name}</span>
+                  {e.tier && (
+                    <Badge variant="outline" className={`text-[10px] border ${tierStyle(e.tier)}`}>
+                      {e.tier}
+                    </Badge>
+                  )}
+                  <div className="flex items-center gap-2 w-[130px]">
+                    <div className="flex-1 h-1.5 rounded-full bg-primary/10">
+                      <div className="h-1.5 rounded-full transition-all duration-700"
+                        style={{ width: `${Number(e.overall_score)}%`, background: scoreColor(Number(e.overall_score)) }} />
                     </div>
-                    <span className="font-display text-xl text-primary">{Number(e.overall_score).toFixed(0)}</span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <Card className="enterprise-card rounded-[1.75rem]">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-primary">Capability Scoring</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {capabilities.slice(0, 5).map((cap) => (
-                <div key={cap.id} className="rounded-[1.25rem] border border-border/50 p-3">
-                  <div className="flex items-center justify-between">
-                    <p className="font-medium text-foreground text-sm">{cap.name}</p>
-                    <span className="font-display text-xl text-primary">{Number(cap.score).toFixed(1)}</span>
-                  </div>
-                  <div className="mt-2 h-2 rounded-full bg-primary/10">
-                    <div className="h-2 rounded-full bg-gradient-to-r from-primary to-accent" style={{ width: `${(Number(cap.score) / 5) * 100}%` }} />
+                    <span className="text-xs font-bold text-foreground w-7 text-right">{Number(e.overall_score).toFixed(0)}</span>
                   </div>
                 </div>
               ))}
-            </CardContent>
-          </Card>
-        )}
+            </div>
+          </CardContent>
+        </Card>
 
-        {/* Radar chart */}
-        {radarData.length > 2 && (
+        {dimensions.length > 2 && top3.length > 0 && (
           <Card className="enterprise-card rounded-[1.75rem]">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-primary">Maturity Radar</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
+            <CardContent className="p-5">
+              <h3 className="font-semibold text-primary mb-1">Dimension Radar — Top 3</h3>
+              <p className="text-xs text-muted-foreground mb-4">{top3.map(e => e.name).join(" · ")}</p>
+              <ResponsiveContainer width="100%" height={320}>
                 <RadarChart data={radarData}>
                   <PolarGrid stroke="hsl(var(--border))" />
-                  <PolarAngleAxis dataKey="name" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
-                  <PolarRadiusAxis angle={30} domain={[0, 5]} tick={{ fontSize: 10 }} />
-                  <Radar name="Current" dataKey="score" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.3} />
-                  {radarData.some(d => d.target) && (
-                    <Radar name="Target" dataKey="target" stroke="hsl(var(--accent))" fill="hsl(var(--accent))" fillOpacity={0.15} strokeDasharray="4 4" />
-                  )}
+                  <PolarAngleAxis dataKey="dimension" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
+                  <PolarRadiusAxis angle={30} domain={[40, 100]} tick={{ fontSize: 9 }} />
+                  {top3.map((e, i) => (
+                    <Radar key={e.name} name={e.name} dataKey={e.name}
+                      stroke={COLORS[i]} fill={COLORS[i]} fillOpacity={0.15} strokeWidth={2} />
+                  ))}
                   <Tooltip />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
                 </RadarChart>
               </ResponsiveContainer>
             </CardContent>
@@ -202,19 +208,25 @@ export function DashboardOverview({ dashboard, capabilities, entities, onSwitchV
         )}
       </div>
 
-      {/* Recommended Moves */}
-      {recommendedMoves.length > 0 && (
+      {/* Bar Chart */}
+      {entities.length > 0 && dimensions.length > 0 && (
         <Card className="enterprise-card rounded-[1.75rem]">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-primary">Recommended Next Moves</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-3 md:grid-cols-2">
-            {recommendedMoves.map((move, i) => (
-              <div key={i} className="flex gap-3 rounded-[1.25rem] bg-primary/5 p-4">
-                <ArrowUpRight className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                <p className="text-sm text-foreground">{move}</p>
-              </div>
-            ))}
+          <CardContent className="p-5">
+            <h3 className="font-semibold text-primary mb-1">Maturity by Dimension — All Entities</h3>
+            <p className="text-xs text-muted-foreground mb-4">Comparative breakdown across capability pillars</p>
+            <ResponsiveContainer width="100%" height={380}>
+              <BarChart data={barData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="dimension" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
+                <YAxis domain={[40, 100]} tick={{ fontSize: 10 }} />
+                {entities.map((e, i) => (
+                  <Bar key={e.name} dataKey={e.name} fill={barColors[i % barColors.length]}
+                    radius={[3, 3, 0, 0]} opacity={0.8} />
+                ))}
+                <Tooltip />
+                <Legend wrapperStyle={{ fontSize: 10 }} />
+              </BarChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
       )}
