@@ -34,6 +34,8 @@ import SmartBenchmarking from "@/pages/SmartBenchmarking";
 import SkillGap from "@/pages/SkillGap";
 import ClientPortal from "@/pages/ClientPortal";
 import AutomotiveAIMaturity from "@/pages/AutomotiveAIMaturity";
+import MaturityDashboards from "@/pages/MaturityDashboards";
+import MaturityDashboard from "@/pages/MaturityDashboard";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -74,6 +76,8 @@ const App = () => (
                 <Route path="/data-room" element={<ProtectedRoute><AppLayout><DataRoom /></AppLayout></ProtectedRoute>} />
                 <Route path="/benchmarking" element={<ProtectedRoute><AppLayout><SmartBenchmarking /></AppLayout></ProtectedRoute>} />
                 <Route path="/assets/automotive-ai-maturity" element={<ProtectedRoute><AppLayout><AutomotiveAIMaturity /></AppLayout></ProtectedRoute>} />
+                <Route path="/maturity-dashboards" element={<ProtectedRoute><AppLayout><MaturityDashboards /></AppLayout></ProtectedRoute>} />
+                <Route path="/maturity-dashboards/:id" element={<ProtectedRoute><AppLayout><MaturityDashboard /></AppLayout></ProtectedRoute>} />
                 <Route path="/skill-gap" element={<ProtectedRoute><AppLayout><SkillGap /></AppLayout></ProtectedRoute>} />
                 <Route path="/admin" element={<ProtectedRoute><AppLayout><Admin /></AppLayout></ProtectedRoute>} />
                 <Route path="/documentation" element={<ProtectedRoute><AppLayout><Documentation /></AppLayout></ProtectedRoute>} />

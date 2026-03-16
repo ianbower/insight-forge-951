@@ -2,7 +2,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Briefcase, BookOpen, FolderKanban, Bot,
   ChevronDown, Search, Users, ClipboardList, Database,
-  Brain, Radar, GraduationCap, ChevronLeft, ChevronRight, GaugeCircle,
+  Brain, Radar, GraduationCap, ChevronLeft, ChevronRight, GaugeCircle, BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -55,6 +55,7 @@ const navGroups: NavGroup[] = [
     label: "Health & Insights",
     items: [
       { icon: Radar, label: "Benchmarking", path: "/benchmarking" },
+      { icon: BarChart3, label: "Maturity Dashboards", path: "/maturity-dashboards" },
       { icon: GaugeCircle, label: "Auto AI Maturity", path: "/assets/automotive-ai-maturity" },
       { icon: GraduationCap, label: "Skill Gap", path: "/skill-gap", requiredPermission: "hasGlobalAccess" },
       { icon: Users, label: "Team", path: "/team", requiredPermission: "hasGlobalAccess" },
