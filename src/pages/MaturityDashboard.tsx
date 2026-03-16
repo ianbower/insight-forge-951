@@ -105,7 +105,7 @@ export default function MaturityDashboard() {
   const handleImport = async (newEntities: any[], newUseCases: any[]) => {
     // Update entities
     if (newEntities.length > 0) {
-      await supabase.from("maturity_dashboard_entities" as any).delete().eq("dashboard_id", id!);
+      await supabase.from("maturity_dashboard_entities").delete().eq("dashboard_id", id!);
       const entsToInsert = newEntities.map((e: any, i: number) => ({
         dashboard_id: id!, name: e.name, region: e.region, overall_score: e.overall_score || 0,
         tier: e.tier, description: e.description, dimension_scores: e.dimension_scores || {},
