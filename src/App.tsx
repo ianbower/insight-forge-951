@@ -9,6 +9,7 @@ import { CurrencyProvider } from "@/hooks/useCurrency";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { AppLayout } from "@/components/layout/AppLayout";
 import Auth from "@/pages/Auth";
+import ResetPassword from "@/pages/ResetPassword";
 import Dashboard from "@/pages/Dashboard";
 import Projects from "@/pages/Projects";
 import ProjectDetail from "@/pages/ProjectDetail";
@@ -52,6 +53,7 @@ const App = () => (
               <Routes>
                 {/* Public routes - no layout */}
                 <Route path="/auth" element={<Auth />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/assess/:token" element={<AssessmentRespond />} />
                 <Route path="/assessments/preview/:templateId" element={<AssessmentPreview />} />
                 <Route path="/portal/:token" element={<ClientPortal />} />
