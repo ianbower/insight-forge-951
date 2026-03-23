@@ -53,6 +53,7 @@ const App = () => (
               <Routes>
                 {/* Public routes - no layout */}
                 <Route path="/auth" element={<Auth />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/assess/:token" element={<AssessmentRespond />} />
                 <Route path="/assessments/preview/:templateId" element={<AssessmentPreview />} />
                 <Route path="/portal/:token" element={<ClientPortal />} />
