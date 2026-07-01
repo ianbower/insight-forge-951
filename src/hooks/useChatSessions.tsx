@@ -383,18 +383,16 @@ export function useChatSessions({ sessionType }: UseChatSessionsOptions) {
         )
       );
 
-      if (activeSession?.id === sessionId) {
-        setActiveSession((prev) =>
-          prev
-            ? {
-                ...prev,
-                messages: prev.messages.map((m) =>
-                  m.id === messageId ? { ...m, content } : m
-                ),
-              }
-            : null
-        );
-      }
+      setActiveSession((prev) =>
+        prev && prev.id === sessionId
+          ? {
+              ...prev,
+              messages: prev.messages.map((m) =>
+                m.id === messageId ? { ...m, content } : m
+              ),
+            }
+          : prev
+      );
 
       // Update in database
       try {
@@ -406,7 +404,7 @@ export function useChatSessions({ sessionType }: UseChatSessionsOptions) {
         console.error("Error updating message:", error);
       }
     },
-    [activeSession]
+    []
   );
 
   // Delete a session
