@@ -44,10 +44,25 @@ serve(async (req) => {
 
     const llmConfig = await getActiveLLMConfig();
 
-    const response = await callLLM(llmConfig, [
+    const titleMessages = [
       { role: "system", content: `You are a title generator. Given a user's message, generate a concise, descriptive title (3-6 words) that captures the main topic or intent.\nDo not use quotes or punctuation at the end.\nJust return the title text, nothing else.` },
       { role: "user", content: message }
-    ], false);
+    ];
+
+    let response = await callLLM(llmConfig, titleMessages, false);
+
+    // Fallback to Lovable AI if the active provider fails (e.g. Axet Okta auth error)
+    if (!response.ok && llmConfig.provider !== "lovable_ai") {
+      const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+      if (lovableKey) {
+        console.log(`Primary LLM (${llmConfig.provider}) failed with ${response.status}, falling back to Lovable AI`);
+        response = await callLLM(
+          { provider: "lovable_ai", model: "google/gemini-3-flash-preview", endpoint_url: "https://ai.gateway.lovable.dev/v1/chat/completions", api_key_secret_name: null },
+          titleMessages,
+          false
+        );
+      }
+    }
 
     if (!response.ok) {
       const fallbackTitle = message.slice(0, 40) + (message.length > 40 ? "..." : "");
