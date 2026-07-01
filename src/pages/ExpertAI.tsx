@@ -393,16 +393,21 @@ export default function ExpertAI() {
                 </div>
               </div>
             ))}
-            {isLoading && messages[messages.length - 1]?.role !== "assistant" && (
+            {isLoading && (messages[messages.length - 1]?.role !== "assistant" || !messages[messages.length - 1]?.content) && (
               <div className="flex gap-3 animate-slide-up">
                 <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                   <Bot className="h-4 w-4" />
                 </div>
                 <div className="max-w-[80%] rounded-xl bg-muted/50 px-4 py-3">
-                  <div className="flex gap-1">
-                    <span className="h-2 w-2 rounded-full bg-muted-foreground/50 animate-pulse" />
-                    <span className="h-2 w-2 rounded-full bg-muted-foreground/50 animate-pulse" style={{ animationDelay: "0.2s" }} />
-                    <span className="h-2 w-2 rounded-full bg-muted-foreground/50 animate-pulse" style={{ animationDelay: "0.4s" }} />
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm bg-gradient-to-r from-muted-foreground via-foreground to-muted-foreground bg-[length:200%_100%] bg-clip-text text-transparent animate-shimmer">
+                      Thinking
+                    </span>
+                    <span className="flex gap-1">
+                      <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60 animate-pulse" />
+                      <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60 animate-pulse" style={{ animationDelay: "0.2s" }} />
+                      <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60 animate-pulse" style={{ animationDelay: "0.4s" }} />
+                    </span>
                   </div>
                 </div>
               </div>
