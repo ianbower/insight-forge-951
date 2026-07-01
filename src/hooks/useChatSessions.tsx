@@ -342,11 +342,11 @@ export function useChatSessions({ sessionType }: UseChatSessionsOptions) {
           )
         );
 
-        if (activeSession?.id === sessionId) {
-          setActiveSession((prev) =>
-            prev ? { ...prev, messages: [...prev.messages, newMessage] } : null
-          );
-        }
+        setActiveSession((prev) =>
+          prev && prev.id === sessionId
+            ? { ...prev, messages: [...prev.messages, newMessage] }
+            : prev
+        );
 
         // Auto-generate title if this is the first user message
         const session = sessions.find((s) => s.id === sessionId);
@@ -363,7 +363,7 @@ export function useChatSessions({ sessionType }: UseChatSessionsOptions) {
         return null;
       }
     },
-    [user, sessions, activeSession, generateTitle, updateSessionTitle]
+    [user, sessions, generateTitle, updateSessionTitle]
   );
 
   // Update message content (for streaming)
